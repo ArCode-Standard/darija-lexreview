@@ -27,6 +27,7 @@ export default function App() {
   const [message, setMessage] = useState('')
   const [busy, setBusy] = useState(false)
   const [showLogin, setShowLogin] = useState(false)
+  const [forgotPassword, setForgotPassword] = useState(false)
   useEffect(() => {
     fetch('https://raw.githubusercontent.com/ArCode-Standard/moroccan-darija-dataset/main/data/moroccan-darija.json')
       .then(response => { if (!response.ok) throw new Error('Dataset unavailable'); return response.json() })
@@ -51,6 +52,18 @@ export default function App() {
     const { error } = await supabase.auth.signInWithPassword({ email, password })
     setBusy(false); setMessage(error ? error.message : 'تم تسجيل الدخول.')
   }
+  async function sendPasswordReset() {
+    if (!supabase) return
+    if (!email.trim()) { setMessage('أدخل بريدك الإلكتروني أولاً.'); return }
+    setBusy(true); setMessage('')
+    const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+      redirectTo: window.location.origin,
+    })
+    setBusy(false)
+    setMessage(error
+      ? 'تعذر إرسال رابط الاستعادة: ' + error.message
+      : 'إذا كان البريد مسجلاً، فستصلك رسالة تحتوي على رابط إعادة تعيين كلمة المرور. تحقق من صندوق الوارد والرسائل غير المرغوب فيها.')
+  }
   async function submit() {
     if (!supabase) { setMessage('اتصال Supabase غير مهيأ في نسخة التطبيق المنشورة. اضبط VITE_SUPABASE_URL وVITE_SUPABASE_ANON_KEY في بيئة البناء ثم أعد النشر.'); return }
     const { data: { user } } = await supabase.auth.getUser()
@@ -70,7 +83,18 @@ export default function App() {
     <header className="topbar"><a className="brand" href="#"><span className="brand-mark">A</span><span><b>ArCode</b><small>STANDARD · LANGUAGE INITIATIVE</small></span></a><nav><a href="#workspace">مساحة المراجعة</a><a href="#method">منهجية التحقق</a><a href="https://github.com/ArCode-Standard/moroccan-darija-dataset" target="_blank" rel="noreferrer">المعجم الرسمي <ExternalLink size={13}/></a></nav><button className="login-button" onClick={() => setShowLogin(v=>!v)}>دخول المراجعين</button></header>
     <main>
       <section className="hero"><div className="eyebrow"><span/> مبادرة لغوية مفتوحة من ArCode Standard</div><h1>نراجع الدارجة المغربية،<br/><em>كلمةً بكلمة.</em></h1><p>منصة تعاونية لتدقيق المفردات والمعاني والكتابة والسياقات، اعتماداً على شواهد قابلة للتحقق ومراجعة بشرية.</p><div className="hero-actions"><a className="primary" href="#workspace">ابدأ المراجعة <span>←</span></a><a className="secondary" href="#method">كيف نتحقق؟</a></div><div className="hero-foot"><span><ShieldCheck size={15}/> المراجعة البشرية أساس الاعتماد</span><span><BookOpen size={15}/> مصدر البيانات: GitHub</span></div></section>
-    {showLogin && <section className="login-panel"><div><b>دخول المراجعين</b><p>يلزم حساب Supabase لإرسال المساهمات.</p></div><input placeholder="البريد الإلكتروني" type="email" value={email} onChange={e=>setEmail(e.target.value)}/><input placeholder="كلمة المرور" type="password" value={password} onChange={e=>setPassword(e.target.value)}/><button onClick={signIn} disabled={!isSupabaseConfigured || busy}>{busy?'جارٍ...':'تسجيل الدخول'}</button><button className="quiet" onClick={()=>setShowLogin(false)}><X size={16}/></button></section>}
+    {showLogin && <section className="login-panel">
+      <div><b>{forgotPassword ? 'استعادة كلمة المرور' : 'دخول المراجعين'}</b><p>{forgotPassword ? 'أدخل بريدك الإلكتروني لإرسال رابط آمن لإعادة تعيين كلمة المرور.' : 'يلزم حساب Supabase لإرسال المساهمات.'}</p></div>
+      <input placeholder="البريد الإلكتروني" type="email" value={email} onChange={e=>setEmail(e.target.value)}/>
+      {!forgotPassword && <input placeholder="كلمة المرور" type="password" value={password} onChange={e=>setPassword(e.target.value)}/>}
+      {forgotPassword
+        ? <button onClick={sendPasswordReset} disabled={!isSupabaseConfigured || busy}>{busy?'جارٍ الإرسال...':'إرسال رابط الاستعادة'}</button>
+        : <button onClick={signIn} disabled={!isSupabaseConfigured || busy}>{busy?'جارٍ...':'تسجيل الدخول'}</button>}
+      {!forgotPassword && <button className="forgot-link" type="button" onClick={()=>{setForgotPassword(true);setMessage('')}}>نسيت كلمة المرور؟</button>}
+      {forgotPassword && <button className="forgot-link" type="button" onClick={()=>{setForgotPassword(false);setMessage('')}}>العودة إلى تسجيل الدخول</button>}
+      <button className="quiet" onClick={()=>{setShowLogin(false);setForgotPassword(false)}}><X size={16}/></button>
+      {message && <div className="login-feedback" role="status">{message}</div>}
+    </section>}
     <section className="stats"><div><b>921</b><span>مدخل في إصدار المعجم المشار إليه</span></div><div><b>38</b><span>فئة معجمية</span></div><div><b>146</b><span>مثال سياقي منفصل</span></div><div><b>Human</b><span>الاعتماد النهائي بشري</span></div></section>
     <section id="workspace" className="workspace"><div className="section-heading"><div><span className="kicker">WORKSPACE / 01</span><h2>مساحة المراجعة</h2><p>اختر مدخلاً، افحص تفاصيله، ثم أرسل اقتراحك مدعوماً بالشواهد.</p></div><div className="dataset-state"><span className="pulse"/> {dataMode === 'live' ? 'المعجم الرسمي متصل' : dataMode === 'loading' ? 'جارٍ تحميل المعجم' : 'وضع العرض التوضيحي'}</div></div>
       {dataMode !== 'live' ? <div className="demo-alert"><AlertTriangle size={17}/><span><b>بيانات تجريبية للواجهة.</b> تعذر تحميل المعجم الرسمي؛ الكلمات المعروضة أمثلة توضيحية وليست قائمة مراجعة رسمية.</span></div> : <div className="live-alert"><CheckCircle2 size={17}/><span><b>تم تحميل المعجم الرسمي.</b> {entries.length} مدخلاً من مستودع ArCode Standard. المراجعات لا تعدّل المصدر مباشرة.</span></div>}
