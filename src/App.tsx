@@ -28,6 +28,22 @@ export default function App() {
   const [busy, setBusy] = useState(false)
   const [showLogin, setShowLogin] = useState(false)
   const [forgotPassword, setForgotPassword] = useState(false)
+  const [recoveryMode, setRecoveryMode] = useState(false)
+  const [newPassword, setNewPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  useEffect(() => {
+    if (!supabase) return
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'PASSWORD_RECOVERY') {
+        setRecoveryMode(true)
+        setForgotPassword(false)
+        setShowLogin(true)
+        setMessage('أدخل كلمة المرور الجديدة لتحديث حسابك.')
+      }
+    })
+    return () => subscription.unsubscribe()
+  }, [])
+
   useEffect(() => {
     fetch('https://raw.githubusercontent.com/ArCode-Standard/moroccan-darija-dataset/main/data/moroccan-darija.json')
       .then(response => { if (!response.ok) throw new Error('Dataset unavailable'); return response.json() })
@@ -57,12 +73,25 @@ export default function App() {
     if (!email.trim()) { setMessage('أدخل بريدك الإلكتروني أولاً.'); return }
     setBusy(true); setMessage('')
     const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
-      redirectTo: window.location.origin,
+      redirectTo: 'https://darija-lexreview.pages.dev/',
     })
     setBusy(false)
     setMessage(error
       ? 'تعذر إرسال رابط الاستعادة: ' + error.message
       : 'إذا كان البريد مسجلاً، فستصلك رسالة تحتوي على رابط إعادة تعيين كلمة المرور. تحقق من صندوق الوارد والرسائل غير المرغوب فيها.')
+  }
+  async function updatePassword() {
+    if (!supabase) return
+    if (newPassword.length < 8) { setMessage('يجب أن تتكون كلمة المرور من 8 أحرف على الأقل.'); return }
+    if (newPassword !== confirmPassword) { setMessage('كلمتا المرور غير متطابقتين.'); return }
+    setBusy(true); setMessage('')
+    const { error } = await supabase.auth.updateUser({ password: newPassword })
+    setBusy(false)
+    if (error) { setMessage('تعذر تحديث كلمة المرور: ' + error.message); return }
+    setPassword(''); setNewPassword(''); setConfirmPassword('')
+    setRecoveryMode(false); setForgotPassword(false)
+    setMessage('تم تحديث كلمة المرور. يمكنك الآن تسجيل الدخول بها.')
+    await supabase.auth.signOut()
   }
   async function submit() {
     if (!supabase) { setMessage('اتصال Supabase غير مهيأ في نسخة التطبيق المنشورة. اضبط VITE_SUPABASE_URL وVITE_SUPABASE_ANON_KEY في بيئة البناء ثم أعد النشر.'); return }
@@ -84,15 +113,21 @@ export default function App() {
     <main>
       <section className="hero"><div className="eyebrow"><span/> مبادرة لغوية مفتوحة من ArCode Standard</div><h1>نراجع الدارجة المغربية،<br/><em>كلمةً بكلمة.</em></h1><p>منصة تعاونية لتدقيق المفردات والمعاني والكتابة والسياقات، اعتماداً على شواهد قابلة للتحقق ومراجعة بشرية.</p><div className="hero-actions"><a className="primary" href="#workspace">ابدأ المراجعة <span>←</span></a><a className="secondary" href="#method">كيف نتحقق؟</a></div><div className="hero-foot"><span><ShieldCheck size={15}/> المراجعة البشرية أساس الاعتماد</span><span><BookOpen size={15}/> مصدر البيانات: GitHub</span></div></section>
     {showLogin && <section className="login-panel">
-      <div><b>{forgotPassword ? 'استعادة كلمة المرور' : 'دخول المراجعين'}</b><p>{forgotPassword ? 'أدخل بريدك الإلكتروني لإرسال رابط آمن لإعادة تعيين كلمة المرور.' : 'يلزم حساب Supabase لإرسال المساهمات.'}</p></div>
-      <input placeholder="البريد الإلكتروني" type="email" value={email} onChange={e=>setEmail(e.target.value)}/>
-      {!forgotPassword && <input placeholder="كلمة المرور" type="password" value={password} onChange={e=>setPassword(e.target.value)}/>}
-      {forgotPassword
-        ? <button onClick={sendPasswordReset} disabled={!isSupabaseConfigured || busy}>{busy?'جارٍ الإرسال...':'إرسال رابط الاستعادة'}</button>
-        : <button onClick={signIn} disabled={!isSupabaseConfigured || busy}>{busy?'جارٍ...':'تسجيل الدخول'}</button>}
-      {!forgotPassword && <button className="forgot-link" type="button" onClick={()=>{setForgotPassword(true);setMessage('')}}>نسيت كلمة المرور؟</button>}
-      {forgotPassword && <button className="forgot-link" type="button" onClick={()=>{setForgotPassword(false);setMessage('')}}>العودة إلى تسجيل الدخول</button>}
-      <button className="quiet" onClick={()=>{setShowLogin(false);setForgotPassword(false)}}><X size={16}/></button>
+      <div><b>{recoveryMode ? 'تعيين كلمة مرور جديدة' : forgotPassword ? 'استعادة كلمة المرور' : 'دخول المراجعين'}</b><p>{recoveryMode ? 'أدخل كلمة المرور الجديدة لتأمين حسابك.' : forgotPassword ? 'أدخل بريدك الإلكتروني لإرسال رابط آمن لإعادة تعيين كلمة المرور.' : 'يلزم حساب Supabase لإرسال المساهمات.'}</p></div>
+      {!recoveryMode && <input placeholder="البريد الإلكتروني" type="email" value={email} onChange={e=>setEmail(e.target.value)}/>}
+      {recoveryMode ? <>
+        <input placeholder="كلمة المرور الجديدة (8 أحرف على الأقل)" type="password" autoComplete="new-password" value={newPassword} onChange={e=>setNewPassword(e.target.value)}/>
+        <input placeholder="تأكيد كلمة المرور الجديدة" type="password" autoComplete="new-password" value={confirmPassword} onChange={e=>setConfirmPassword(e.target.value)}/>
+        <button onClick={updatePassword} disabled={!isSupabaseConfigured || busy}>{busy?'جارٍ الحفظ...':'حفظ كلمة المرور الجديدة'}</button>
+      </> : <>
+        {!forgotPassword && <input placeholder="كلمة المرور" type="password" value={password} onChange={e=>setPassword(e.target.value)}/>}
+        {forgotPassword
+          ? <button onClick={sendPasswordReset} disabled={!isSupabaseConfigured || busy}>{busy?'جارٍ الإرسال...':'إرسال رابط الاستعادة'}</button>
+          : <button onClick={signIn} disabled={!isSupabaseConfigured || busy}>{busy?'جارٍ...':'تسجيل الدخول'}</button>}
+        {!forgotPassword && <button className="forgot-link" type="button" onClick={()=>{setForgotPassword(true);setMessage('')}}>نسيت كلمة المرور؟</button>}
+        {forgotPassword && <button className="forgot-link" type="button" onClick={()=>{setForgotPassword(false);setMessage('')}}>العودة إلى تسجيل الدخول</button>}
+      </>}
+      {!recoveryMode && <button className="quiet" onClick={()=>{setShowLogin(false);setForgotPassword(false)}}><X size={16}/></button>}
       {message && <div className="login-feedback" role="status">{message}</div>}
     </section>}
     <section className="stats"><div><b>921</b><span>مدخل في إصدار المعجم المشار إليه</span></div><div><b>38</b><span>فئة معجمية</span></div><div><b>146</b><span>مثال سياقي منفصل</span></div><div><b>Human</b><span>الاعتماد النهائي بشري</span></div></section>
