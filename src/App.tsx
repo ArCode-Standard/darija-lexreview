@@ -52,7 +52,7 @@ export default function App() {
     setBusy(false); setMessage(error ? error.message : 'تم تسجيل الدخول.')
   }
   async function submit() {
-    if (!supabase) { setMessage('فعّل Supabase أولاً عبر إعداد ملف .env وتنفيذ supabase/schema.sql. لم يتم إرسال أي بيانات.'); return }
+    if (!supabase) { setMessage('اتصال Supabase غير مهيأ في نسخة التطبيق المنشورة. اضبط VITE_SUPABASE_URL وVITE_SUPABASE_ANON_KEY في بيئة البناء ثم أعد النشر.'); return }
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) { setMessage('سجّل الدخول قبل إرسال المقترح.'); setShowLogin(true); return }
     if (!evidence.trim()) { setMessage('أضف رابط شاهد واحداً على الأقل أو اشرح سبب عدم توفر شاهد.'); return }
