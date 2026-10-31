@@ -1,9 +1,9 @@
-import { useMemo, useState } from 'react'
-import { BookOpen, Search, ExternalLink, Send, ShieldCheck, Languages, X, Github, AlertTriangle } from 'lucide-react'
+import { useEffect, useMemo, useState } from 'react'
+import { BookOpen, Search, ExternalLink, Send, ShieldCheck, Languages, X, Github, AlertTriangle, CheckCircle2 } from 'lucide-react'
 import { isSupabaseConfigured, supabase } from './lib/supabase'
 
 type Entry = { id: string; word: string; latin: string; meaning: string; french: string; category: string; example: string; translation: string; status: string }
-const entries: Entry[] = [
+const demoEntries: Entry[] = [
   { id: 'demo-001', word: 'بزاف', latin: 'bzzaf', meaning: 'كثير؛ بدرجة كبيرة', french: 'Beaucoup, très', category: 'الكمية والدرجة', example: 'عندي بزاف ديال الخدمة اليوم.', translation: "J’ai beaucoup de travail aujourd’hui.", status: 'توضيحي' },
   { id: 'demo-002', word: 'واخا', latin: 'wakha', meaning: 'حسناً؛ رغم ذلك، حسب السياق', french: "D’accord ; même si", category: 'التواصل', example: 'واخا، غادي نجي معاك.', translation: "D’accord, je viendrai avec toi.", status: 'توضيحي' },
   { id: 'demo-003', word: 'دابا', latin: 'daba', meaning: 'الآن؛ في الوقت الحالي', french: 'Maintenant', category: 'الزمن', example: 'غادي نبدا دابا.', translation: 'Je vais commencer maintenant.', status: 'توضيحي' },
@@ -15,8 +15,10 @@ const fields = [
 ] as const
 
 export default function App() {
+  const [entries, setEntries] = useState<Entry[]>(demoEntries)
+  const [dataMode, setDataMode] = useState<'loading'|'live'|'demo'>('loading')
   const [query, setQuery] = useState('')
-  const [active, setActive] = useState(entries[0])
+  const [active, setActive] = useState<Entry>(demoEntries[0])
   const [form, setForm] = useState<Record<string, string>>({})
   const [evidence, setEvidence] = useState('')
   const [note, setNote] = useState('')
@@ -25,7 +27,22 @@ export default function App() {
   const [message, setMessage] = useState('')
   const [busy, setBusy] = useState(false)
   const [showLogin, setShowLogin] = useState(false)
-  const filtered = useMemo(() => entries.filter(e => [e.word,e.latin,e.meaning,e.category].join(' ').toLowerCase().includes(query.toLowerCase())), [query])
+  useEffect(() => {
+    fetch('https://raw.githubusercontent.com/ArCode-Standard/moroccan-darija-dataset/main/data/moroccan-darija.json')
+      .then(response => { if (!response.ok) throw new Error('Dataset unavailable'); return response.json() })
+      .then((payload: { entries?: Array<Record<string, unknown>> }) => {
+        if (!Array.isArray(payload.entries) || payload.entries.length === 0) throw new Error('Invalid dataset format')
+        const loaded = payload.entries.map((item): Entry => ({
+          id: String(item.id), word: String(item.darija_ar ?? ''), latin: String(item.darija_latin ?? ''),
+          meaning: String(item.fusha_ar ?? '—'), french: String(item.fr ?? '—'), category: String(item.category ?? 'غير مصنف'),
+          example: 'لا يوجد مثال سياقي محمّل لهذا المدخل.', translation: 'راجع ملف الأمثلة السياقية في مستودع البيانات.',
+          status: typeof item.review === 'object' && item.review !== null && 'status' in item.review ? String((item.review as {status: unknown}).status) : 'غير محدد'
+        }))
+        setEntries(loaded); setActive(loaded[0]); setDataMode('live')
+      })
+      .catch(() => setDataMode('demo'))
+  }, [])
+  const filtered = useMemo(() => entries.filter(e => [e.word,e.latin,e.meaning,e.category].join(' ').toLowerCase().includes(query.toLowerCase())), [entries, query])
   const update = (key: string, value: string) => setForm(current => ({ ...current, [key]: value }))
 
   async function signIn() {
@@ -55,8 +72,8 @@ export default function App() {
       <section className="hero"><div className="eyebrow"><span/> مبادرة لغوية مفتوحة من ArCode Standard</div><h1>نراجع الدارجة المغربية،<br/><em>كلمةً بكلمة.</em></h1><p>منصة تعاونية لتدقيق المفردات والمعاني والكتابة والسياقات، اعتماداً على شواهد قابلة للتحقق ومراجعة بشرية.</p><div className="hero-actions"><a className="primary" href="#workspace">ابدأ المراجعة <span>←</span></a><a className="secondary" href="#method">كيف نتحقق؟</a></div><div className="hero-foot"><span><ShieldCheck size={15}/> المراجعة البشرية أساس الاعتماد</span><span><BookOpen size={15}/> مصدر البيانات: GitHub</span></div></section>
     {showLogin && <section className="login-panel"><div><b>دخول المراجعين</b><p>يلزم حساب Supabase لإرسال المساهمات.</p></div><input placeholder="البريد الإلكتروني" type="email" value={email} onChange={e=>setEmail(e.target.value)}/><input placeholder="كلمة المرور" type="password" value={password} onChange={e=>setPassword(e.target.value)}/><button onClick={signIn} disabled={!isSupabaseConfigured || busy}>{busy?'جارٍ...':'تسجيل الدخول'}</button><button className="quiet" onClick={()=>setShowLogin(false)}><X size={16}/></button></section>}
     <section className="stats"><div><b>921</b><span>مدخل في إصدار المعجم المشار إليه</span></div><div><b>38</b><span>فئة معجمية</span></div><div><b>146</b><span>مثال سياقي منفصل</span></div><div><b>Human</b><span>الاعتماد النهائي بشري</span></div></section>
-    <section id="workspace" className="workspace"><div className="section-heading"><div><span className="kicker">WORKSPACE / 01</span><h2>مساحة المراجعة</h2><p>اختر مدخلاً، افحص تفاصيله، ثم أرسل اقتراحك مدعوماً بالشواهد.</p></div><div className="dataset-state"><span className="pulse"/> وضع العرض التوضيحي</div></div>
-      <div className="demo-alert"><AlertTriangle size={17}/><span><b>بيانات تجريبية للواجهة.</b> لم يتم بعد ربط المنصة بملفات المعجم الفعلية؛ الكلمات الظاهرة هنا أمثلة توضيحية وليست قائمة مراجعة رسمية.</span></div>
+    <section id="workspace" className="workspace"><div className="section-heading"><div><span className="kicker">WORKSPACE / 01</span><h2>مساحة المراجعة</h2><p>اختر مدخلاً، افحص تفاصيله، ثم أرسل اقتراحك مدعوماً بالشواهد.</p></div><div className="dataset-state"><span className="pulse"/> {dataMode === 'live' ? 'المعجم الرسمي متصل' : dataMode === 'loading' ? 'جارٍ تحميل المعجم' : 'وضع العرض التوضيحي'}</div></div>
+      {dataMode !== 'live' ? <div className="demo-alert"><AlertTriangle size={17}/><span><b>بيانات تجريبية للواجهة.</b> تعذر تحميل المعجم الرسمي؛ الكلمات المعروضة أمثلة توضيحية وليست قائمة مراجعة رسمية.</span></div> : <div className="live-alert"><CheckCircle2 size={17}/><span><b>تم تحميل المعجم الرسمي.</b> {entries.length} مدخلاً من مستودع ArCode Standard. المراجعات لا تعدّل المصدر مباشرة.</span></div>}
       <div className="review-layout"><aside className="word-list"><div className="list-title"><b>قائمة الكلمات</b><span>{filtered.length} أمثلة</span></div><label className="searchbox"><Search size={17}/><input placeholder="ابحث عن كلمة أو معنى..." value={query} onChange={e=>setQuery(e.target.value)}/></label><div className="entries">{filtered.map(entry=><button key={entry.id} className={active.id===entry.id?'entry active':'entry'} onClick={()=>{setActive(entry);setForm({})}}><span className="entry-word">{entry.word}</span><span className="entry-meta"><span>{entry.latin}</span><span className="pending">{entry.status}</span></span><span className="entry-meaning">{entry.meaning}</span></button>)}</div></aside>
       <article className="detail"><div className="detail-top"><div><span className="kicker">LEXICAL ENTRY · {active.id.toUpperCase()}</span><h3>{active.word}</h3><div className="latin">{active.latin}</div></div><span className="tag">{active.category}</span></div><div className="source-grid"><div><label>المعنى المسجل في المثال</label><p>{active.meaning}</p></div><div><label>المقابل الفرنسي</label><p>{active.french}</p></div><div className="example"><label>مثال سياقي</label><p>{active.example}</p><small>{active.translation}</small></div></div>
       <div className="form-heading"><div><span className="kicker">CONTRIBUTION FORM</span><h4>اقترح مراجعة أو تصحيحاً</h4></div><span className="tag neutral">لا يُنشر تلقائياً</span></div>
