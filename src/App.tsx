@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { BookOpen, Search, ExternalLink, Send, ShieldCheck, CircleHelp, Languages, Menu, X, Github, CheckCircle2, AlertTriangle } from 'lucide-react'
+import { BookOpen, Search, ExternalLink, Send, ShieldCheck, Languages, X, Github, AlertTriangle } from 'lucide-react'
 import { isSupabaseConfigured, supabase } from './lib/supabase'
 
 type Entry = { id: string; word: string; latin: string; meaning: string; french: string; category: string; example: string; translation: string; status: string }
