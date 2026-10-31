@@ -59,6 +59,7 @@ create policy "reviewers create own profile" on public.reviewer_profiles
 for insert to authenticated with check (id = auth.uid() and role = 'reviewer');
 
 drop policy if exists "reviewers update own submission" on public.review_submissions;
+drop policy if exists "reviewers create submissions" on public.review_submissions;
 create policy "reviewers create submissions" on public.review_submissions
 for insert to authenticated with check (reviewer_id = auth.uid() and status = 'pending' and editor_id is null);
 
