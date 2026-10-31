@@ -210,3 +210,18 @@ footer { display: flex; justify-content: space-between; gap: 12px; max-width: 12
 @media (prefers-reduced-motion: reduce) {
   *,*::before,*::after { scroll-behavior: auto !important; transition-duration: .01ms !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; }
 }
+
+.login-panel { flex-wrap: wrap; }
+.login-panel .forgot-link {
+  padding: 7px 4px; border: 0; background: transparent; color: var(--teal);
+  text-decoration: underline; text-underline-offset: 3px; white-space: nowrap;
+}
+.login-panel .forgot-link:hover { color: #075f55; background: transparent; }
+.login-feedback {
+  flex-basis: 100%; padding: 10px 12px; border: 1px solid #dceee7;
+  border-radius: 8px; background: #eff8f4; color: #276e5d;
+  font-size: 10px; line-height: 1.8;
+}
+@media (max-width: 700px) {
+  .login-panel .forgot-link { flex: 1 1 100%; text-align: right; }
+}
