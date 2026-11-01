@@ -816,6 +816,8 @@ export function EditorModerationPanel({
                   ['needs_changes', 'للتعديل'],
                   ['accepted', 'معتمد'],
                   ['merged', 'مدمج'],
+                  ['superseded', 'مستبدل'],
+                  ['withdrawn', 'مسحوب'],
                   ['rejected', 'مرفوض'],
                   ['all', 'الكل'],
                 ] as const
@@ -1343,6 +1345,20 @@ export function EditorModerationPanel({
                           <strong>مذكرة الاعتماد المسجلة:</strong> {activeSubmission.editor_note}
                         </p>
                       )}
+                    </div>
+                  ) : activeSubmission.status === 'withdrawn' ||
+                    activeSubmission.status === 'superseded' ? (
+                    <div className="rounded-lg border border-[#D6CEBE] bg-[#FBF9F5] p-4 text-xs leading-relaxed text-stone-700 dark:border-[#3A3530] dark:bg-[#141312] dark:text-stone-300">
+                      <p className="font-bold text-stone-900 dark:text-stone-100">
+                        {activeSubmission.status === 'withdrawn'
+                          ? 'مقترح مسحوب من قِبل المساهم'
+                          : 'مقترح مُستبدل بنسخة منقحة أحدث'}
+                      </p>
+                      <p className="mt-1">
+                        {activeSubmission.status === 'withdrawn'
+                          ? 'سحب المساهم هذا المقترح قبل البت فيه؛ يُحفظ السجل لأغراض التدقيق التاريخي دون إجراءات تحكيمية.'
+                          : 'قدّم المساهم نسخة منقحة تحل محل هذا المقترح تلقائياً؛ يرجى تحكيم النسخة الأحدث في طابور المقترحات المعلقة.'}
+                      </p>
                     </div>
                   ) : (
                     <>

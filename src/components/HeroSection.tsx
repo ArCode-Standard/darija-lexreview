@@ -22,9 +22,10 @@ export function HeroSection({
 }: HeroSectionProps) {
   const [imgFailed, setImgFailed] = useState(false)
 
-  const displayEntries = dataMode === 'live' ? entriesCount : 921
-  const displayCategories = dataMode === 'live' ? categoriesCount : 38
-  const displayExamples = dataMode === 'live' && examplesCount > 0 ? examplesCount : 146
+  const isRealCorpus = dataMode === 'live' || dataMode === 'cached'
+  const displayEntries = isRealCorpus ? entriesCount : 921
+  const displayCategories = isRealCorpus ? categoriesCount : 38
+  const displayExamples = isRealCorpus && examplesCount > 0 ? examplesCount : 146
 
   return (
     <section className="mx-auto max-w-[1280px] px-5 pt-10 pb-12 sm:px-8 lg:pt-16 lg:pb-16">

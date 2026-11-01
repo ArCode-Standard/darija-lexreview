@@ -25,7 +25,14 @@ export type SourceType =
   | 'other'
   | 'unknown'
 
-export type SubmissionStatus = 'pending' | 'accepted' | 'rejected' | 'needs_changes' | 'merged'
+export type SubmissionStatus =
+  | 'pending'
+  | 'accepted'
+  | 'rejected'
+  | 'needs_changes'
+  | 'merged'
+  | 'withdrawn'
+  | 'superseded'
 
 export interface ProvenanceInfo {
   sourceType: SourceType
@@ -141,7 +148,7 @@ export interface ReviewDecisionEvent {
   submission_id: string
   actor_id: string | null
   actor_display_name?: string | null
-  event_type: 'baseline' | 'submitted' | 'decision'
+  event_type: 'baseline' | 'submitted' | 'decision' | 'withdrawn' | 'superseded'
   previous_status: SubmissionStatus | null
   new_status: SubmissionStatus
   editor_note: string | null
@@ -203,9 +210,15 @@ export interface OfficialExportBundle {
     meta: Record<string, unknown>
     examples: Array<Record<string, unknown>>
   }
+  checksums: {
+    lexiconSha256: string
+    examplesSha256: string
+  }
   patchSummary: {
     generated_at: string
     target_version: string
+    lexicon_sha256: string
+    examples_sha256: string
     applied_submission_ids: string[]
     modified_entries: Array<Record<string, unknown>>
     added_entries: Array<Record<string, unknown>>
@@ -221,12 +234,36 @@ export interface OfficialExportBundle {
   }
 }
 
+export interface ReleaseManifestRecord {
+  id: string
+  version: string
+  lexicon_sha256: string
+  examples_sha256: string
+  total_entries: number
+  total_examples: number
+  modified_entries_count: number
+  added_entries_count: number
+  added_examples_count: number
+  submission_ids: string[]
+  github_pr_url: string | null
+  notes: string | null
+  exported_by?: string | null
+  exported_by_name: string | null
+  created_at: string
+  is_sandbox?: boolean
+}
+
 export type AttestationVerdict = 'accurate' | 'needs_correction' | 'regional_variant'
 
-export type RapidMicroTask = 'verify_words' | 'enrich_examples' | 'regional_usage'
+export type RapidMicroTask =
+  | 'verify_words'
+  | 'verify_examples'
+  | 'enrich_examples'
+  | 'regional_usage'
 
 export interface CommunityAttestationRecord {
   entry_id: string
+  example_id?: string
   verdict: AttestationVerdict
   dialect_region: string | null
   note: string | null
@@ -245,7 +282,17 @@ export interface EntryAttestationSummary {
   regions: string[]
 }
 
-export type DataMode = 'loading' | 'live' | 'demo'
+export interface ExampleAttestationSummary {
+  exampleId: string
+  entryId: string
+  accurateCount: number
+  flaggedCount: number
+  regionalCount: number
+  weightedAccurateScore?: number
+  regions: string[]
+}
+
+export type DataMode = 'loading' | 'live' | 'cached' | 'demo'
 export type WorkbenchTab =
   | 'rapid_review'
   | 'explorer'
@@ -259,4 +306,3 @@ export type ExampleFilter =
   | 'with_examples'
   | 'needs_examples'
   | 'priority_enrichment'
-

@@ -9,6 +9,7 @@ import {
   GitBranch,
   RotateCcw,
   Award,
+  XCircle,
 } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import type { LexicalEntry, LocalDraft, SubmissionRecord } from '../../types/lexicon'
@@ -28,6 +29,7 @@ interface SubmissionsPanelProps {
   refreshTrigger: number
   onResumeDraft: (entryId: string) => void
   onStartRevision: (submission: SubmissionRecord) => void
+  onWithdrawSandboxSubmission: (id: string) => void
   onDeleteDraft: (entryId: string) => void
   onRemoveMultipleDrafts: (entryIds: string[]) => void
   onOpenAuth: () => void
@@ -44,6 +46,7 @@ export function SubmissionsPanel({
   refreshTrigger,
   onResumeDraft,
   onStartRevision,
+  onWithdrawSandboxSubmission,
   onDeleteDraft,
   onRemoveMultipleDrafts,
   onOpenAuth,
@@ -52,6 +55,8 @@ export function SubmissionsPanel({
   const [loading, setLoading] = useState(false)
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
   const [syncing, setSyncing] = useState(false)
+  const [confirmWithdrawId, setConfirmWithdrawId] = useState<string | null>(null)
+  const [withdrawingId, setWithdrawingId] = useState<string | null>(null)
   const [syncMsg, setSyncMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(
     null,
   )
@@ -159,6 +164,41 @@ export function SubmissionsPanel({
     })
   }
 
+  async function handleConfirmWithdraw(sub: SubmissionRecord) {
+    setSyncMsg(null)
+    if (sub.is_sandbox) {
+      onWithdrawSandboxSubmission(sub.id)
+      setConfirmWithdrawId(null)
+      setSyncMsg({
+        type: 'success',
+        text: 'تم سحب المقترح من طابور المراجعة قبل صدور قرار تحكيمي.',
+      })
+      return
+    }
+    if (!supabase) return
+    setWithdrawingId(sub.id)
+    const { error } = await supabase.rpc('withdraw_own_submission', {
+      p_submission_id: sub.id,
+    })
+    setWithdrawingId(null)
+    setConfirmWithdrawId(null)
+    if (error) {
+      setSyncMsg({
+        type: 'error',
+        text: humanizeSystemError(
+          error,
+          'تعذر سحب المقترح حالياً (قد يكون قد دخل مرحلة التحكيم بالفعل).',
+        ),
+      })
+      return
+    }
+    await loadSubmissions()
+    setSyncMsg({
+      type: 'success',
+      text: 'تم سحب مقترحك بنجاح مع توثيق السحب في سجل التدقيق.',
+    })
+  }
+
   function renderSubmissionRow(sub: SubmissionRecord) {
     const isNew = isNewEntrySubmission(sub)
     const target = entryById.get(sub.entry_id)
@@ -166,6 +206,8 @@ export function SubmissionsPanel({
       ? `${sub.proposed_data?.word_ar || 'مفردة جديدة'} (مفردة جديدة)`
       : `${target?.word ?? `مدخل رقم ${sub.entry_id}`} (${formatAccessionCode(sub.entry_id, target?.numericId ?? null)})`
     const canRevise = sub.status === 'needs_changes' || sub.status === 'rejected'
+    const canWithdraw = sub.status === 'pending'
+    const isConfirmingWithdraw = confirmWithdrawId === sub.id
 
     return (
       <div
@@ -188,7 +230,9 @@ export function SubmissionsPanel({
                     ? 'text-amber-700 dark:text-amber-400'
                     : sub.status === 'rejected'
                       ? 'text-red-700 dark:text-red-400'
-                      : 'text-stone-600 dark:text-stone-400'
+                      : sub.status === 'withdrawn' || sub.status === 'superseded'
+                        ? 'text-stone-500 dark:text-stone-500'
+                        : 'text-stone-600 dark:text-stone-400'
               }`}
             >
               {sub.status === 'merged' && sub.exported_in_version
@@ -226,8 +270,8 @@ export function SubmissionsPanel({
           )}
         </div>
 
-        {canRevise && (
-          <div className="shrink-0">
+        <div className="flex flex-wrap items-center gap-2 shrink-0">
+          {canRevise && (
             <button
               type="button"
               onClick={() => onStartRevision(sub)}
@@ -236,8 +280,39 @@ export function SubmissionsPanel({
               <RotateCcw className="h-3.5 w-3.5" aria-hidden="true" />
               <span>تقديم نسخة منقحة</span>
             </button>
-          </div>
-        )}
+          )}
+
+          {canWithdraw && !isConfirmingWithdraw && (
+            <button
+              type="button"
+              onClick={() => setConfirmWithdrawId(sub.id)}
+              className="inline-flex min-h-[36px] items-center gap-1.5 rounded-lg border border-[#D6CEBE] bg-[#FBF9F5] px-3 py-1.5 text-xs font-medium text-stone-700 hover:border-red-300 hover:text-red-700 whitespace-nowrap cursor-pointer dark:border-[#3A3530] dark:bg-[#141312] dark:text-stone-300 dark:hover:text-red-400"
+            >
+              <XCircle className="h-3.5 w-3.5" aria-hidden="true" />
+              <span>سحب المقترح</span>
+            </button>
+          )}
+
+          {canWithdraw && isConfirmingWithdraw && (
+            <div className="inline-flex items-center gap-1.5 rounded-lg border border-red-200 bg-red-50/80 p-1 dark:border-red-900/50 dark:bg-red-950/30">
+              <button
+                type="button"
+                disabled={withdrawingId === sub.id}
+                onClick={() => handleConfirmWithdraw(sub)}
+                className="min-h-[30px] rounded-md bg-red-700 px-2.5 py-1 text-xs font-semibold text-white hover:bg-red-800 disabled:opacity-50 whitespace-nowrap cursor-pointer"
+              >
+                {withdrawingId === sub.id ? 'جارٍ السحب...' : 'تأكيد السحب'}
+              </button>
+              <button
+                type="button"
+                onClick={() => setConfirmWithdrawId(null)}
+                className="min-h-[30px] rounded-md px-2 py-1 text-xs font-medium text-stone-700 hover:text-stone-900 whitespace-nowrap cursor-pointer dark:text-stone-300"
+              >
+                تراجع
+              </button>
+            </div>
+          )}
+        </div>
       </div>
     )
   }
@@ -245,7 +320,13 @@ export function SubmissionsPanel({
   const sandboxRevisableOrRecent = useMemo(
     () =>
       sandboxItems.filter(
-        (s) => s.status === 'needs_changes' || s.status === 'rejected' || Boolean(s.supersedes_id),
+        (s) =>
+          s.status === 'pending' ||
+          s.status === 'needs_changes' ||
+          s.status === 'rejected' ||
+          s.status === 'superseded' ||
+          s.status === 'withdrawn' ||
+          Boolean(s.supersedes_id),
       ),
     [sandboxItems],
   )

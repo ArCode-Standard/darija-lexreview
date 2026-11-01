@@ -20,6 +20,12 @@ function formatEventTitle(ev: ReviewDecisionEvent): string {
   if (ev.event_type === 'baseline') {
     return `توثيق الحالة المرجعية (${formatStatusLabel(ev.new_status)})`
   }
+  if (ev.event_type === 'withdrawn' || ev.new_status === 'withdrawn') {
+    return 'سحب المقترح من قِبل المساهم قبل التحكيم'
+  }
+  if (ev.event_type === 'superseded' || ev.new_status === 'superseded') {
+    return 'استبدال المقترح تلقائياً بنسخة منقحة أحدث'
+  }
   const fromLabel = ev.previous_status ? formatStatusLabel(ev.previous_status) : 'غير محدد'
   const toLabel = formatStatusLabel(ev.new_status)
   if (ev.new_status === 'merged') {
@@ -67,7 +73,7 @@ export function DecisionAuditTimeline({
         id: number
         submission_id: string
         actor_id: string | null
-        event_type: 'baseline' | 'submitted' | 'decision'
+        event_type: ReviewDecisionEvent['event_type']
         previous_status: SubmissionStatus | null
         new_status: SubmissionStatus
         editor_note: string | null

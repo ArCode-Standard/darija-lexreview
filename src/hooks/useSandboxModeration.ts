@@ -333,7 +333,40 @@ export function useSandboxModeration() {
         updated_at: now,
         is_sandbox: true,
       }
-      setSandboxItems((prev) => [item, ...prev])
+      setSandboxItems((prev) => {
+        const updatedPrev = params.supersedesId
+          ? prev.map((existing) => {
+              if (
+                existing.id === params.supersedesId &&
+                (existing.status === 'pending' ||
+                  existing.status === 'needs_changes' ||
+                  existing.status === 'rejected')
+              ) {
+                setSandboxEvents((evPrev) => [
+                  ...evPrev,
+                  {
+                    id: `ev-sup-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+                    submission_id: existing.id,
+                    actor_id: 'contributor-session',
+                    actor_display_name: 'المراجع الحالي (جلسة محاكاة)',
+                    event_type: 'superseded',
+                    previous_status: existing.status,
+                    new_status: 'superseded',
+                    editor_note: `حُلّ محل هذا المقترح بالنسخة المنقحة (${item.id.slice(0, 12)})`,
+                    occurred_at: now,
+                  },
+                ])
+                return {
+                  ...existing,
+                  status: 'superseded' as const,
+                  updated_at: now,
+                }
+              }
+              return existing
+            })
+          : prev
+        return [item, ...updatedPrev]
+      })
       setSandboxEvents((prev) => [
         ...prev,
         {
@@ -354,6 +387,37 @@ export function useSandboxModeration() {
     },
     [],
   )
+
+  const withdrawSandboxSubmission = useCallback((id: string) => {
+    const now = new Date().toISOString()
+    setSandboxItems((prev) => {
+      const target = prev.find((item) => item.id === id)
+      if (!target || target.status !== 'pending') return prev
+      setSandboxEvents((evPrev) => [
+        ...evPrev,
+        {
+          id: `ev-wdr-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+          submission_id: id,
+          actor_id: 'contributor-session',
+          actor_display_name: 'المراجع الحالي (جلسة محاكاة)',
+          event_type: 'withdrawn',
+          previous_status: 'pending',
+          new_status: 'withdrawn',
+          editor_note: 'سحب المساهم مقترحه قبل صدور قرار تحكيمي.',
+          occurred_at: now,
+        },
+      ])
+      return prev.map((item) =>
+        item.id === id && item.status === 'pending'
+          ? {
+              ...item,
+              status: 'withdrawn',
+              updated_at: now,
+            }
+          : item,
+      )
+    })
+  }, [])
 
   const moderateSandboxSubmission = useCallback(
     (params: {
@@ -510,6 +574,7 @@ export function useSandboxModeration() {
     sandboxItems,
     sandboxEvents,
     addSandboxSubmission,
+    withdrawSandboxSubmission,
     moderateSandboxSubmission,
     bulkApproveSandboxSubmissions,
     markSandboxSubmissionsMerged,

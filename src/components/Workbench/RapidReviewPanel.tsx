@@ -20,6 +20,7 @@ import type {
   CommunityAttestationRecord,
   EntryAttestationSummary,
   EvidenceItem,
+  ExampleAttestationSummary,
   LexicalEntry,
   LocalDraft,
   ProposedFields,
@@ -57,8 +58,11 @@ interface RapidReviewPanelProps {
   onToggleFocusMode: () => void
   userEmail: string | null
   userVerdictsByEntryId: Record<string, CommunityAttestationRecord>
+  userVerdictsByExampleId: Record<string, CommunityAttestationRecord>
   summariesByEntryId: Record<string, EntryAttestationSummary>
+  summariesByExampleId: Record<string, ExampleAttestationSummary>
   skippedIds: Set<string>
+  skippedExampleIds: Set<string>
   canUndo: boolean
   completedTodayCount: number
   calibrationStats: CalibrationStats
@@ -67,13 +71,14 @@ interface RapidReviewPanelProps {
   onUpdateSessionPrefs: (patch: Partial<RapidSessionPrefs>) => void
   onRecordAttestation: (params: {
     entryId: string
+    exampleId?: string | null
     verdict: AttestationVerdict
     dialectRegion?: string | null
     note?: string | null
     responseMs?: number | null
     baselineFingerprint?: string | null
   }) => Promise<{ storedLive: boolean }>
-  onSkipEntry: (entryId: string) => void
+  onSkipEntry: (entryId: string, exampleId?: string) => void
   onUndoLastStep: () => Promise<string | null>
   onResetSessionSkips: () => void
   onAddSandboxSubmission: (params: {
@@ -98,8 +103,11 @@ export function RapidReviewPanel({
   onToggleFocusMode,
   userEmail,
   userVerdictsByEntryId,
+  userVerdictsByExampleId,
   summariesByEntryId,
+  summariesByExampleId,
   skippedIds,
+  skippedExampleIds,
   canUndo,
   completedTodayCount,
   calibrationStats,
@@ -175,6 +183,15 @@ export function RapidReviewPanel({
       if (microTask === 'enrich_examples' && entry.examples.length > 0) {
         return false
       }
+      if (microTask === 'verify_examples') {
+        const primaryEx = entry.examples[0]
+        if (!primaryEx) return false
+        if (!showAlreadyReviewed) {
+          if (userVerdictsByExampleId[primaryEx.id]) return false
+          if (skippedExampleIds.has(primaryEx.id)) return false
+        }
+        return true
+      }
       if (!showAlreadyReviewed) {
         if (userVerdictsByEntryId[entry.id]) return false
         if (skippedIds.has(entry.id)) return false
@@ -184,6 +201,12 @@ export function RapidReviewPanel({
 
     // Prioritize entries flagged by other humans or not yet reviewed in official corpus
     return [...filtered].sort((a, b) => {
+      if (microTask === 'verify_examples') {
+        const exA = a.examples[0]?.id ? summariesByExampleId[a.examples[0].id] : undefined
+        const exB = b.examples[0]?.id ? summariesByExampleId[b.examples[0].id] : undefined
+        const exFlagDiff = (exB?.flaggedCount ?? 0) - (exA?.flaggedCount ?? 0)
+        if (exFlagDiff !== 0) return exFlagDiff
+      }
       const sumA = summariesByEntryId[a.id]
       const sumB = summariesByEntryId[b.id]
       const flagDiff = (sumB?.flaggedCount ?? 0) - (sumA?.flaggedCount ?? 0)
@@ -199,8 +222,11 @@ export function RapidReviewPanel({
     microTask,
     showAlreadyReviewed,
     userVerdictsByEntryId,
+    userVerdictsByExampleId,
     skippedIds,
+    skippedExampleIds,
     summariesByEntryId,
+    summariesByExampleId,
   ])
 
   // Unlabeled Gold-Standard Calibration Card generator every 6th verification card
@@ -404,8 +430,11 @@ export function RapidReviewPanel({
     setForcedEntryId(null)
     const labelWord = currentEntry.word
     const fingerprint = computeEntryFingerprint(currentEntry)
+    const targetExampleId =
+      microTask === 'verify_examples' ? currentEntry.examples[0]?.id ?? null : null
     const res = await onRecordAttestation({
       entryId: currentEntry.id,
+      exampleId: targetExampleId,
       verdict: microTask === 'regional_usage' ? 'regional_variant' : 'accurate',
       dialectRegion: sessionPrefs.dialectRegion,
       responseMs: dwellMs,
@@ -417,9 +446,11 @@ export function RapidReviewPanel({
       text:
         microTask === 'regional_usage'
           ? `تم توثيق تداول «${labelWord}» في (${sessionPrefs.dialectRegion}) والانتقال للتالية.`
-          : res.storedLive
-            ? `تم تسجيل تأكيدك لصحة «${labelWord}» والانتقال للتالية.`
-            : `تم حفظ تأكيدك لصحة «${labelWord}» والانتقال للتالية.`,
+          : microTask === 'verify_examples' && targetExampleId
+            ? `تم توثيق سلامة الشاهد السياقي (${targetExampleId}) لمفردة «${labelWord}» والانتقال للتالي.`
+            : res.storedLive
+              ? `تم تسجيل تأكيدك لصحة «${labelWord}» والانتقال للتالية.`
+              : `تم حفظ تأكيدك لصحة «${labelWord}» والانتقال للتالية.`,
     })
   }, [
     currentEntry,
@@ -452,6 +483,15 @@ export function RapidReviewPanel({
       return
     }
 
+    if (microTask === 'verify_examples' && !correctionOpen && currentEntry.examples[0]) {
+      const ex = currentEntry.examples[0]
+      setSelectedTargets(new Set(['example']))
+      setFixExampleAr(ex.darijaAr)
+      setFixExampleArabizi(ex.darijaLatin)
+      setExampleArabiziManuallyEdited(true)
+      setFixExampleMeaningAr(ex.meaningAr)
+    }
+
     setCorrectionOpen((prev) => !prev)
   }, [
     currentEntry,
@@ -459,6 +499,8 @@ export function RapidReviewPanel({
     activeCalibrationCard,
     markCalibrationStepResolved,
     onRecordCalibrationOutcome,
+    microTask,
+    correctionOpen,
   ])
 
   const handleSkipCard = useCallback(() => {
@@ -469,9 +511,18 @@ export function RapidReviewPanel({
       return
     }
     setForcedEntryId(null)
-    onSkipEntry(currentEntry.id)
+    const targetExampleId =
+      microTask === 'verify_examples' ? currentEntry.examples[0]?.id : undefined
+    onSkipEntry(currentEntry.id, targetExampleId)
     setToast(null)
-  }, [currentEntry, submitting, activeCalibrationCard, markCalibrationStepResolved, onSkipEntry])
+  }, [
+    currentEntry,
+    submitting,
+    activeCalibrationCard,
+    markCalibrationStepResolved,
+    microTask,
+    onSkipEntry,
+  ])
 
   const handleUndo = useCallback(async () => {
     const restoredId = await onUndoLastStep()
@@ -499,7 +550,10 @@ export function RapidReviewPanel({
       }
       if (e.metaKey || e.ctrlKey || e.altKey) return
 
-      if (microTask === 'verify_words' && !correctionOpen) {
+      if (
+        (microTask === 'verify_words' || microTask === 'verify_examples') &&
+        !correctionOpen
+      ) {
         if (e.key === '1' || e.key.toLowerCase() === 'y') {
           e.preventDefault()
           handleConfirmAccurate()
@@ -650,6 +704,7 @@ export function RapidReviewPanel({
 
     await onRecordAttestation({
       entryId: entry.id,
+      exampleId: microTask === 'verify_examples' ? entry.examples[0]?.id ?? null : null,
       verdict: verdictToLog,
       dialectRegion: sessionPrefs.dialectRegion,
       note: noteText,
@@ -982,6 +1037,22 @@ export function RapidReviewPanel({
               <button
                 type="button"
                 role="tab"
+                aria-selected={microTask === 'verify_examples'}
+                onClick={() => {
+                  setForcedEntryId(null)
+                  setMicroTask('verify_examples')
+                }}
+                className={`min-h-[36px] rounded-md px-3.5 py-1.5 text-xs font-semibold transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
+                  microTask === 'verify_examples'
+                    ? 'bg-white text-stone-900 shadow-2xs dark:bg-[#2A2622] dark:text-stone-100'
+                    : 'text-stone-600 hover:text-stone-900 dark:text-stone-400 dark:hover:text-stone-200'
+                }`}
+              >
+                تدقيق الشواهد السياقية
+              </button>
+              <button
+                type="button"
+                role="tab"
                 aria-selected={microTask === 'enrich_examples'}
                 onClick={() => {
                   setForcedEntryId(null)
@@ -1145,13 +1216,13 @@ export function RapidReviewPanel({
             لم تتبقَّ مفردات غير مراجعة ضمن الفلتر الحالي. يمكنك استعادة المفردات التي تخطيتها أو اختيار فئة دلالية أخرى.
           </p>
           <div className="pt-2 flex flex-wrap items-center justify-center gap-3">
-            {skippedIds.size > 0 && (
+            {(skippedIds.size > 0 || skippedExampleIds.size > 0) && (
               <button
                 type="button"
                 onClick={onResetSessionSkips}
                 className="min-h-[42px] rounded-lg bg-[#0F5C4E] px-5 py-2 text-xs font-semibold text-white hover:bg-[#0B463B] whitespace-nowrap cursor-pointer dark:bg-[#147A67]"
               >
-                إعادة عرض المفردات المتخطاة ({skippedIds.size})
+                إعادة عرض العناصر المتخطاة ({skippedIds.size + skippedExampleIds.size})
               </button>
             )}
             {categoryFilter !== 'all' && (
@@ -1332,12 +1403,14 @@ export function RapidReviewPanel({
             )}
           </div>
 
-          {/* MICRO-TASK 1: VERIFY WORDS (YES / NO / SKIP) */}
-          {microTask === 'verify_words' && (
+          {/* MICRO-TASK 1 & 1B: VERIFY WORDS OR VERIFY CONTEXTUAL EXAMPLES (YES / NO / SKIP) */}
+          {(microTask === 'verify_words' || microTask === 'verify_examples') && (
             <div className="pt-5 border-t border-[#E5DFD3] space-y-5 dark:border-[#2E2B27]">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <p className="font-display text-sm sm:text-base font-bold text-stone-900 dark:text-stone-100">
-                  هل هذه المفردة بنطقها ومعناها المعروض صحيحة ومستعملة في الدارجة؟
+                  {microTask === 'verify_examples'
+                    ? `هل الشاهد السياقي (${currentEntry.examples[0]?.id ?? 'ctx'}) سليم لغوياً ومطابق لمعنى «${currentEntry.word}»؟`
+                    : 'هل هذه المفردة بنطقها ومعناها المعروض صحيحة ومستعملة في الدارجة؟'}
                 </p>
                 <span className="hidden sm:inline text-[11px] text-stone-500 dark:text-stone-400">
                   اختصارات: 1 نعم · 2 لا وتصحيح · مسافة تخطي
@@ -1352,7 +1425,11 @@ export function RapidReviewPanel({
                   className="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-lg bg-[#0F5C4E] px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-[#0B463B] whitespace-nowrap cursor-pointer dark:bg-[#147A67] dark:hover:bg-[#0F5C4E]"
                 >
                   <Check className="h-4 w-4 shrink-0" aria-hidden="true" />
-                  <span>نعم، صحيحة</span>
+                  <span>
+                    {microTask === 'verify_examples'
+                      ? 'نعم، الشاهد سليم ودقيق'
+                      : 'نعم، صحيحة'}
+                  </span>
                 </button>
 
                 <button
@@ -1367,7 +1444,11 @@ export function RapidReviewPanel({
                   }`}
                 >
                   <X className="h-4 w-4 shrink-0" aria-hidden="true" />
-                  <span>لا، تحتاج تصحيحاً</span>
+                  <span>
+                    {microTask === 'verify_examples'
+                      ? 'لا، الشاهد يحتاج تصويباً'
+                      : 'لا، تحتاج تصحيحاً'}
+                  </span>
                 </button>
 
                 <button

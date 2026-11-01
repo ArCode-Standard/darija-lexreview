@@ -5,9 +5,11 @@ import type {
   CommunityAttestationRecord,
   DataPermission,
   EntryAttestationSummary,
+  ExampleAttestationSummary,
 } from '../types/lexicon'
 
 const LOCAL_ATTESTATIONS_KEY = 'arcode_lexreview_attestations_v1'
+const LOCAL_EXAMPLE_ATTESTATIONS_KEY = 'arcode_lexreview_example_attestations_v1'
 const SESSION_PREFS_KEY = 'arcode_lexreview_rapid_prefs_v1'
 const CALIBRATION_STATS_KEY = 'arcode_lexreview_calibration_v1'
 
@@ -69,15 +71,37 @@ const BASELINE_SUMMARIES: Record<string, EntryAttestationSummary> = {
   },
 }
 
+const BASELINE_EXAMPLE_SUMMARIES: Record<string, ExampleAttestationSummary> = {
+  'ctx-000001': {
+    exampleId: 'ctx-000001',
+    entryId: '1',
+    accurateCount: 4,
+    flaggedCount: 0,
+    regionalCount: 1,
+    weightedAccurateScore: 4.5,
+    regions: ['مشترك عام', 'الدار البيضاء والوسط'],
+  },
+  'ctx-000002': {
+    exampleId: 'ctx-000002',
+    entryId: '2',
+    accurateCount: 3,
+    flaggedCount: 0,
+    regionalCount: 1,
+    weightedAccurateScore: 3.5,
+    regions: ['مشترك عام'],
+  },
+}
+
 interface HistoryStep {
   entryId: string
+  exampleId?: string
   previousRecord: CommunityAttestationRecord | null
   wasSkipped: boolean
 }
 
-function readLocalAttestations(): Record<string, CommunityAttestationRecord> {
+function readLocalAttestations(storageKey: string): Record<string, CommunityAttestationRecord> {
   try {
-    const raw = localStorage.getItem(LOCAL_ATTESTATIONS_KEY)
+    const raw = localStorage.getItem(storageKey)
     if (!raw) return {}
     const parsed = JSON.parse(raw)
     if (parsed && typeof parsed === 'object') {
@@ -130,15 +154,27 @@ function readCalibrationStats(): CalibrationStats {
 
 export function useCommunityAttestations(userEmail: string | null, corpusVersion = '1.5.0') {
   const [localRecords, setLocalRecords] = useState<Record<string, CommunityAttestationRecord>>(
-    () => readLocalAttestations(),
+    () => readLocalAttestations(LOCAL_ATTESTATIONS_KEY),
   )
+  const [localExampleRecords, setLocalExampleRecords] = useState<
+    Record<string, CommunityAttestationRecord>
+  >(() => readLocalAttestations(LOCAL_EXAMPLE_ATTESTATIONS_KEY))
+
   const [remoteSummaries, setRemoteSummaries] = useState<
     Record<string, EntryAttestationSummary>
+  >({})
+  const [remoteExampleSummaries, setRemoteExampleSummaries] = useState<
+    Record<string, ExampleAttestationSummary>
   >({})
   const [remoteUserRecords, setRemoteUserRecords] = useState<
     Record<string, CommunityAttestationRecord>
   >({})
+  const [remoteUserExampleRecords, setRemoteUserExampleRecords] = useState<
+    Record<string, CommunityAttestationRecord>
+  >({})
+
   const [skippedIds, setSkippedIds] = useState<Set<string>>(() => new Set())
+  const [skippedExampleIds, setSkippedExampleIds] = useState<Set<string>>(() => new Set())
   const [history, setHistory] = useState<HistoryStep[]>([])
   const [sessionPrefs, setSessionPrefs] = useState<RapidSessionPrefs>(() => readSessionPrefs())
   const [calibrationStats, setCalibrationStats] = useState<CalibrationStats>(() =>
@@ -152,6 +188,14 @@ export function useCommunityAttestations(userEmail: string | null, corpusVersion
       // Ignore storage quota errors
     }
   }, [localRecords])
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(LOCAL_EXAMPLE_ATTESTATIONS_KEY, JSON.stringify(localExampleRecords))
+    } catch {
+      // Ignore storage quota errors
+    }
+  }, [localExampleRecords])
 
   useEffect(() => {
     try {
@@ -183,7 +227,6 @@ export function useCommunityAttestations(userEmail: string | null, corpusVersion
       p_corpus_version: corpusVersion,
     })
     if (rpcRes.error) {
-      // Graceful fallback if the database has the older zero-argument RPC signature
       rpcRes = await supabase.rpc('get_entry_attestation_summaries')
     }
 
@@ -213,38 +256,100 @@ export function useCommunityAttestations(userEmail: string | null, corpusVersion
       setRemoteSummaries(nextMap)
     }
 
+    // Fetch example-level summaries if migration 20261101160000 is applied
+    const exRpcRes = await supabase.rpc('get_example_attestation_summaries', {
+      p_corpus_version: corpusVersion,
+    })
+    if (!exRpcRes.error && Array.isArray(exRpcRes.data)) {
+      const nextExMap: Record<string, ExampleAttestationSummary> = {}
+      for (const row of exRpcRes.data as Array<{
+        example_id: string
+        entry_id: string
+        accurate_count: number
+        flagged_count: number
+        regional_count: number
+        weighted_accurate_score?: number | null
+        regions: string[] | null
+      }>) {
+        const acc = Number(row.accurate_count ?? 0)
+        const exId = String(row.example_id ?? '').trim()
+        if (!exId) continue
+        nextExMap[exId] = {
+          exampleId: exId,
+          entryId: String(row.entry_id ?? ''),
+          accurateCount: acc,
+          flaggedCount: Number(row.flagged_count ?? 0),
+          regionalCount: Number(row.regional_count ?? 0),
+          weightedAccurateScore:
+            row.weighted_accurate_score !== undefined && row.weighted_accurate_score !== null
+              ? Number(row.weighted_accurate_score)
+              : acc,
+          regions: Array.isArray(row.regions) ? row.regions : [],
+        }
+      }
+      setRemoteExampleSummaries(nextExMap)
+    }
+
     if (userEmail) {
       const {
         data: { user },
       } = await supabase.auth.getUser()
       if (user) {
-        const ownRes = await supabase
+        const fullOwnRes = await supabase
           .from('community_attestations')
-          .select('entry_id, verdict, dialect_region, note, updated_at')
+          .select('entry_id, example_id, verdict, dialect_region, note, updated_at')
           .eq('reviewer_id', user.id)
-        if (!ownRes.error && Array.isArray(ownRes.data)) {
-          const ownMap: Record<string, CommunityAttestationRecord> = {}
-          for (const r of ownRes.data as Array<{
-            entry_id: string
-            verdict: AttestationVerdict
-            dialect_region: string | null
-            note: string | null
-            updated_at: string
-          }>) {
-            ownMap[String(r.entry_id)] = {
+
+        type OwnAttestationRow = {
+          entry_id: string
+          example_id?: string | null
+          verdict: AttestationVerdict
+          dialect_region: string | null
+          note: string | null
+          updated_at: string
+        }
+
+        let rawOwnRows: OwnAttestationRow[] | null = null
+
+        if (!fullOwnRes.error && Array.isArray(fullOwnRes.data)) {
+          rawOwnRows = fullOwnRes.data as OwnAttestationRow[]
+        } else {
+          const fallbackOwnRes = await supabase
+            .from('community_attestations')
+            .select('entry_id, verdict, dialect_region, note, updated_at')
+            .eq('reviewer_id', user.id)
+          if (!fallbackOwnRes.error && Array.isArray(fallbackOwnRes.data)) {
+            rawOwnRows = fallbackOwnRes.data as OwnAttestationRow[]
+          }
+        }
+
+        if (rawOwnRows) {
+          const ownEntryMap: Record<string, CommunityAttestationRecord> = {}
+          const ownExMap: Record<string, CommunityAttestationRecord> = {}
+          for (const r of rawOwnRows) {
+            const exId = (r.example_id ?? '').trim()
+            const rec: CommunityAttestationRecord = {
               entry_id: String(r.entry_id),
+              example_id: exId || undefined,
               verdict: r.verdict,
               dialect_region: r.dialect_region,
               note: r.note,
               updated_at: r.updated_at,
               is_local: false,
             }
+            if (exId) {
+              ownExMap[exId] = rec
+            } else {
+              ownEntryMap[String(r.entry_id)] = rec
+            }
           }
-          setRemoteUserRecords(ownMap)
+          setRemoteUserRecords(ownEntryMap)
+          setRemoteUserExampleRecords(ownExMap)
         }
       }
     } else {
       setRemoteUserRecords({})
+      setRemoteUserExampleRecords({})
     }
   }, [userEmail, corpusVersion])
 
@@ -252,21 +357,40 @@ export function useCommunityAttestations(userEmail: string | null, corpusVersion
     refreshRemoteAttestations()
   }, [refreshRemoteAttestations])
 
-  const userVerdictsByEntryId = useMemo(() => {
-    return {
+  const userVerdictsByEntryId = useMemo(
+    () => ({
       ...localRecords,
       ...remoteUserRecords,
-    }
-  }, [localRecords, remoteUserRecords])
+    }),
+    [localRecords, remoteUserRecords],
+  )
+
+  const userVerdictsByExampleId = useMemo(
+    () => ({
+      ...localExampleRecords,
+      ...remoteUserExampleRecords,
+    }),
+    [localExampleRecords, remoteUserExampleRecords],
+  )
 
   const totalAttestationsCount = useMemo(
-    () => Object.keys(userVerdictsByEntryId).length,
-    [userVerdictsByEntryId],
+    () =>
+      Object.keys(userVerdictsByEntryId).length + Object.keys(userVerdictsByExampleId).length,
+    [userVerdictsByEntryId, userVerdictsByExampleId],
+  )
+
+  const trustMultiplier = useMemo(
+    () =>
+      calibrationStats.total >= 2
+        ? calibrationStats.passed / calibrationStats.total >= 0.8
+          ? 1.2
+          : 0.5
+        : 1.0,
+    [calibrationStats],
   )
 
   const summariesByEntryId = useMemo(() => {
     const merged: Record<string, EntryAttestationSummary> = {}
-
     const baseSource =
       Object.keys(remoteSummaries).length > 0 ? remoteSummaries : BASELINE_SUMMARIES
 
@@ -281,14 +405,6 @@ export function useCommunityAttestations(userEmail: string | null, corpusVersion
       }
     }
 
-    const trustMultiplier =
-      calibrationStats.total >= 2
-        ? calibrationStats.passed / calibrationStats.total >= 0.8
-          ? 1.2
-          : 0.5
-        : 1.0
-
-    // Layer local records that have not yet been reflected in remoteSummaries, ignoring < 800ms rushed clicks
     for (const [entryId, rec] of Object.entries(localRecords)) {
       if (remoteUserRecords[entryId]) continue
       if (typeof rec.response_ms === 'number' && rec.response_ms < 800) continue
@@ -315,14 +431,66 @@ export function useCommunityAttestations(userEmail: string | null, corpusVersion
     }
 
     return merged
-  }, [remoteSummaries, localRecords, remoteUserRecords, calibrationStats])
+  }, [remoteSummaries, localRecords, remoteUserRecords, trustMultiplier])
+
+  const summariesByExampleId = useMemo(() => {
+    const merged: Record<string, ExampleAttestationSummary> = {}
+    const baseSource =
+      Object.keys(remoteExampleSummaries).length > 0
+        ? remoteExampleSummaries
+        : BASELINE_EXAMPLE_SUMMARIES
+
+    for (const [exId, item] of Object.entries(baseSource)) {
+      merged[exId] = {
+        exampleId: exId,
+        entryId: item.entryId,
+        accurateCount: item.accurateCount,
+        flaggedCount: item.flaggedCount,
+        regionalCount: item.regionalCount,
+        weightedAccurateScore: item.weightedAccurateScore ?? item.accurateCount,
+        regions: [...item.regions],
+      }
+    }
+
+    for (const [exampleId, rec] of Object.entries(localExampleRecords)) {
+      if (remoteUserExampleRecords[exampleId]) continue
+      if (typeof rec.response_ms === 'number' && rec.response_ms < 800) continue
+      const current = merged[exampleId] ?? {
+        exampleId,
+        entryId: rec.entry_id,
+        accurateCount: 0,
+        flaggedCount: 0,
+        regionalCount: 0,
+        weightedAccurateScore: 0,
+        regions: [],
+      }
+      if (rec.verdict === 'accurate') {
+        current.accurateCount += 1
+        current.weightedAccurateScore = Number(
+          ((current.weightedAccurateScore ?? 0) + trustMultiplier).toFixed(1),
+        )
+      }
+      if (rec.verdict === 'needs_correction') current.flaggedCount += 1
+      if (rec.verdict === 'regional_variant') current.regionalCount += 1
+      if (rec.dialect_region && !current.regions.includes(rec.dialect_region)) {
+        current.regions.push(rec.dialect_region)
+      }
+      merged[exampleId] = current
+    }
+
+    return merged
+  }, [remoteExampleSummaries, localExampleRecords, remoteUserExampleRecords, trustMultiplier])
 
   const completedTodayCount = useMemo(() => {
     const todayPrefix = new Date().toISOString().slice(0, 10)
-    return Object.values(userVerdictsByEntryId).filter((r) =>
+    const entryToday = Object.values(userVerdictsByEntryId).filter((r) =>
       r.updated_at.startsWith(todayPrefix),
     ).length
-  }, [userVerdictsByEntryId])
+    const exToday = Object.values(userVerdictsByExampleId).filter((r) =>
+      r.updated_at.startsWith(todayPrefix),
+    ).length
+    return entryToday + exToday
+  }, [userVerdictsByEntryId, userVerdictsByExampleId])
 
   const updateSessionPrefs = useCallback((patch: Partial<RapidSessionPrefs>) => {
     setSessionPrefs((prev) => ({ ...prev, ...patch }))
@@ -331,28 +499,46 @@ export function useCommunityAttestations(userEmail: string | null, corpusVersion
   const recordAttestation = useCallback(
     async (params: {
       entryId: string
+      exampleId?: string | null
       verdict: AttestationVerdict
       dialectRegion?: string | null
       note?: string | null
       responseMs?: number | null
       baselineFingerprint?: string | null
     }): Promise<{ storedLive: boolean }> => {
-      const prevRec = userVerdictsByEntryId[params.entryId] ?? null
+      const cleanExId = (params.exampleId ?? '').trim()
+      const isExample = cleanExId.length > 0
+      const prevRec = isExample
+        ? userVerdictsByExampleId[cleanExId] ?? null
+        : userVerdictsByEntryId[params.entryId] ?? null
+
       setHistory((prev) => [
         ...prev.slice(-29),
         {
           entryId: params.entryId,
+          exampleId: isExample ? cleanExId : undefined,
           previousRecord: prevRec,
-          wasSkipped: skippedIds.has(params.entryId),
+          wasSkipped: isExample
+            ? skippedExampleIds.has(cleanExId)
+            : skippedIds.has(params.entryId),
         },
       ])
 
-      setSkippedIds((prev) => {
-        if (!prev.has(params.entryId)) return prev
-        const next = new Set(prev)
-        next.delete(params.entryId)
-        return next
-      })
+      if (isExample) {
+        setSkippedExampleIds((prev) => {
+          if (!prev.has(cleanExId)) return prev
+          const next = new Set(prev)
+          next.delete(cleanExId)
+          return next
+        })
+      } else {
+        setSkippedIds((prev) => {
+          if (!prev.has(params.entryId)) return prev
+          const next = new Set(prev)
+          next.delete(params.entryId)
+          return next
+        })
+      }
 
       const nowIso = new Date().toISOString()
       const regionVal = params.dialectRegion?.trim() || sessionPrefs.dialectRegion || null
@@ -362,7 +548,6 @@ export function useCommunityAttestations(userEmail: string | null, corpusVersion
           ? Math.min(600000, Math.max(0, Math.round(params.responseMs)))
           : null
 
-      // Try live upsert if authenticated + Supabase configured (with fallback if migration columns not applied yet)
       if (supabase && userEmail) {
         const {
           data: { user },
@@ -371,6 +556,7 @@ export function useCommunityAttestations(userEmail: string | null, corpusVersion
           let upsertRes = await supabase.from('community_attestations').upsert(
             {
               entry_id: params.entryId,
+              example_id: cleanExId,
               reviewer_id: user.id,
               verdict: params.verdict,
               dialect_region: regionVal,
@@ -379,10 +565,11 @@ export function useCommunityAttestations(userEmail: string | null, corpusVersion
               baseline_fingerprint: params.baselineFingerprint ?? null,
               response_ms: clampedMs,
             },
-            { onConflict: 'entry_id,reviewer_id' },
+            { onConflict: 'entry_id,example_id,reviewer_id' },
           )
 
-          if (upsertRes.error) {
+          // Graceful backwards compatibility if DB has not applied example_id column yet (only for headwords)
+          if (upsertRes.error && !isExample) {
             upsertRes = await supabase.from('community_attestations').upsert(
               {
                 entry_id: params.entryId,
@@ -396,44 +583,51 @@ export function useCommunityAttestations(userEmail: string | null, corpusVersion
           }
 
           if (!upsertRes.error) {
-            setRemoteUserRecords((prev) => ({
-              ...prev,
-              [params.entryId]: {
-                entry_id: params.entryId,
-                verdict: params.verdict,
-                dialect_region: regionVal,
-                note: noteVal,
-                updated_at: nowIso,
-                corpus_version: corpusVersion,
-                response_ms: clampedMs,
-                is_local: false,
-              },
-            }))
+            const newRec: CommunityAttestationRecord = {
+              entry_id: params.entryId,
+              example_id: isExample ? cleanExId : undefined,
+              verdict: params.verdict,
+              dialect_region: regionVal,
+              note: noteVal,
+              updated_at: nowIso,
+              corpus_version: corpusVersion,
+              response_ms: clampedMs,
+              is_local: false,
+            }
+            if (isExample) {
+              setRemoteUserExampleRecords((prev) => ({ ...prev, [cleanExId]: newRec }))
+            } else {
+              setRemoteUserRecords((prev) => ({ ...prev, [params.entryId]: newRec }))
+            }
             refreshRemoteAttestations()
             return { storedLive: true }
           }
         }
       }
 
-      // Fallback to local attestation record
-      setLocalRecords((prev) => ({
-        ...prev,
-        [params.entryId]: {
-          entry_id: params.entryId,
-          verdict: params.verdict,
-          dialect_region: regionVal,
-          note: noteVal,
-          updated_at: nowIso,
-          corpus_version: corpusVersion,
-          response_ms: clampedMs,
-          is_local: true,
-        },
-      }))
+      const localRec: CommunityAttestationRecord = {
+        entry_id: params.entryId,
+        example_id: isExample ? cleanExId : undefined,
+        verdict: params.verdict,
+        dialect_region: regionVal,
+        note: noteVal,
+        updated_at: nowIso,
+        corpus_version: corpusVersion,
+        response_ms: clampedMs,
+        is_local: true,
+      }
+      if (isExample) {
+        setLocalExampleRecords((prev) => ({ ...prev, [cleanExId]: localRec }))
+      } else {
+        setLocalRecords((prev) => ({ ...prev, [params.entryId]: localRec }))
+      }
       return { storedLive: false }
     },
     [
       userVerdictsByEntryId,
+      userVerdictsByExampleId,
       skippedIds,
+      skippedExampleIds,
       sessionPrefs.dialectRegion,
       userEmail,
       corpusVersion,
@@ -442,7 +636,26 @@ export function useCommunityAttestations(userEmail: string | null, corpusVersion
   )
 
   const skipEntry = useCallback(
-    (entryId: string) => {
+    (entryId: string, exampleId?: string) => {
+      const cleanEx = (exampleId ?? '').trim()
+      if (cleanEx) {
+        setHistory((prev) => [
+          ...prev.slice(-29),
+          {
+            entryId,
+            exampleId: cleanEx,
+            previousRecord: userVerdictsByExampleId[cleanEx] ?? null,
+            wasSkipped: skippedExampleIds.has(cleanEx),
+          },
+        ])
+        setSkippedExampleIds((prev) => {
+          const next = new Set(prev)
+          next.add(cleanEx)
+          return next
+        })
+        return
+      }
+
       setHistory((prev) => [
         ...prev.slice(-29),
         {
@@ -457,13 +670,54 @@ export function useCommunityAttestations(userEmail: string | null, corpusVersion
         return next
       })
     },
-    [userVerdictsByEntryId, skippedIds],
+    [userVerdictsByEntryId, userVerdictsByExampleId, skippedIds, skippedExampleIds],
   )
 
   const undoLastStep = useCallback(async (): Promise<string | null> => {
     if (history.length === 0) return null
     const last = history[history.length - 1]
     setHistory((prev) => prev.slice(0, -1))
+    const isExample = Boolean(last.exampleId)
+
+    if (isExample && last.exampleId) {
+      const exId = last.exampleId
+      setSkippedExampleIds((prev) => {
+        const next = new Set(prev)
+        if (last.wasSkipped) next.add(exId)
+        else next.delete(exId)
+        return next
+      })
+
+      if (last.previousRecord) {
+        setLocalExampleRecords((prev) => ({ ...prev, [exId]: last.previousRecord! }))
+      } else {
+        setLocalExampleRecords((prev) => {
+          const copy = { ...prev }
+          delete copy[exId]
+          return copy
+        })
+        if (supabase && userEmail) {
+          const {
+            data: { user },
+          } = await supabase.auth.getUser()
+          if (user) {
+            await supabase
+              .from('community_attestations')
+              .delete()
+              .eq('entry_id', last.entryId)
+              .eq('example_id', exId)
+              .eq('reviewer_id', user.id)
+            setRemoteUserExampleRecords((prev) => {
+              const copy = { ...prev }
+              delete copy[exId]
+              return copy
+            })
+            refreshRemoteAttestations()
+          }
+        }
+      }
+      return last.entryId
+    }
 
     setSkippedIds((prev) => {
       const next = new Set(prev)
@@ -492,6 +746,7 @@ export function useCommunityAttestations(userEmail: string | null, corpusVersion
             .from('community_attestations')
             .delete()
             .eq('entry_id', last.entryId)
+            .eq('example_id', '')
             .eq('reviewer_id', user.id)
           setRemoteUserRecords((prev) => {
             const copy = { ...prev }
@@ -508,12 +763,16 @@ export function useCommunityAttestations(userEmail: string | null, corpusVersion
 
   const resetSessionSkips = useCallback(() => {
     setSkippedIds(new Set())
+    setSkippedExampleIds(new Set())
   }, [])
 
   return {
     userVerdictsByEntryId,
+    userVerdictsByExampleId,
     summariesByEntryId,
+    summariesByExampleId,
     skippedIds,
+    skippedExampleIds,
     canUndo: history.length > 0,
     completedTodayCount,
     totalAttestationsCount,

@@ -19,11 +19,15 @@ import {
   X,
   Volume2,
   AlertTriangle,
+  Link2,
 } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import type {
+  AttestationVerdict,
+  CommunityAttestationRecord,
   DataPermission,
   EvidenceItem,
+  ExampleAttestationSummary,
   LexicalEntry,
   LocalDraft,
   ProposedFields,
@@ -39,6 +43,7 @@ import { suggestMoroccanArabizi } from '../../utils/arabiziTransliterator'
 import { computeEntryFingerprint } from '../../utils/corpusPinning'
 import { analyzeDarijaPhoneticsAndHomographs } from '../../utils/phoneticGuide'
 import { humanizeSystemError } from '../../utils/humanizeError'
+import { buildEntryShareUrl } from '../../utils/urlState'
 
 interface EntryDetailSheetProps {
   entry: LexicalEntry
@@ -49,6 +54,14 @@ interface EntryDetailSheetProps {
   totalFiltered: number
   existingDraft?: LocalDraft
   revisionTarget?: SubmissionRecord | null
+  userVerdictsByExampleId?: Record<string, CommunityAttestationRecord>
+  summariesByExampleId?: Record<string, ExampleAttestationSummary>
+  onRecordExampleAttestation?: (params: {
+    entryId: string
+    exampleId: string
+    verdict: AttestationVerdict
+    note?: string | null
+  }) => Promise<{ storedLive: boolean }>
   onClearRevisionTarget?: () => void
   onPrev: () => void
   onNext: () => void
@@ -155,6 +168,9 @@ export function EntryDetailSheet({
   totalFiltered,
   existingDraft,
   revisionTarget,
+  userVerdictsByExampleId,
+  summariesByExampleId,
+  onRecordExampleAttestation,
   onClearRevisionTarget,
   onPrev,
   onNext,
@@ -176,6 +192,7 @@ export function EntryDetailSheet({
   const [reviewerNote, setReviewerNote] = useState('')
   const [showProvenance, setShowProvenance] = useState(false)
   const [copied, setCopied] = useState(false)
+  const [copiedLink, setCopiedLink] = useState(false)
   const [busy, setBusy] = useState(false)
   const [feedback, setFeedback] = useState<{
     type: 'error' | 'success' | 'info'
@@ -251,6 +268,14 @@ export function EntryDetailSheet({
     navigator.clipboard?.writeText(refText).then(() => {
       setCopied(true)
       setTimeout(() => setCopied(false), 1800)
+    })
+  }
+
+  function handleCopyShareLink() {
+    const shareUrl = buildEntryShareUrl(entry.id)
+    navigator.clipboard?.writeText(shareUrl).then(() => {
+      setCopiedLink(true)
+      setTimeout(() => setCopiedLink(false), 1800)
     })
   }
 
@@ -504,7 +529,25 @@ export function EntryDetailSheet({
           <span>الحالة: {formatStatusLabel(entry.status)}</span>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={handleCopyShareLink}
+            className="inline-flex min-h-[34px] items-center gap-1.5 rounded-lg border border-[#D6CEBE] bg-[#FBF9F5] px-2.5 py-1 text-xs font-medium text-stone-700 hover:bg-[#EFECE4] transition-colors whitespace-nowrap shrink-0 cursor-pointer dark:border-[#3A3530] dark:bg-[#141312] dark:text-stone-300 dark:hover:bg-[#262320]"
+          >
+            {copiedLink ? (
+              <>
+                <Check className="h-3.5 w-3.5 text-emerald-700 dark:text-emerald-400" />
+                <span>تم نسخ الرابط</span>
+              </>
+            ) : (
+              <>
+                <Link2 className="h-3.5 w-3.5" />
+                <span>نسخ رابط المفردة</span>
+              </>
+            )}
+          </button>
+
           <button
             type="button"
             onClick={handleCopyReference}
@@ -674,29 +717,117 @@ export function EntryDetailSheet({
 
         {entry.examples.length > 0 ? (
           <div className="mt-4 divide-y divide-[#E5DFD3] dark:divide-[#2E2B27]">
-            {entry.examples.map((ex) => (
-              <div key={ex.id} className="py-3.5 first:pt-0 last:pb-0">
-                <p className="text-sm font-semibold leading-relaxed text-stone-900 dark:text-stone-100">
-                  «{ex.darijaAr}»
-                </p>
-                {ex.darijaLatin && (
-                  <p dir="ltr" className="mt-1 font-mono text-xs text-stone-500 text-end sm:text-start dark:text-stone-400">
-                    {ex.darijaLatin}
-                  </p>
-                )}
-                <div className="mt-1.5 flex flex-wrap items-center gap-2 text-xs text-stone-600 dark:text-stone-400">
-                  {ex.meaningAr && <span>الفصحى: {ex.meaningAr}</span>}
-                  {ex.meaningFr && (
-                    <>
-                      <span aria-hidden="true">·</span>
-                      <span dir="ltr">{ex.meaningFr}</span>
-                    </>
-                  )}
-                  <span aria-hidden="true">·</span>
-                  <span>{formatRegisterLabel(ex.register)}</span>
+            {entry.examples.map((ex) => {
+              const exVerdict = userVerdictsByExampleId?.[ex.id]?.verdict
+              const exSummary = summariesByExampleId?.[ex.id]
+
+              return (
+                <div key={ex.id} className="py-3.5 first:pt-0 last:pb-0 space-y-2">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div className="space-y-1 flex-1 min-w-[220px]">
+                      <div className="flex flex-wrap items-center gap-2 text-[11px] text-stone-500 dark:text-stone-400">
+                        <span className="font-mono tabular-nums text-stone-700 dark:text-stone-300">
+                          {ex.id}
+                        </span>
+                        <span aria-hidden="true">·</span>
+                        <span>{formatRegisterLabel(ex.register)}</span>
+                        {exSummary &&
+                          (exSummary.accurateCount > 0 || exSummary.flaggedCount > 0) && (
+                            <>
+                              <span aria-hidden="true">·</span>
+                              <span className="font-mono tabular-nums text-[#0F5C4E] dark:text-[#4FD1C5]">
+                                {exSummary.accurateCount} تأكيد للشاهد
+                                {exSummary.flaggedCount > 0
+                                  ? ` / ${exSummary.flaggedCount} ملاحظة`
+                                  : ''}
+                              </span>
+                            </>
+                          )}
+                      </div>
+
+                      <p className="text-sm font-semibold leading-relaxed text-stone-900 dark:text-stone-100">
+                        «{ex.darijaAr}»
+                      </p>
+                      {ex.darijaLatin && (
+                        <p
+                          dir="ltr"
+                          className="font-mono text-xs text-stone-500 text-end sm:text-start dark:text-stone-400"
+                        >
+                          {ex.darijaLatin}
+                        </p>
+                      )}
+                      <div className="flex flex-wrap items-center gap-2 text-xs text-stone-600 dark:text-stone-400">
+                        {ex.meaningAr && <span>الفصحى: {ex.meaningAr}</span>}
+                        {ex.meaningFr && (
+                          <>
+                            {ex.meaningAr && <span aria-hidden="true">·</span>}
+                            <span dir="ltr">{ex.meaningFr}</span>
+                          </>
+                        )}
+                      </div>
+                    </div>
+
+                    {onRecordExampleAttestation && (
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            onRecordExampleAttestation({
+                              entryId: entry.id,
+                              exampleId: ex.id,
+                              verdict: 'accurate',
+                            })
+                          }
+                          className={`inline-flex min-h-[32px] items-center gap-1 rounded-md border px-2.5 py-1 text-[11px] font-semibold transition-colors whitespace-nowrap cursor-pointer ${
+                            exVerdict === 'accurate'
+                              ? 'border-[#0F5C4E] bg-[#0F5C4E] text-white dark:border-[#4FD1C5] dark:bg-[#147A67]'
+                              : 'border-[#D6CEBE] bg-[#FBF9F5] text-stone-700 hover:bg-[#EFECE4] dark:border-[#3A3530] dark:bg-[#141312] dark:text-stone-300'
+                          }`}
+                        >
+                          <Check className="h-3 w-3" aria-hidden="true" />
+                          <span>شاهد سليم</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            onRecordExampleAttestation({
+                              entryId: entry.id,
+                              exampleId: ex.id,
+                              verdict: 'needs_correction',
+                              note: `ملاحظة تدقيق على الشاهد ${ex.id}`,
+                            })
+                            setForm((prev) => ({
+                              ...prev,
+                              example_darija: prev.example_darija || ex.darijaAr,
+                              example_arabizi: prev.example_arabizi || ex.darijaLatin,
+                              example_translation: prev.example_translation || ex.meaningAr,
+                              example_french: prev.example_french || ex.meaningFr,
+                            }))
+                            setReviewerNote(
+                              (prev) =>
+                                prev || `تصويب مقترح للشاهد المرتبط (${ex.id}): `,
+                            )
+                            const inputEl = document.getElementById('detail-field-example_darija')
+                            if (inputEl) {
+                              inputEl.scrollIntoView({ behavior: 'smooth', block: 'center' })
+                              inputEl.focus()
+                            }
+                          }}
+                          className={`inline-flex min-h-[32px] items-center gap-1 rounded-md border px-2.5 py-1 text-[11px] font-semibold transition-colors whitespace-nowrap cursor-pointer ${
+                            exVerdict === 'needs_correction'
+                              ? 'border-amber-600 bg-amber-50 text-amber-950 dark:border-amber-500 dark:bg-amber-950/40 dark:text-amber-200'
+                              : 'border-[#D6CEBE] bg-[#FBF9F5] text-stone-700 hover:bg-[#EFECE4] dark:border-[#3A3530] dark:bg-[#141312] dark:text-stone-300'
+                          }`}
+                        >
+                          <X className="h-3 w-3" aria-hidden="true" />
+                          <span>تصويب الشاهد</span>
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
         ) : (
           <p className="mt-3 text-xs leading-relaxed text-stone-600 dark:text-stone-400">

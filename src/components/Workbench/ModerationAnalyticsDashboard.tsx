@@ -156,7 +156,11 @@ export function ModerationAnalyticsDashboard({
         timelineMap.set(cKey, cur)
       }
 
-      if (sub.status !== 'pending') {
+      if (
+        sub.status !== 'pending' &&
+        sub.status !== 'withdrawn' &&
+        sub.status !== 'superseded'
+      ) {
         const createdMs = new Date(sub.created_at).getTime()
         const updatedMs = new Date(sub.updated_at).getTime()
         let deltaHours: number | null = null

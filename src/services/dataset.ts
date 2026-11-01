@@ -369,6 +369,33 @@ export async function fetchOfficialCorpus(): Promise<LoadedCorpus> {
   }
 }
 
+export async function loadCorpusWithOfflineFallback(): Promise<{
+  corpus: LoadedCorpus
+  mode: 'live' | 'cached'
+  cachedAt: string
+}> {
+  const { loadCorpusSnapshot, saveCorpusSnapshot } = await import('./corpusCache')
+  try {
+    const liveCorpus = await fetchOfficialCorpus()
+    const cachedAt = await saveCorpusSnapshot(liveCorpus)
+    return {
+      corpus: liveCorpus,
+      mode: 'live',
+      cachedAt,
+    }
+  } catch (liveErr) {
+    const cached = await loadCorpusSnapshot()
+    if (cached && cached.corpus.entries.length > 0) {
+      return {
+        corpus: cached.corpus,
+        mode: 'cached',
+        cachedAt: cached.cachedAt,
+      }
+    }
+    throw liveErr
+  }
+}
+
 export function formatStatusLabel(status: string): string {
   switch (status.toLowerCase()) {
     case 'merged':
@@ -386,6 +413,10 @@ export function formatStatusLabel(status: string): string {
     case 'needs_changes':
     case 'needs_correction':
       return 'يحتاج تعديلاً'
+    case 'withdrawn':
+      return 'مسحوب من المساهم'
+    case 'superseded':
+      return 'مُستبدل بنسخة منقحة'
     default:
       return status
   }

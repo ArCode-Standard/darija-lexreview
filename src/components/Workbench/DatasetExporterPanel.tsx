@@ -10,11 +10,13 @@ import {
   ShieldCheck,
   FilterX,
   Archive,
+  ExternalLink,
 } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import type {
   LexicalEntry,
   RawOfficialCorpus,
+  ReleaseManifestRecord,
   ReviewerProfile,
   SubmissionRecord,
 } from '../../types/lexicon'
@@ -32,6 +34,7 @@ import { formatAccessionCode } from '../../services/dataset'
 import { humanizeSystemError } from '../../utils/humanizeError'
 
 const RELEASE_LEDGER_STORAGE_KEY = 'arcode_exported_release_ledger_v1'
+const LOCAL_RELEASE_MANIFESTS_KEY = 'arcode_release_manifests_v1'
 
 function loadReleaseLedger(): Record<string, string> {
   try {
@@ -41,6 +44,17 @@ function loadReleaseLedger(): Record<string, string> {
     return parsed && typeof parsed === 'object' ? (parsed as Record<string, string>) : {}
   } catch {
     return {}
+  }
+}
+
+function loadLocalReleaseManifests(): ReleaseManifestRecord[] {
+  try {
+    const raw = localStorage.getItem(LOCAL_RELEASE_MANIFESTS_KEY)
+    if (!raw) return []
+    const parsed = JSON.parse(raw)
+    return Array.isArray(parsed) ? (parsed as ReleaseManifestRecord[]) : []
+  } catch {
+    return []
   }
 }
 
@@ -77,6 +91,13 @@ export function DatasetExporterPanel({
   const [archivedReleaseMap, setArchivedReleaseMap] = useState<Record<string, string>>(
     loadReleaseLedger,
   )
+  const [localManifests, setLocalManifests] = useState<ReleaseManifestRecord[]>(
+    loadLocalReleaseManifests,
+  )
+  const [liveManifests, setLiveManifests] = useState<ReleaseManifestRecord[]>([])
+  const [githubPrUrl, setGithubPrUrl] = useState('')
+  const [releaseNotes, setReleaseNotes] = useState('')
+  const [copiedChecksumKey, setCopiedChecksumKey] = useState<string | null>(null)
   const [archivingRelease, setArchivingRelease] = useState(false)
   const [hasDownloadedCurrentBatch, setHasDownloadedCurrentBatch] = useState(false)
   const [archiveFeedback, setArchiveFeedback] = useState<{
@@ -102,6 +123,18 @@ export function DatasetExporterPanel({
     setTargetVersion(bumpPatchVersion(String(rawCorpus.lexiconMeta.version ?? '1.5.0')))
   }, [rawCorpus.lexiconMeta.version])
 
+  const fetchLiveReleaseManifests = useCallback(async () => {
+    if (!supabase) return
+    const { data, error } = await supabase
+      .from('release_manifests')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(25)
+    if (!error && Array.isArray(data)) {
+      setLiveManifests(data as ReleaseManifestRecord[])
+    }
+  }, [])
+
   const fetchLiveAccepted = useCallback(async () => {
     if (!supabase || !userEmail) {
       setLiveAccepted([])
@@ -116,13 +149,15 @@ export function DatasetExporterPanel({
 
     setLoadingLive(false)
     setLiveAccepted((data ?? []) as SubmissionRecord[])
-  }, [userEmail])
+    fetchLiveReleaseManifests()
+  }, [userEmail, fetchLiveReleaseManifests])
 
   useEffect(() => {
+    fetchLiveReleaseManifests()
     if (exportSource === 'live') {
       fetchLiveAccepted()
     }
-  }, [exportSource, fetchLiveAccepted])
+  }, [exportSource, fetchLiveAccepted, fetchLiveReleaseManifests])
 
   const candidateAccepted = useMemo(() => {
     const sourceList =
@@ -250,10 +285,64 @@ export function DatasetExporterPanel({
     })
   }
 
+  function persistLocalManifest(record: ReleaseManifestRecord) {
+    setLocalManifests((prev) => {
+      const filtered = prev.filter((m) => m.version !== record.version)
+      const next = [record, ...filtered].slice(0, 30)
+      try {
+        localStorage.setItem(LOCAL_RELEASE_MANIFESTS_KEY, JSON.stringify(next))
+      } catch {
+        // Ignore storage quota errors
+      }
+      return next
+    })
+  }
+
+  function handleCopyChecksum(key: string, value: string) {
+    navigator.clipboard?.writeText(value).then(() => {
+      setCopiedChecksumKey(key)
+      setTimeout(() => setCopiedChecksumKey(null), 1800)
+    })
+  }
+
   async function handleArchiveExportedBatch() {
     const appliedIds = bundle.patchSummary.applied_submission_ids
     const cleanVersion = targetVersion.trim() || 'next'
     if (appliedIds.length === 0 || !canDownload) return
+
+    const cleanPrUrl = githubPrUrl.trim() || null
+    if (cleanPrUrl && !/^https:\/\/github\.com\/[^\s]+$/i.test(cleanPrUrl)) {
+      setArchiveFeedback({
+        type: 'error',
+        text: 'يرجى إدخال رابط طلب دمج GitHub صالح يبدأ بـ https://github.com/ أو ترك الحقل فارغاً.',
+      })
+      return
+    }
+
+    const cleanNotes = releaseNotes.trim() || null
+    const editorName =
+      profile?.display_name?.trim() ||
+      userEmail ||
+      (exportSource === 'sandbox' ? 'المحرر الحالي (جلسة محاكاة)' : 'محرر معتمد')
+
+    const manifestDraft: ReleaseManifestRecord = {
+      id: `rel-${cleanVersion}-${Date.now()}`,
+      version: cleanVersion,
+      lexicon_sha256: bundle.checksums.lexiconSha256,
+      examples_sha256: bundle.checksums.examplesSha256,
+      total_entries: bundle.lexiconJson.entries.length,
+      total_examples: bundle.examplesJson.examples.length,
+      modified_entries_count: bundle.stats.modifiedEntriesCount,
+      added_entries_count: bundle.stats.addedEntriesCount,
+      added_examples_count: bundle.stats.addedExamplesCount,
+      submission_ids: appliedIds,
+      github_pr_url: cleanPrUrl,
+      notes: cleanNotes,
+      exported_by: profile?.id ?? null,
+      exported_by_name: editorName,
+      created_at: new Date().toISOString(),
+      is_sandbox: exportSource === 'sandbox',
+    }
 
     setArchiveFeedback(null)
 
@@ -262,14 +351,16 @@ export function DatasetExporterPanel({
         ids: appliedIds,
         releaseVersion: cleanVersion,
         editorId: profile?.id ?? 'ed-session',
-        editorDisplayName:
-          profile?.display_name?.trim() || userEmail || 'المحرر الحالي (جلسة محاكاة)',
+        editorDisplayName: editorName,
       })
       persistArchivedIds(appliedIds, cleanVersion)
+      persistLocalManifest(manifestDraft)
+      setGithubPrUrl('')
+      setReleaseNotes('')
       setHasDownloadedCurrentBatch(false)
       setArchiveFeedback({
         type: 'success',
-        text: `تم تثبيت وأرشفة ${appliedIds.length} مقترحات بحالة «مدمج في الإصدار v${cleanVersion}»، واستُبعدت من دفعات التصدير القادمة لمنع التكرار.`,
+        text: `تم تثبيت وأرشفة ${appliedIds.length} مقترحات بحالة «مدمج في الإصدار v${cleanVersion}» وتسجيل بصمة SHA-256 في سجل الإصدارات.`,
       })
       return
     }
@@ -283,41 +374,61 @@ export function DatasetExporterPanel({
     }
 
     setArchivingRelease(true)
-    const { error: rpcError } = await supabase.rpc('mark_submissions_exported', {
+
+    const { error: manifestRpcError } = await supabase.rpc('record_release_manifest', {
+      p_version: cleanVersion,
+      p_lexicon_sha256: bundle.checksums.lexiconSha256,
+      p_examples_sha256: bundle.checksums.examplesSha256,
+      p_total_entries: bundle.lexiconJson.entries.length,
+      p_total_examples: bundle.examplesJson.examples.length,
+      p_modified_entries_count: bundle.stats.modifiedEntriesCount,
+      p_added_entries_count: bundle.stats.addedEntriesCount,
+      p_added_examples_count: bundle.stats.addedExamplesCount,
       p_submission_ids: appliedIds,
-      p_release_version: cleanVersion,
+      p_github_pr_url: cleanPrUrl,
+      p_notes: cleanNotes,
     })
 
-    if (rpcError) {
-      const { error: fallbackErr } = await supabase
-        .from('review_submissions')
-        .update({
-          status: 'merged',
-          exported_in_version: cleanVersion,
-          exported_at: new Date().toISOString(),
-        })
-        .in('id', appliedIds)
+    if (manifestRpcError) {
+      const { error: rpcError } = await supabase.rpc('mark_submissions_exported', {
+        p_submission_ids: appliedIds,
+        p_release_version: cleanVersion,
+      })
 
-      if (fallbackErr) {
-        // Persist in local release ledger so duplicate re-export is still prevented immediately
-        persistArchivedIds(appliedIds, cleanVersion)
-        setArchivingRelease(false)
-        setHasDownloadedCurrentBatch(false)
-        setArchiveFeedback({
-          type: 'success',
-          text: `تمت أرشفة الدفعة (${appliedIds.length} مقترحات) للإصدار v${cleanVersion} واستبعادها من قوائم التصدير التالية (${humanizeSystemError(fallbackErr, 'حُفظت الأرشفة محلياً')}).`,
-        })
-        return
+      if (rpcError) {
+        const { error: fallbackErr } = await supabase
+          .from('review_submissions')
+          .update({
+            status: 'merged',
+            exported_in_version: cleanVersion,
+            exported_at: new Date().toISOString(),
+          })
+          .in('id', appliedIds)
+
+        if (fallbackErr) {
+          persistArchivedIds(appliedIds, cleanVersion)
+          persistLocalManifest({ ...manifestDraft, is_sandbox: false })
+          setArchivingRelease(false)
+          setHasDownloadedCurrentBatch(false)
+          setArchiveFeedback({
+            type: 'success',
+            text: `تمت أرشفة الدفعة (${appliedIds.length} مقترحات) للإصدار v${cleanVersion} وتسجيل بصمة SHA-256 محلياً (${humanizeSystemError(fallbackErr, 'حُفظت الأرشفة محلياً')}).`,
+          })
+          return
+        }
       }
+      persistLocalManifest({ ...manifestDraft, is_sandbox: false })
     }
 
     persistArchivedIds(appliedIds, cleanVersion)
+    setGithubPrUrl('')
+    setReleaseNotes('')
     setArchivingRelease(false)
     setHasDownloadedCurrentBatch(false)
     await fetchLiveAccepted()
     setArchiveFeedback({
       type: 'success',
-      text: `تم تثبيت وأرشفة ${appliedIds.length} مقترحات رسمياً بحالة «مدمج في الإصدار v${cleanVersion}».`,
+      text: `تم تثبيت وأرشفة ${appliedIds.length} مقترحات رسمياً في الإصدار v${cleanVersion} وتوثيق بصمات SHA-256 في سجل الإصدارات.`,
     })
   }
 
@@ -327,6 +438,22 @@ export function DatasetExporterPanel({
       setTimeout(() => setCopiedPr(false), 2000)
     })
   }
+
+  const displayedManifests = useMemo(() => {
+    if (exportSource === 'sandbox') {
+      return localManifests
+    }
+    const byVersion = new Map<string, ReleaseManifestRecord>()
+    for (const m of liveManifests) byVersion.set(m.version, m)
+    for (const m of localManifests) {
+      if (!m.is_sandbox && !byVersion.has(m.version)) {
+        byVersion.set(m.version, m)
+      }
+    }
+    return Array.from(byVersion.values()).sort(
+      (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+    )
+  }, [exportSource, liveManifests, localManifests])
 
   return (
     <div className="space-y-6">
@@ -559,8 +686,106 @@ export function DatasetExporterPanel({
           )}
         </div>
 
-        {/* Download & Release Archival Actions */}
-        <div className="mt-6 pt-5 border-t border-[#E5DFD3] space-y-4 dark:border-[#2E2B27]">
+        {/* Deterministic SHA-256 Checksums + Download & Release Archival Actions */}
+        <div className="mt-6 pt-5 border-t border-[#E5DFD3] space-y-5 dark:border-[#2E2B27]">
+          {/* Deterministic SHA-256 Digest Strip */}
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div className="flex items-center justify-between gap-3 rounded-lg border border-[#E5DFD3] bg-[#FBF9F5] px-3.5 py-2.5 dark:border-[#2E2B27] dark:bg-[#141312]">
+              <div className="min-w-0">
+                <p className="text-[11px] text-stone-500 dark:text-stone-400">
+                  بصمة SHA-256 لملف <code className="font-mono">moroccan-darija.json</code>
+                </p>
+                <p
+                  dir="ltr"
+                  className="mt-0.5 truncate font-mono text-xs tabular-nums text-stone-900 dark:text-stone-100"
+                  title={bundle.checksums.lexiconSha256}
+                >
+                  {bundle.checksums.lexiconSha256}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => handleCopyChecksum('lexicon', bundle.checksums.lexiconSha256)}
+                className="inline-flex min-h-[32px] items-center gap-1 rounded-md border border-[#D6CEBE] bg-white px-2.5 py-1 text-[11px] font-medium text-stone-700 hover:bg-[#EFECE4] whitespace-nowrap shrink-0 cursor-pointer dark:border-[#3A3530] dark:bg-[#1C1A18] dark:text-stone-300"
+              >
+                {copiedChecksumKey === 'lexicon' ? (
+                  <>
+                    <Check className="h-3 w-3 text-emerald-700" />
+                    <span>نُسخ</span>
+                  </>
+                ) : (
+                  <>
+                    <Copy className="h-3 w-3" />
+                    <span>نسخ</span>
+                  </>
+                )}
+              </button>
+            </div>
+
+            <div className="flex items-center justify-between gap-3 rounded-lg border border-[#E5DFD3] bg-[#FBF9F5] px-3.5 py-2.5 dark:border-[#2E2B27] dark:bg-[#141312]">
+              <div className="min-w-0">
+                <p className="text-[11px] text-stone-500 dark:text-stone-400">
+                  بصمة SHA-256 لملف <code className="font-mono">context-examples.json</code>
+                </p>
+                <p
+                  dir="ltr"
+                  className="mt-0.5 truncate font-mono text-xs tabular-nums text-stone-900 dark:text-stone-100"
+                  title={bundle.checksums.examplesSha256}
+                >
+                  {bundle.checksums.examplesSha256}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => handleCopyChecksum('examples', bundle.checksums.examplesSha256)}
+                className="inline-flex min-h-[32px] items-center gap-1 rounded-md border border-[#D6CEBE] bg-white px-2.5 py-1 text-[11px] font-medium text-stone-700 hover:bg-[#EFECE4] whitespace-nowrap shrink-0 cursor-pointer dark:border-[#3A3530] dark:bg-[#1C1A18] dark:text-stone-300"
+              >
+                {copiedChecksumKey === 'examples' ? (
+                  <>
+                    <Check className="h-3 w-3 text-emerald-700" />
+                    <span>نُسخ</span>
+                  </>
+                ) : (
+                  <>
+                    <Copy className="h-3 w-3" />
+                    <span>نسخ</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+
+          {canDownload && (
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <label className="block space-y-1">
+                <span className="text-xs font-medium text-stone-600 dark:text-stone-400">
+                  رابط طلب الدمج في GitHub لتوثيقه في سجل الإصدارات (اختياري)
+                </span>
+                <input
+                  type="url"
+                  dir="ltr"
+                  value={githubPrUrl}
+                  onChange={(e) => setGithubPrUrl(e.target.value)}
+                  placeholder="https://github.com/ArCode-Standard/moroccan-darija-lexicon/pull/..."
+                  className="w-full min-h-[38px] rounded-lg border border-[#D6CEBE] bg-[#FBF9F5] px-3 py-1.5 font-mono text-xs text-left text-stone-900 focus:border-[#0F5C4E] focus:bg-white focus:outline-none dark:border-[#3A3530] dark:bg-[#141312] dark:text-stone-100"
+                />
+              </label>
+
+              <label className="block space-y-1">
+                <span className="text-xs font-medium text-stone-600 dark:text-stone-400">
+                  مذكرة توثيقية لهذا الإصدار (اختياري)
+                </span>
+                <input
+                  type="text"
+                  value={releaseNotes}
+                  onChange={(e) => setReleaseNotes(e.target.value)}
+                  placeholder="مثال: دفعة تصحيحات الدار البيضاء والشمال..."
+                  className="w-full min-h-[38px] rounded-lg border border-[#D6CEBE] bg-[#FBF9F5] px-3 py-1.5 text-xs text-stone-900 focus:border-[#0F5C4E] focus:bg-white focus:outline-none dark:border-[#3A3530] dark:bg-[#141312] dark:text-stone-100"
+                />
+              </label>
+            </div>
+          )}
+
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex flex-wrap items-center gap-3">
               <button
@@ -622,7 +847,7 @@ export function DatasetExporterPanel({
 
           <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-stone-500 dark:text-stone-400">
             <span>
-              بعد تنزيل ملفات الإصدار ورفع طلب الدمج في GitHub، استخدم «تثبيت وأرشفة الدفعة كمدمجة» لتحويل حالتها إلى «مدمج» ومنع تكرار تصديرها في الإصدارات اللاحقة.
+              بعد تنزيل ملفات الإصدار ورفع طلب الدمج في GitHub، استخدم «تثبيت وأرشفة الدفعة كمدمجة» لتوثيق بصمة SHA-256 في سجل الإصدارات ومنع تكرار تصديرها.
             </span>
             {(Object.keys(archivedReleaseMap).length > 0 || mergedSandboxCount > 0) && (
               <span className="font-mono tabular-nums text-[#0F5C4E] dark:text-[#4FD1C5]">
@@ -770,6 +995,109 @@ export function DatasetExporterPanel({
           </div>
         </div>
       )}
+
+      {/* Official Release Manifests Ledger (SHA-256 Reproducibility History) */}
+      <div className="rounded-xl border border-[#E5DFD3] bg-white p-5 sm:p-6 dark:border-[#2E2B27] dark:bg-[#1C1A18]">
+        <div className="flex flex-wrap items-center justify-between gap-2 pb-4 border-b border-[#E5DFD3] dark:border-[#2E2B27]">
+          <div>
+            <h4 className="font-display text-base font-bold text-stone-900 dark:text-stone-100">
+              سجل الإصدارات الرسمية المؤرشفة وبصمات SHA-256
+            </h4>
+            <p className="mt-0.5 text-xs text-stone-500 dark:text-stone-400">
+              يوثق كل دفعة مدمجة برقم إصدارها وعدد المداخل وبصمتي التكامل الرقمي للملفين المصدّرين للتحقق المرجعي في GitHub.
+            </p>
+          </div>
+          <span className="font-mono text-xs tabular-nums text-stone-500 dark:text-stone-400">
+            الإصدارات المسجلة: {displayedManifests.length}
+          </span>
+        </div>
+
+        {displayedManifests.length === 0 ? (
+          <p className="pt-4 text-xs text-stone-500 dark:text-stone-400">
+            لم تُؤرشف أي دفعة تصدير بعد في هذا المصدر. بمجرد تنزيل حزمة معتمدة وتثبيتها ستظهر بصمتها المرجعية هنا.
+          </p>
+        ) : (
+          <div className="mt-3 divide-y divide-[#E5DFD3] dark:divide-[#2E2B27]">
+            {displayedManifests.map((rel) => (
+              <div key={rel.id} className="py-3.5 space-y-2 text-xs">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex flex-wrap items-center gap-2 text-stone-700 dark:text-stone-300">
+                    <strong className="font-mono text-sm font-bold text-stone-900 dark:text-stone-100">
+                      v{rel.version}
+                    </strong>
+                    <span aria-hidden="true">·</span>
+                    <span className="font-mono tabular-nums">
+                      {rel.submission_ids.length} مقترح مدمج
+                    </span>
+                    <span aria-hidden="true">·</span>
+                    <span className="font-mono tabular-nums">
+                      +{rel.added_entries_count} جديد / ~{rel.modified_entries_count} محدّث / +
+                      {rel.added_examples_count} شاهد
+                    </span>
+                    {rel.exported_by_name && (
+                      <>
+                        <span aria-hidden="true">·</span>
+                        <span>بواسطة: {rel.exported_by_name}</span>
+                      </>
+                    )}
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-3 text-stone-500 dark:text-stone-400">
+                    <span className="font-mono tabular-nums">
+                      {new Date(rel.created_at).toLocaleString('ar-MA')}
+                    </span>
+                    {rel.github_pr_url && (
+                      <a
+                        href={rel.github_pr_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 font-semibold text-[#0F5C4E] hover:underline whitespace-nowrap dark:text-[#4FD1C5]"
+                      >
+                        <span>طلب الدمج PR</span>
+                        <ExternalLink className="h-3 w-3" aria-hidden="true" />
+                      </a>
+                    )}
+                  </div>
+                </div>
+
+                {rel.notes && (
+                  <p className="text-stone-600 dark:text-stone-400">مذكرة الإصدار: {rel.notes}</p>
+                )}
+
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 font-mono text-[11px] tabular-nums text-stone-500 dark:text-stone-400" dir="ltr">
+                  <button
+                    type="button"
+                    onClick={() => handleCopyChecksum(`rel-lex-${rel.id}`, rel.lexicon_sha256)}
+                    className="inline-flex items-center gap-1.5 hover:text-stone-900 cursor-pointer dark:hover:text-stone-200"
+                    title="نسخ بصمة moroccan-darija.json"
+                  >
+                    <span>moroccan-darija.json: {rel.lexicon_sha256.slice(0, 16)}…</span>
+                    {copiedChecksumKey === `rel-lex-${rel.id}` ? (
+                      <Check className="h-3 w-3 text-emerald-700" />
+                    ) : (
+                      <Copy className="h-3 w-3" />
+                    )}
+                  </button>
+                  <span aria-hidden="true">·</span>
+                  <button
+                    type="button"
+                    onClick={() => handleCopyChecksum(`rel-ex-${rel.id}`, rel.examples_sha256)}
+                    className="inline-flex items-center gap-1.5 hover:text-stone-900 cursor-pointer dark:hover:text-stone-200"
+                    title="نسخ بصمة context-examples.json"
+                  >
+                    <span>context-examples.json: {rel.examples_sha256.slice(0, 16)}…</span>
+                    {copiedChecksumKey === `rel-ex-${rel.id}` ? (
+                      <Check className="h-3 w-3 text-emerald-700" />
+                    ) : (
+                      <Copy className="h-3 w-3" />
+                    )}
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   )
 }

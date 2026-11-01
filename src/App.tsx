@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { AlertTriangle, CheckCircle2, RefreshCw } from 'lucide-react'
+import { AlertTriangle, CheckCircle2, Database, RefreshCw } from 'lucide-react'
 import { supabase } from './lib/supabase'
 import type {
   DataMode,
@@ -11,10 +11,15 @@ import type {
   SubmissionRecord,
   WorkbenchTab,
 } from './types/lexicon'
-import { DEMO_ENTRIES, DEMO_RAW_CORPUS, fetchOfficialCorpus } from './services/dataset'
+import {
+  DEMO_ENTRIES,
+  DEMO_RAW_CORPUS,
+  loadCorpusWithOfflineFallback,
+} from './services/dataset'
 import { isNewEntrySubmission } from './services/exporter'
 import { isPriorityEnrichmentEntry, matchesDarijaQuery } from './utils/phoneticSearch'
 import { extractCorpusVersion } from './utils/corpusPinning'
+import { buildWorkbenchUrlSearch, parseWorkbenchUrlState } from './utils/urlState'
 import { useLocalDrafts } from './hooks/useLocalDrafts'
 import { useSandboxModeration } from './hooks/useSandboxModeration'
 import { useRoleGovernance } from './hooks/useRoleGovernance'
@@ -35,6 +40,11 @@ import { AuthDialog } from './components/AuthDialog'
 import { Footer } from './components/Footer'
 
 export default function App() {
+  const initialUrlState = useMemo(
+    () => parseWorkbenchUrlState(typeof window !== 'undefined' ? window.location.search : ''),
+    [],
+  )
+
   const [entries, setEntries] = useState<LexicalEntry[]>(DEMO_ENTRIES)
   const [rawCorpus, setRawCorpus] = useState<RawOfficialCorpus>(DEMO_RAW_CORPUS)
   const [categories, setCategories] = useState<string[]>(
@@ -42,16 +52,19 @@ export default function App() {
   )
   const [totalExamplesCount, setTotalExamplesCount] = useState<number>(4)
   const [dataMode, setDataMode] = useState<DataMode>('loading')
+  const [cachedCorpusAt, setCachedCorpusAt] = useState<string | null>(null)
 
-  const [workbenchTab, setWorkbenchTab] = useState<WorkbenchTab>('rapid_review')
-  const [explorerSubView, setExplorerSubView] = useState<'entries' | 'categories'>('entries')
+  const [workbenchTab, setWorkbenchTab] = useState<WorkbenchTab>(initialUrlState.tab)
+  const [explorerSubView, setExplorerSubView] = useState<'entries' | 'categories'>(
+    initialUrlState.explorerSubView,
+  )
   const [focusMode, setFocusMode] = useState(false)
   const [editorialPreviewMode, setEditorialPreviewMode] = useState(false)
 
-  const [query, setQuery] = useState('')
-  const [selectedCategory, setSelectedCategory] = useState('all')
-  const [exampleFilter, setExampleFilter] = useState<ExampleFilter>('all')
-  const [activeId, setActiveId] = useState<string>(DEMO_ENTRIES[0].id)
+  const [query, setQuery] = useState(initialUrlState.query)
+  const [selectedCategory, setSelectedCategory] = useState(initialUrlState.category)
+  const [exampleFilter, setExampleFilter] = useState<ExampleFilter>(initialUrlState.exampleFilter)
+  const [activeId, setActiveId] = useState<string>(initialUrlState.entryId ?? DEMO_ENTRIES[0].id)
 
   const [resumedNewDraft, setResumedNewDraft] = useState<LocalDraft | null>(null)
   const [revisionTarget, setRevisionTarget] = useState<SubmissionRecord | null>(null)
@@ -61,6 +74,7 @@ export default function App() {
 
   const [authDialogOpen, setAuthDialogOpen] = useState(false)
   const [recoveryMode, setRecoveryMode] = useState(false)
+  const [authInitialized, setAuthInitialized] = useState(!supabase)
   const [userEmail, setUserEmail] = useState<string | null>(null)
   const [authProvider, setAuthProvider] = useState<string | null>(null)
   const [reviewerProfile, setReviewerProfile] = useState<ReviewerProfile | null>(null)
@@ -85,6 +99,7 @@ export default function App() {
     sandboxItems,
     sandboxEvents,
     addSandboxSubmission,
+    withdrawSandboxSubmission,
     moderateSandboxSubmission,
     bulkApproveSandboxSubmissions,
     markSandboxSubmissionsMerged,
@@ -100,8 +115,11 @@ export default function App() {
   } = useRoleGovernance()
   const {
     userVerdictsByEntryId,
+    userVerdictsByExampleId,
     summariesByEntryId,
+    summariesByExampleId,
     skippedIds,
+    skippedExampleIds,
     canUndo,
     completedTodayCount,
     totalAttestationsCount,
@@ -130,59 +148,66 @@ export default function App() {
   }, [darkMode])
 
   const syncUserSession = useCallback(async () => {
-    if (!supabase) return
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-    setUserEmail(user?.email ?? null)
-    setAuthProvider(
-      typeof user?.app_metadata?.provider === 'string' ? user.app_metadata.provider : null,
-    )
-    if (user) {
-      let prof: ReviewerProfile | null = null
-      const fullRes = await supabase
-        .from('reviewer_profiles')
-        .select('id, display_name, dialect_region, specialty, github_handle, role')
-        .eq('id', user.id)
-        .maybeSingle()
-
-      if (fullRes.error) {
-        const minRes = await supabase
+    if (!supabase) {
+      setAuthInitialized(true)
+      return
+    }
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+      setUserEmail(user?.email ?? null)
+      setAuthProvider(
+        typeof user?.app_metadata?.provider === 'string' ? user.app_metadata.provider : null,
+      )
+      if (user) {
+        let prof: ReviewerProfile | null = null
+        const fullRes = await supabase
           .from('reviewer_profiles')
-          .select('id, display_name, role')
+          .select('id, display_name, dialect_region, specialty, github_handle, role')
           .eq('id', user.id)
           .maybeSingle()
-        prof = (minRes.data as ReviewerProfile | null) ?? null
-      } else {
-        prof = (fullRes.data as ReviewerProfile | null) ?? null
-      }
 
-      // Safe fallback bootstrap if trigger did not create reviewer_profiles row yet
-      if (!prof) {
-        const meta = user.user_metadata ?? {}
-        const fallbackName =
-          (typeof meta.name === 'string' && meta.name.trim()) ||
-          (typeof meta.full_name === 'string' && meta.full_name.trim()) ||
-          (typeof meta.user_name === 'string' && meta.user_name.trim()) ||
-          null
-        await supabase.from('reviewer_profiles').insert({
-          id: user.id,
-          display_name: fallbackName,
-          role: 'reviewer',
-        })
-        prof = {
-          id: user.id,
-          display_name: fallbackName,
-          role: 'reviewer',
+        if (fullRes.error) {
+          const minRes = await supabase
+            .from('reviewer_profiles')
+            .select('id, display_name, role')
+            .eq('id', user.id)
+            .maybeSingle()
+          prof = (minRes.data as ReviewerProfile | null) ?? null
+        } else {
+          prof = (fullRes.data as ReviewerProfile | null) ?? null
         }
-      }
 
-      setReviewerProfile(prof)
-      if (prof.role === 'editor' || prof.role === 'admin') {
-        setPreferredExportSource('live')
+        // Safe fallback bootstrap if trigger did not create reviewer_profiles row yet
+        if (!prof) {
+          const meta = user.user_metadata ?? {}
+          const fallbackName =
+            (typeof meta.name === 'string' && meta.name.trim()) ||
+            (typeof meta.full_name === 'string' && meta.full_name.trim()) ||
+            (typeof meta.user_name === 'string' && meta.user_name.trim()) ||
+            null
+          await supabase.from('reviewer_profiles').insert({
+            id: user.id,
+            display_name: fallbackName,
+            role: 'reviewer',
+          })
+          prof = {
+            id: user.id,
+            display_name: fallbackName,
+            role: 'reviewer',
+          }
+        }
+
+        setReviewerProfile(prof)
+        if (prof.role === 'editor' || prof.role === 'admin') {
+          setPreferredExportSource('live')
+        }
+      } else {
+        setReviewerProfile(null)
       }
-    } else {
-      setReviewerProfile(null)
+    } finally {
+      setAuthInitialized(true)
     }
   }, [])
 
@@ -211,21 +236,29 @@ export default function App() {
 
   const loadCorpus = useCallback(() => {
     setDataMode('loading')
-    fetchOfficialCorpus()
-      .then((corpus) => {
-        setEntries(corpus.entries)
-        setRawCorpus(corpus.rawCorpus)
-        setCategories(corpus.categories)
-        setTotalExamplesCount(corpus.totalExamplesCount)
-        setActiveId(corpus.entries[0]?.id ?? '')
-        setDataMode('live')
+    loadCorpusWithOfflineFallback()
+      .then((res) => {
+        setEntries(res.corpus.entries)
+        setRawCorpus(res.corpus.rawCorpus)
+        setCategories(res.corpus.categories)
+        setTotalExamplesCount(res.corpus.totalExamplesCount)
+        setCachedCorpusAt(res.cachedAt)
+        setActiveId((prev) =>
+          res.corpus.entries.some((e) => e.id === prev)
+            ? prev
+            : (res.corpus.entries[0]?.id ?? ''),
+        )
+        setDataMode(res.mode)
       })
       .catch(() => {
         setEntries(DEMO_ENTRIES)
         setRawCorpus(DEMO_RAW_CORPUS)
         setCategories(Array.from(new Set(DEMO_ENTRIES.map((e) => e.category))))
         setTotalExamplesCount(4)
-        setActiveId(DEMO_ENTRIES[0].id)
+        setCachedCorpusAt(null)
+        setActiveId((prev) =>
+          DEMO_ENTRIES.some((e) => e.id === prev) ? prev : DEMO_ENTRIES[0].id,
+        )
         setDataMode('demo')
       })
   }, [])
@@ -272,10 +305,50 @@ export default function App() {
   )
 
   useEffect(() => {
-    if (!canAccessEditorialTools && (workbenchTab === 'moderation' || workbenchTab === 'exporter')) {
+    if (
+      authInitialized &&
+      !canAccessEditorialTools &&
+      (workbenchTab === 'moderation' || workbenchTab === 'exporter')
+    ) {
       setWorkbenchTab('rapid_review')
     }
-  }, [canAccessEditorialTools, workbenchTab])
+  }, [authInitialized, canAccessEditorialTools, workbenchTab])
+
+  // Sync workbench state to URL query parameters for shareable deep-links
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const nextSearch = buildWorkbenchUrlSearch({
+      tab: workbenchTab,
+      explorerSubView,
+      entryId: activeEntry?.id ?? activeId,
+      category: selectedCategory,
+      exampleFilter,
+      query,
+    })
+    const currentSearch = window.location.search
+    if (nextSearch !== currentSearch) {
+      const nextUrl = `${window.location.pathname}${nextSearch}${window.location.hash}`
+      window.history.replaceState(null, '', nextUrl)
+    }
+  }, [workbenchTab, explorerSubView, activeEntry?.id, activeId, selectedCategory, exampleFilter, query])
+
+  // Restore workbench state on browser Back / Forward navigation
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    function onPopState() {
+      const parsed = parseWorkbenchUrlState(window.location.search)
+      setWorkbenchTab(parsed.tab)
+      setExplorerSubView(parsed.explorerSubView)
+      setSelectedCategory(parsed.category)
+      setExampleFilter(parsed.exampleFilter)
+      setQuery(parsed.query)
+      if (parsed.entryId) {
+        setActiveId(parsed.entryId)
+      }
+    }
+    window.addEventListener('popstate', onPopState)
+    return () => window.removeEventListener('popstate', onPopState)
+  }, [])
 
   function handleResetFilters() {
     setQuery('')
@@ -524,6 +597,36 @@ export default function App() {
                       </span>
                     </div>
                   </div>
+                ) : dataMode === 'cached' ? (
+                  <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-[#D6CEBE] bg-[#FBF9F5] px-4 py-3 text-xs text-stone-800 dark:border-[#3A3530] dark:bg-[#1C1A18] dark:text-stone-200">
+                    <div className="flex items-center gap-2.5">
+                      <Database className="h-4 w-4 shrink-0 text-[#0F5C4E] dark:text-[#4FD1C5]" />
+                      <span>
+                        <strong className="font-semibold">نسخة المعجم الرسمية المحفوظة محلياً (دون اتصال):</strong>{' '}
+                        <span className="font-mono tabular-nums">
+                          {entries.length.toLocaleString('en-US')}
+                        </span>{' '}
+                        مدخل معجمي و
+                        <span className="font-mono tabular-nums">
+                          {totalExamplesCount.toLocaleString('en-US')}
+                        </span>{' '}
+                        شاهد سياقي (الإصدار{' '}
+                        <span className="font-mono">v{corpusVersion}</span>
+                        {cachedCorpusAt
+                          ? ` · آخر مزامنة: ${new Date(cachedCorpusAt).toLocaleString('ar-MA')}`
+                          : ''}
+                        ).
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={loadCorpus}
+                      className="inline-flex min-h-[32px] items-center gap-1.5 rounded-md border border-[#D6CEBE] bg-white px-3 py-1 text-xs font-semibold text-stone-800 hover:bg-[#EFECE4] whitespace-nowrap cursor-pointer dark:border-[#3A3530] dark:bg-[#141312] dark:text-stone-200"
+                    >
+                      <RefreshCw className="h-3 w-3" />
+                      <span>مزامنة حية</span>
+                    </button>
+                  </div>
                 ) : dataMode === 'demo' ? (
                   <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-amber-300/80 bg-amber-50/80 px-4 py-3 text-xs text-amber-950 dark:border-amber-800/50 dark:bg-amber-950/30 dark:text-amber-200">
                     <div className="flex items-center gap-2.5">
@@ -573,8 +676,11 @@ export default function App() {
               onRecordCalibrationOutcome={recordCalibrationOutcome}
               userEmail={userEmail}
               userVerdictsByEntryId={userVerdictsByEntryId}
+              userVerdictsByExampleId={userVerdictsByExampleId}
               summariesByEntryId={summariesByEntryId}
+              summariesByExampleId={summariesByExampleId}
               skippedIds={skippedIds}
+              skippedExampleIds={skippedExampleIds}
               canUndo={canUndo}
               completedTodayCount={completedTodayCount}
               sessionPrefs={sessionPrefs}
@@ -689,6 +795,17 @@ export default function App() {
                       totalFiltered={filteredEntries.length}
                       existingDraft={drafts[activeEntry.id]}
                       revisionTarget={revisionTarget}
+                      userVerdictsByExampleId={userVerdictsByExampleId}
+                      summariesByExampleId={summariesByExampleId}
+                      onRecordExampleAttestation={({ entryId, exampleId, verdict, note }) =>
+                        recordAttestation({
+                          entryId,
+                          exampleId,
+                          verdict,
+                          dialectRegion: sessionPrefs.dialectRegion,
+                          note,
+                        })
+                      }
                       onClearRevisionTarget={() => setRevisionTarget(null)}
                       onPrev={() => {
                         if (activeIndexInFiltered > 0) {
@@ -747,6 +864,7 @@ export default function App() {
               refreshTrigger={submissionsRefreshCounter}
               onResumeDraft={handleResumeDraft}
               onStartRevision={handleStartRevision}
+              onWithdrawSandboxSubmission={withdrawSandboxSubmission}
               onDeleteDraft={removeDraft}
               onRemoveMultipleDrafts={removeMultipleDrafts}
               onOpenAuth={() => setAuthDialogOpen(true)}

@@ -4,6 +4,7 @@ import type {
   RawOfficialCorpus,
   SubmissionRecord,
 } from '../types/lexicon'
+import { sha256Hex } from '../utils/sha256'
 import { normalizeArabicHeadword, sanitizeExternalUrl } from '../utils/validation'
 
 const ALLOWED_ENTRY_KEYS = new Set([
@@ -713,6 +714,20 @@ export function buildOfficialExportBundle(
     }
   }
 
+  const lexiconJson = {
+    meta: updatedLexiconMeta,
+    categories: recomputedCategories,
+    entries: entriesClone,
+  }
+  const examplesJson = {
+    meta: updatedExamplesMeta,
+    examples: examplesClone,
+  }
+
+  // Exact byte representation used when downloading files (`JSON.stringify(..., null, 2) + '\n'`)
+  const lexiconSha256 = sha256Hex(`${JSON.stringify(lexiconJson, null, 2)}\n`)
+  const examplesSha256 = sha256Hex(`${JSON.stringify(examplesJson, null, 2)}\n`)
+
   const prMarkdown = generatePullRequestMarkdown({
     targetVersion: cleanVersion,
     modifiedCount: modifiedEntries.length,
@@ -720,22 +735,23 @@ export function buildOfficialExportBundle(
     addedExamplesCount: addedExamples.length,
     totalEntries: entriesClone.length,
     totalExamples: examplesClone.length,
+    lexiconSha256,
+    examplesSha256,
     appliedIds: appliedSubmissionIds,
   })
 
   return {
-    lexiconJson: {
-      meta: updatedLexiconMeta,
-      categories: recomputedCategories,
-      entries: entriesClone,
-    },
-    examplesJson: {
-      meta: updatedExamplesMeta,
-      examples: examplesClone,
+    lexiconJson,
+    examplesJson,
+    checksums: {
+      lexiconSha256,
+      examplesSha256,
     },
     patchSummary: {
       generated_at: new Date().toISOString(),
       target_version: cleanVersion,
+      lexicon_sha256: lexiconSha256,
+      examples_sha256: examplesSha256,
       applied_submission_ids: appliedSubmissionIds,
       modified_entries: modifiedEntries,
       added_entries: addedEntries,
@@ -926,6 +942,8 @@ function generatePullRequestMarkdown(params: {
   addedExamplesCount: number
   totalEntries: number
   totalExamples: number
+  lexiconSha256: string
+  examplesSha256: string
   appliedIds: string[]
 }): string {
   return `## تحديث المعجم الرسمي — الإصدار ${params.targetVersion} (عبر Darija LexReview)
@@ -938,6 +956,10 @@ function generatePullRequestMarkdown(params: {
 - **شواهد سياقية جديدة مضافة**: ${params.addedExamplesCount}
 - **إجمالي مداخل \`moroccan-darija.json\` بعد الدمج**: ${params.totalEntries}
 - **إجمالي شواهد \`context-examples.json\` بعد الدمج**: ${params.totalExamples}
+
+### البصمات الرقمية للإصدار (SHA-256)
+- \`moroccan-darija.json\`: \`${params.lexiconSha256}\`
+- \`context-examples.json\`: \`${params.examplesSha256}\`
 
 ### التحقق والضبط المعياري
 - [ ] يجب تشغيل مدقق JSON Schema الرسمي وتوثيق نتيجته قبل الدمج.
