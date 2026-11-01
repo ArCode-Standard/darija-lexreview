@@ -65,7 +65,7 @@ export function LexiconSidebar({
           <h3 className="font-display text-sm font-bold text-stone-900 dark:text-stone-100">
             فهرس المداخل
           </h3>
-          <p className="mt-0.5 text-xs text-stone-500 font-mono tabular-nums dark:text-stone-400">
+          <p aria-live="polite" aria-atomic="true" className="mt-0.5 text-xs text-stone-500 font-mono tabular-nums dark:text-stone-400">
             {filteredEntries.length.toLocaleString('en-US')} / {entries.length.toLocaleString('en-US')} مدخل
           </p>
         </div>
@@ -127,6 +127,7 @@ export function LexiconSidebar({
               key={val}
               type="button"
               onClick={() => onExampleFilterChange(val)}
+              aria-pressed={exampleFilter === val}
               className={`min-h-[32px] rounded-md px-2 py-1 text-[11px] font-medium transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
                 exampleFilter === val
                   ? 'bg-white text-stone-900 shadow-2xs dark:bg-[#2A2622] dark:text-stone-100'
@@ -174,6 +175,7 @@ export function LexiconSidebar({
                   key={entry.id}
                   type="button"
                   onClick={() => onSelectEntry(entry)}
+                  aria-current={isActive ? "true" : undefined}
                   className={`w-full text-start rounded-lg border px-3.5 py-3 transition-colors duration-150 cursor-pointer ${
                     isActive
                       ? 'border-[#B8AE99] bg-[#EFECE4] dark:border-[#4A433B] dark:bg-[#2A2622]'
@@ -222,7 +224,7 @@ export function LexiconSidebar({
                 <button
                   type="button"
                   onClick={() => setVisibleCount((c) => c + PAGE_STEP)}
-                  className="w-full min-h-[38px] rounded-lg border border-[#D6CEBE] bg-[#FBF9F5] py-2 text-xs font-semibold text-stone-700 hover:bg-[#EFECE4] transition-colors cursor-pointer dark:border-[#3A3530] dark:bg-[#141312] dark:text-stone-300 dark:hover:bg-[#262320]"
+                  className="w-full min-h-[38px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0F5C4E] dark:focus-visible:ring-[#4FD1C5] rounded-lg border border-[#D6CEBE] bg-[#FBF9F5] py-2 text-xs font-semibold text-stone-700 hover:bg-[#EFECE4] transition-colors cursor-pointer dark:border-[#3A3530] dark:bg-[#141312] dark:text-stone-300 dark:hover:bg-[#262320]"
                 >
                   عرض المزيد ({(filteredEntries.length - visibleCount).toLocaleString('en-US')} متبقٍ)
                 </button>
