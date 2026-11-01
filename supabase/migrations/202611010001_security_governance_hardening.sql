@@ -128,7 +128,7 @@ for each row execute function private.record_review_submission_event();
 drop trigger if exists review_submissions_integrity_trg on public.review_submissions;
 create trigger review_submissions_integrity_trg
 before update on public.review_submissions
-for each row execute function public.record_review_submission_event();
+for each row execute function private.record_review_submission_event();
 
 -- Replace broad editor update access with decision-only columns.
 revoke update on public.review_submissions from authenticated;
