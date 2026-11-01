@@ -9,6 +9,8 @@ import {
   AlertCircle,
   ArrowLeft,
   FlaskConical,
+  GitBranch,
+  X,
 } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import type {
@@ -20,10 +22,12 @@ import type {
   ProposedFields,
   RegisterType,
   SourceType,
+  SubmissionRecord,
 } from '../../types/lexicon'
 import {
   ARABIZI_CONVENTIONS,
   ENTRY_TYPE_OPTIONS,
+  MAX_EVIDENCE_ITEMS,
   MOROCCAN_REGIONS,
   REGISTER_OPTIONS,
   SOURCE_TYPE_OPTIONS,
@@ -39,6 +43,8 @@ interface NewEntryProposalPanelProps {
   categories: string[]
   activeDraft?: LocalDraft | null
   onClearActiveDraft?: () => void
+  revisionTarget?: SubmissionRecord | null
+  onClearRevisionTarget?: () => void
   onInspectExistingEntry: (entry: LexicalEntry) => void
   onSaveDraft: (draft: LocalDraft) => void
   onAddSandboxSubmission: (params: {
@@ -46,6 +52,7 @@ interface NewEntryProposalPanelProps {
     proposedData: ProposedFields
     evidence: EvidenceItem[]
     reviewerNote: string | null
+    supersedesId?: string | null
   }) => void
   onRequireLogin: () => void
   onSubmissionSuccess: () => void
@@ -57,6 +64,8 @@ export function NewEntryProposalPanel({
   categories,
   activeDraft,
   onClearActiveDraft,
+  revisionTarget,
+  onClearRevisionTarget,
   onInspectExistingEntry,
   onSaveDraft,
   onAddSandboxSubmission,
@@ -120,6 +129,35 @@ export function NewEntryProposalPanel({
     setReviewerNote(activeDraft.reviewerNote ?? '')
     onClearActiveDraft?.()
   }, [activeDraft, onClearActiveDraft])
+
+  useEffect(() => {
+    if (!revisionTarget) return
+    const p = revisionTarget.proposed_data ?? {}
+    setWordAr(p.word_ar ?? '')
+    setArabizi(p.arabizi ?? '')
+    if (p.category) setCategory(p.category)
+    setMsaTranslation(p.msa_translation ?? p.meaning ?? '')
+    setFrenchTranslation(p.french_translation ?? '')
+    if (p.entry_type) setEntryType(p.entry_type)
+    if (p.register) setRegister(p.register)
+    if (Array.isArray(p.regions) && p.regions.length > 0) setSelectedRegions(p.regions)
+    setUsageNote(p.usage_note ?? '')
+    setExampleDarija(p.example_darija ?? '')
+    setExampleArabizi(p.example_arabizi ?? '')
+    setExampleTranslation(p.example_translation ?? '')
+    setExampleFrench(p.example_french ?? '')
+    if (p.source_type) setSourceType(p.source_type)
+    setSourceName(p.source_name ?? '')
+    setRightsConfirmed(Boolean(p.rights_confirmed))
+    setTrainingPermission(p.training_permission ?? 'not_allowed')
+    setEvidenceList(
+      Array.isArray(revisionTarget.evidence) && revisionTarget.evidence.length > 0
+        ? revisionTarget.evidence
+        : [{ url: '', note: '' }],
+    )
+    setReviewerNote(revisionTarget.reviewer_note ?? '')
+    setFeedback(null)
+  }, [revisionTarget])
 
   const similarEntries = useMemo(
     () => findSimilarCorpusEntries(entries, wordAr, arabizi),
@@ -230,7 +268,14 @@ export function NewEntryProposalPanel({
       }
     }
 
-    const { cleaned, invalidUrls } = validateEvidenceItems(evidenceList)
+    const { cleaned, invalidUrls, tooMany } = validateEvidenceItems(evidenceList)
+    if (tooMany) {
+      return {
+        valid: false,
+        error: `لا يمكن إرفاق أكثر من ${MAX_EVIDENCE_ITEMS} شواهد في المقترح الواحد.`,
+        cleanedEvidence: [],
+      }
+    }
     if (invalidUrls.length > 0) {
       return {
         valid: false,
@@ -310,12 +355,17 @@ export function NewEntryProposalPanel({
       proposedData: buildProposedData(),
       evidence: check.cleanedEvidence,
       reviewerNote: reviewerNote.trim() || null,
+      supersedesId: revisionTarget ? revisionTarget.id : null,
     })
 
+    const wasRevision = Boolean(revisionTarget)
+    if (revisionTarget) onClearRevisionTarget?.()
     clearForm()
     setFeedback({
       type: 'success',
-      text: 'أُضيفت المفردة الجديدة إلى طابور المحاكاة التحريرية المحلية. يمكنك الآن فحصها واعتمادها وتصديرها من لوحة المحررين.',
+      text: wasRevision
+        ? 'أُرسلت النسخة المنقحة للمفردة الجديدة إلى طابور المحاكاة مع ربطها بالمقترح السابق.'
+        : 'أُضيفت المفردة الجديدة إلى طابور المحاكاة التحريرية المحلية. يمكنك الآن فحصها واعتمادها وتصديرها من لوحة المحررين.',
       showSandboxJump: true,
     })
   }
@@ -350,13 +400,18 @@ export function NewEntryProposalPanel({
 
     setBusy(true)
     setFeedback(null)
-    const { error } = await supabase.from('review_submissions').insert({
+    const insertPayload: Record<string, unknown> = {
       entry_id: 'NEW',
       proposed_data: buildProposedData(),
       evidence: check.cleanedEvidence,
       reviewer_note: reviewerNote.trim() || null,
       status: 'pending',
-    })
+    }
+    if (revisionTarget && !revisionTarget.is_sandbox) {
+      insertPayload.supersedes_id = revisionTarget.id
+    }
+
+    const { error } = await supabase.from('review_submissions').insert(insertPayload)
     setBusy(false)
 
     if (error) {
@@ -364,10 +419,14 @@ export function NewEntryProposalPanel({
       return
     }
 
+    const wasRevision = Boolean(revisionTarget)
+    if (revisionTarget) onClearRevisionTarget?.()
     clearForm()
     setFeedback({
       type: 'success',
-      text: 'تم إرسال المفردة الجديدة إلى سجل التحكيم بحالة قيد المراجعة (pending) تمهيداً لفحصها من قِبل المحررين.',
+      text: wasRevision
+        ? 'تم إرسال النسخة المنقحة للمفردة الجديدة وربطها بالمقترح السابق عبر supersedes_id.'
+        : 'تم إرسال المفردة الجديدة إلى سجل التحكيم بحالة قيد المراجعة (pending) تمهيداً لفحصها من قِبل المحررين.',
     })
     onSubmissionSuccess()
   }
@@ -405,6 +464,34 @@ export function NewEntryProposalPanel({
           ))}
         </div>
       </div>
+
+      {revisionTarget && (
+        <div className="mt-6 rounded-lg border border-amber-300 bg-amber-50/80 p-4 text-xs text-amber-950 dark:border-amber-800/60 dark:bg-amber-950/30 dark:text-amber-200">
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex items-start gap-2">
+              <GitBranch className="h-4 w-4 shrink-0 mt-0.5 text-amber-700 dark:text-amber-400" />
+              <div>
+                <p className="font-semibold">
+                  إعداد نسخة منقحة للمفردة الجديدة (تحل محل #{revisionTarget.id.slice(0, 8)})
+                </p>
+                {revisionTarget.editor_note && (
+                  <p className="mt-1 leading-relaxed">
+                    <strong>ملاحظة المحرر المطلوب استيفاؤها:</strong> {revisionTarget.editor_note}
+                  </p>
+                )}
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => onClearRevisionTarget?.()}
+              className="inline-flex items-center gap-1 rounded-md border border-amber-400/70 bg-white px-2.5 py-1 text-[11px] font-medium text-amber-950 hover:bg-amber-100/50 cursor-pointer dark:border-amber-700 dark:bg-[#141312] dark:text-amber-200"
+            >
+              <X className="h-3 w-3" />
+              <span>إلغاء التنقيح</span>
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Live Duplicate Collision Guard */}
       {similarEntries.length > 0 && (
@@ -677,12 +764,17 @@ export function NewEntryProposalPanel({
         <fieldset className="pt-6 border-t border-[#E5DFD3] space-y-4 dark:border-[#2E2B27]">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <legend className="text-xs font-semibold text-stone-900 dark:text-stone-100">
-              ٣. توثيق المصدر والشواهد وحقوق البيانات
+              ٣. توثيق المصدر والشواهد وحقوق البيانات ({evidenceList.length} / {MAX_EVIDENCE_ITEMS})
             </legend>
             <button
               type="button"
-              onClick={() => setEvidenceList((prev) => [...prev, { url: '', note: '' }])}
-              className="inline-flex min-h-[34px] items-center gap-1.5 rounded-lg border border-[#D6CEBE] bg-[#FBF9F5] px-3 py-1.5 text-xs font-medium text-stone-800 hover:bg-[#EFECE4] whitespace-nowrap cursor-pointer dark:border-[#3A3530] dark:bg-[#141312] dark:text-stone-200"
+              disabled={evidenceList.length >= MAX_EVIDENCE_ITEMS}
+              onClick={() =>
+                setEvidenceList((prev) =>
+                  prev.length < MAX_EVIDENCE_ITEMS ? [...prev, { url: '', note: '' }] : prev,
+                )
+              }
+              className="inline-flex min-h-[34px] items-center gap-1.5 rounded-lg border border-[#D6CEBE] bg-[#FBF9F5] px-3 py-1.5 text-xs font-medium text-stone-800 hover:bg-[#EFECE4] disabled:opacity-45 whitespace-nowrap cursor-pointer dark:border-[#3A3530] dark:bg-[#141312] dark:text-stone-200"
             >
               <Plus className="h-3.5 w-3.5" />
               <span>إضافة رابط شاهد</span>

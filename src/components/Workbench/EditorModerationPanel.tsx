@@ -10,12 +10,14 @@ import {
   ShieldAlert,
   RotateCcw,
   CheckSquare,
+  GitBranch,
 } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import type {
   LexicalEntry,
   PromotionRequestStatus,
   ProposedFields,
+  ReviewDecisionEvent,
   ReviewerProfile,
   RolePromotionRequest,
   SubmissionRecord,
@@ -28,6 +30,7 @@ import { findSimilarCorpusEntries, sanitizeExternalUrl } from '../../utils/valid
 import { ModerationAnalyticsDashboard } from './ModerationAnalyticsDashboard'
 import { BulkApprovalModal } from './BulkApprovalModal'
 import { RoleGovernancePanel } from './RoleGovernancePanel'
+import { DecisionAuditTimeline } from './DecisionAuditTimeline'
 
 interface EditorModerationPanelProps {
   entries: LexicalEntry[]
@@ -35,6 +38,7 @@ interface EditorModerationPanelProps {
   userEmail: string | null
   profile: ReviewerProfile | null
   sandboxItems: SubmissionRecord[]
+  sandboxEvents: ReviewDecisionEvent[]
   sandboxProfiles: ReviewerProfile[]
   sandboxPromotionRequests: RolePromotionRequest[]
   forceSandboxMode?: boolean
@@ -93,6 +97,7 @@ export function EditorModerationPanel({
   userEmail,
   profile,
   sandboxItems,
+  sandboxEvents,
   sandboxProfiles,
   sandboxPromotionRequests,
   forceSandboxMode,
@@ -151,6 +156,7 @@ export function EditorModerationPanel({
   const [editableProposed, setEditableProposed] = useState<ProposedFields>({})
   const [editorNote, setEditorNote] = useState('')
   const [savingDecision, setSavingDecision] = useState(false)
+  const [auditRefreshCounter, setAuditRefreshCounter] = useState(0)
   const [actionMessage, setActionMessage] = useState<{
     type: 'error' | 'success'
     text: string
@@ -163,23 +169,32 @@ export function EditorModerationPanel({
     }
     setLoadingLive(true)
     setLiveError(null)
-    const [subsRes, profilesRes] = await Promise.all([
+    const [subsRes, staffRpcRes] = await Promise.all([
       supabase
         .from('review_submissions')
         .select('*')
         .order('created_at', { ascending: false })
         .limit(200),
-      supabase.from('reviewer_profiles').select('id, display_name, role'),
+      supabase.rpc('list_staff_display_names'),
     ])
+
+    let staffRows = staffRpcRes.data as Array<{ id: string; display_name: string | null }> | null
+    if (staffRpcRes.error) {
+      // Fallback if migration 20261101132000 has not been applied yet
+      const fallbackRes = await supabase
+        .from('reviewer_profiles')
+        .select('id, display_name, role')
+      staffRows = (fallbackRes.data as Array<{ id: string; display_name: string | null }> | null) ?? null
+    }
 
     setLoadingLive(false)
     if (subsRes.error) {
       setLiveError(subsRes.error.message)
       return
     }
-    if (Array.isArray(profilesRes.data)) {
+    if (Array.isArray(staffRows)) {
       const nameMap: Record<string, string> = {}
-      for (const row of profilesRes.data as Array<{ id: string; display_name: string | null }>) {
+      for (const row of staffRows) {
         if (row.id && row.display_name?.trim()) {
           nameMap[row.id] = row.display_name.trim()
         }
@@ -309,6 +324,18 @@ export function EditorModerationPanel({
   async function handleDecision(nextStatus: SubmissionStatus) {
     if (!activeSubmission) return
 
+    const isRevokingAccepted =
+      activeSubmission.status === 'accepted' &&
+      (nextStatus === 'needs_changes' || nextStatus === 'rejected')
+
+    if (isRevokingAccepted && editorNote.trim().length < 10) {
+      setActionMessage({
+        type: 'error',
+        text: 'يتطلب سحب الاعتماد وإعادة فتح المقترح مذكرة تعليل تحكيمية لا تقل عن 10 أحرف لتوثيقها في سجل التدقيق.',
+      })
+      return
+    }
+
     if (
       (nextStatus === 'rejected' || nextStatus === 'needs_changes') &&
       !editorNote.trim()
@@ -348,9 +375,12 @@ export function EditorModerationPanel({
           profile?.display_name?.trim() || userEmail || 'المحرر الحالي (جلسة محاكاة)',
       })
       setEditMode(false)
+      setAuditRefreshCounter((c) => c + 1)
       setActionMessage({
         type: 'success',
-        text: `تم تحديث قرار المحاكاة إلى «${formatStatusLabel(nextStatus)}».`,
+        text: isRevokingAccepted
+          ? `تم سحب الاعتماد وتحويل الحالة إلى «${formatStatusLabel(nextStatus)}» مع تسجيل الحدث في سجل التدقيق.`
+          : `تم تحديث قرار المحاكاة إلى «${formatStatusLabel(nextStatus)}».`,
       })
       return
     }
@@ -371,10 +401,12 @@ export function EditorModerationPanel({
       return
     }
 
-    if (
-      (activeSubmission.status !== 'pending' && activeSubmission.status !== 'needs_changes') ||
-      activeSubmission.status === nextStatus
-    ) {
+    const validOriginStatus =
+      activeSubmission.status === 'pending' ||
+      activeSubmission.status === 'needs_changes' ||
+      isRevokingAccepted
+
+    if (!validOriginStatus || activeSubmission.status === nextStatus) {
       setActionMessage({
         type: 'error',
         text: `لا يُسمح بالانتقال من حالة «${formatStatusLabel(activeSubmission.status)}» إلى «${formatStatusLabel(nextStatus)}» في السجل الحي.`,
@@ -419,9 +451,12 @@ export function EditorModerationPanel({
       return next
     })
     setEditMode(false)
+    setAuditRefreshCounter((c) => c + 1)
     setActionMessage({
       type: 'success',
-      text: `تم تسجيل القرار التحريري «${formatStatusLabel(nextStatus)}» في سجل القرارات المستقل.`,
+      text: isRevokingAccepted
+        ? `تم سحب الاعتماد وتحويل المقترح إلى «${formatStatusLabel(nextStatus)}» وتوثيق التعليل في review_decision_events.`
+        : `تم تسجيل القرار التحريري «${formatStatusLabel(nextStatus)}» في سجل القرارات المستقل.`,
     })
   }
 
@@ -989,6 +1024,31 @@ export function EditorModerationPanel({
                   )}
                 </div>
 
+                {/* Supersedes Lineage Notice */}
+                {activeSubmission.supersedes_id && (
+                  <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-[#D6CEBE] bg-[#FBF9F5] px-3.5 py-2.5 text-xs text-stone-800 dark:border-[#3A3530] dark:bg-[#141312] dark:text-stone-200">
+                    <div className="flex items-center gap-2">
+                      <GitBranch className="h-4 w-4 shrink-0 text-[#0F5C4E] dark:text-[#4FD1C5]" />
+                      <span>
+                        هذا المقترح <strong>نسخة منقحة</strong> تحل محل المقترح السابق{' '}
+                        <code className="font-mono">#{activeSubmission.supersedes_id.slice(0, 8)}</code>
+                      </span>
+                    </div>
+                    {activePool.some((s) => s.id === activeSubmission.supersedes_id) && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setStatusFilter('all')
+                          setSelectedId(activeSubmission.supersedes_id ?? '')
+                        }}
+                        className="font-semibold text-[#0F5C4E] hover:underline whitespace-nowrap cursor-pointer dark:text-[#4FD1C5]"
+                      >
+                        عرض المقترح السابق
+                      </button>
+                    )}
+                  </div>
+                )}
+
                 {/* Automated Integrity Warnings */}
                 {submissionWarnings.length > 0 && (
                   <div className="rounded-lg border border-amber-300 bg-amber-50/80 p-4 space-y-1.5 dark:border-amber-800/60 dark:bg-amber-950/30">
@@ -1178,7 +1238,9 @@ export function EditorModerationPanel({
                 <div className="pt-4 border-t border-[#E5DFD3] space-y-4 dark:border-[#2E2B27]">
                   <label className="block">
                     <span className="block text-xs font-semibold text-stone-800 dark:text-stone-200">
-                      مذكرة المحرر التحكيمية (إلزامية عند الرفض أو طلب التعديل)
+                      {activeSubmission.status === 'accepted'
+                        ? 'مذكرة تعليل سحب الاعتماد (إلزامية بحد أدنى 10 أحرف لفك تعارض أو تصحيح حقوق)'
+                        : 'مذكرة المحرر التحكيمية (إلزامية عند الرفض أو طلب التعديل)'}
                     </span>
                     <textarea
                       rows={2}
@@ -1190,15 +1252,17 @@ export function EditorModerationPanel({
                   </label>
 
                   <div className="flex flex-wrap items-center gap-3">
-                    <button
-                      type="button"
-                      disabled={savingDecision}
-                      onClick={() => handleDecision('accepted')}
-                      className="inline-flex min-h-[42px] items-center gap-2 rounded-lg bg-[#0F5C4E] px-5 py-2.5 text-xs font-semibold text-white hover:bg-[#0B463B] disabled:opacity-50 whitespace-nowrap shrink-0 cursor-pointer dark:bg-[#147A67]"
-                    >
-                      <CheckCircle2 className="h-4 w-4" />
-                      <span>اعتماد المقترح للدمج</span>
-                    </button>
+                    {activeSubmission.status !== 'accepted' && (
+                      <button
+                        type="button"
+                        disabled={savingDecision}
+                        onClick={() => handleDecision('accepted')}
+                        className="inline-flex min-h-[42px] items-center gap-2 rounded-lg bg-[#0F5C4E] px-5 py-2.5 text-xs font-semibold text-white hover:bg-[#0B463B] disabled:opacity-50 whitespace-nowrap shrink-0 cursor-pointer dark:bg-[#147A67]"
+                      >
+                        <CheckCircle2 className="h-4 w-4" />
+                        <span>اعتماد المقترح للدمج</span>
+                      </button>
+                    )}
 
                     <button
                       type="button"
@@ -1207,7 +1271,11 @@ export function EditorModerationPanel({
                       className="inline-flex min-h-[42px] items-center gap-2 rounded-lg border border-amber-400 bg-amber-50 px-4 py-2.5 text-xs font-semibold text-amber-950 hover:bg-amber-100 disabled:opacity-50 whitespace-nowrap shrink-0 cursor-pointer dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-200"
                     >
                       <AlertTriangle className="h-4 w-4" />
-                      <span>طلب تعديلات إضافية</span>
+                      <span>
+                        {activeSubmission.status === 'accepted'
+                          ? 'سحب الاعتماد وطلب تعديل'
+                          : 'طلب تعديلات إضافية'}
+                      </span>
                     </button>
 
                     <button
@@ -1217,7 +1285,11 @@ export function EditorModerationPanel({
                       className="inline-flex min-h-[42px] items-center gap-2 rounded-lg border border-red-300 bg-red-50 px-4 py-2.5 text-xs font-semibold text-red-900 hover:bg-red-100 disabled:opacity-50 whitespace-nowrap shrink-0 cursor-pointer dark:border-red-800 dark:bg-red-950/40 dark:text-red-200"
                     >
                       <XCircle className="h-4 w-4" />
-                      <span>رفض المقترح</span>
+                      <span>
+                        {activeSubmission.status === 'accepted'
+                          ? 'سحب الاعتماد ورفض المقترح'
+                          : 'رفض المقترح'}
+                      </span>
                     </button>
                   </div>
 
@@ -1234,6 +1306,15 @@ export function EditorModerationPanel({
                     </div>
                   )}
                 </div>
+
+                {/* Immutable Decision Audit Trail */}
+                <DecisionAuditTimeline
+                  submissionId={activeSubmission.id}
+                  queueSource={queueSource}
+                  sandboxEvents={sandboxEvents}
+                  editorNamesMap={editorNamesMap}
+                  refreshKey={auditRefreshCounter}
+                />
               </div>
             )}
           </div>

@@ -8,9 +8,12 @@ import type {
   LocalDraft,
   RawOfficialCorpus,
   ReviewerProfile,
+  SubmissionRecord,
   WorkbenchTab,
 } from './types/lexicon'
 import { DEMO_ENTRIES, DEMO_RAW_CORPUS, fetchOfficialCorpus } from './services/dataset'
+import { isNewEntrySubmission } from './services/exporter'
+import { isPriorityEnrichmentEntry, matchesDarijaQuery } from './utils/phoneticSearch'
 import { useLocalDrafts } from './hooks/useLocalDrafts'
 import { useSandboxModeration } from './hooks/useSandboxModeration'
 import { useRoleGovernance } from './hooks/useRoleGovernance'
@@ -44,6 +47,7 @@ export default function App() {
   const [activeId, setActiveId] = useState<string>(DEMO_ENTRIES[0].id)
 
   const [resumedNewDraft, setResumedNewDraft] = useState<LocalDraft | null>(null)
+  const [revisionTarget, setRevisionTarget] = useState<SubmissionRecord | null>(null)
   const [forceSandboxModeration, setForceSandboxModeration] = useState(false)
   const [forceGovernanceSection, setForceGovernanceSection] = useState(false)
   const [preferredExportSource, setPreferredExportSource] = useState<'live' | 'sandbox'>('sandbox')
@@ -66,6 +70,7 @@ export default function App() {
   const { drafts, draftsList, saveDraft, removeDraft, removeMultipleDrafts } = useLocalDrafts()
   const {
     sandboxItems,
+    sandboxEvents,
     addSandboxSubmission,
     moderateSandboxSubmission,
     bulkApproveSandboxSubmissions,
@@ -200,7 +205,6 @@ export default function App() {
   }, [loadCorpus])
 
   const filteredEntries = useMemo(() => {
-    const q = query.trim().toLowerCase()
     return entries.filter((entry) => {
       if (selectedCategory !== 'all' && entry.category !== selectedCategory) {
         return false
@@ -211,18 +215,10 @@ export default function App() {
       if (exampleFilter === 'needs_examples' && entry.examples.length > 0) {
         return false
       }
-      if (!q) return true
-      const haystack = [
-        entry.id,
-        entry.word,
-        entry.latin,
-        entry.meaning,
-        entry.french,
-        entry.category,
-      ]
-        .join(' ')
-        .toLowerCase()
-      return haystack.includes(q)
+      if (exampleFilter === 'priority_enrichment' && !isPriorityEnrichmentEntry(entry)) {
+        return false
+      }
+      return matchesDarijaQuery(entry, query)
     })
   }, [entries, query, selectedCategory, exampleFilter])
 
@@ -272,6 +268,7 @@ export default function App() {
   }
 
   function handleResumeDraft(entryId: string) {
+    setRevisionTarget(null)
     const draft = drafts[entryId]
     if (
       draft &&
@@ -285,6 +282,18 @@ export default function App() {
     }
     setActiveId(entryId)
     setWorkbenchTab('explorer')
+  }
+
+  function handleStartRevision(submission: SubmissionRecord) {
+    setRevisionTarget(submission)
+    if (isNewEntrySubmission(submission)) {
+      setWorkbenchTab('new_entry')
+    } else {
+      setActiveId(submission.entry_id)
+      setWorkbenchTab('explorer')
+    }
+    const el = document.getElementById('workspace')
+    if (el) el.scrollIntoView({ behavior: 'smooth' })
   }
 
   function handleOpenModerationSandbox() {
@@ -470,6 +479,8 @@ export default function App() {
                   currentIndex={activeIndexInFiltered}
                   totalFiltered={filteredEntries.length}
                   existingDraft={drafts[activeEntry.id]}
+                  revisionTarget={revisionTarget}
+                  onClearRevisionTarget={() => setRevisionTarget(null)}
                   onPrev={() => {
                     if (activeIndexInFiltered > 0) {
                       setActiveId(filteredEntries[activeIndexInFiltered - 1].id)
@@ -500,6 +511,8 @@ export default function App() {
               categories={categories}
               activeDraft={resumedNewDraft}
               onClearActiveDraft={() => setResumedNewDraft(null)}
+              revisionTarget={revisionTarget && isNewEntrySubmission(revisionTarget) ? revisionTarget : null}
+              onClearRevisionTarget={() => setRevisionTarget(null)}
               onInspectExistingEntry={handleInspectExistingFromNewForm}
               onSaveDraft={saveDraft}
               onAddSandboxSubmission={addSandboxSubmission}
@@ -520,9 +533,11 @@ export default function App() {
             <SubmissionsPanel
               draftsList={draftsList}
               entries={entries}
+              sandboxItems={sandboxItems}
               userEmail={userEmail}
               refreshTrigger={submissionsRefreshCounter}
               onResumeDraft={handleResumeDraft}
+              onStartRevision={handleStartRevision}
               onDeleteDraft={removeDraft}
               onRemoveMultipleDrafts={removeMultipleDrafts}
               onOpenAuth={() => setAuthDialogOpen(true)}
@@ -536,6 +551,7 @@ export default function App() {
               userEmail={userEmail}
               profile={reviewerProfile}
               sandboxItems={sandboxItems}
+              sandboxEvents={sandboxEvents}
               sandboxProfiles={sandboxProfiles}
               sandboxPromotionRequests={sandboxPromotionRequests}
               forceSandboxMode={forceSandboxModeration}

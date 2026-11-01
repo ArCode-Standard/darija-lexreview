@@ -91,9 +91,12 @@ export function sanitizeExternalUrl(raw: string): string | null {
   }
 }
 
+export const MAX_EVIDENCE_ITEMS = 10
+
 export function validateEvidenceItems(items: EvidenceItem[]): {
   cleaned: EvidenceItem[]
   invalidUrls: string[]
+  tooMany: boolean
 } {
   const cleaned: EvidenceItem[] = []
   const invalidUrls: string[] = []
@@ -116,7 +119,11 @@ export function validateEvidenceItems(items: EvidenceItem[]): {
     }
   }
 
-  return { cleaned, invalidUrls }
+  return {
+    cleaned: cleaned.slice(0, MAX_EVIDENCE_ITEMS),
+    invalidUrls,
+    tooMany: cleaned.length > MAX_EVIDENCE_ITEMS,
+  }
 }
 
 export function containsArabicScript(value: string): boolean {

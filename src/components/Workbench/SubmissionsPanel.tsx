@@ -1,16 +1,28 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Download, Trash2, ArrowLeft, RefreshCw, LogIn, CloudUpload } from 'lucide-react'
+import {
+  Download,
+  Trash2,
+  ArrowLeft,
+  RefreshCw,
+  LogIn,
+  CloudUpload,
+  GitBranch,
+  RotateCcw,
+} from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import type { LexicalEntry, LocalDraft, SubmissionRecord } from '../../types/lexicon'
-import { formatStatusLabel } from '../../services/dataset'
+import { formatAccessionCode, formatStatusLabel } from '../../services/dataset'
+import { isNewEntrySubmission } from '../../services/exporter'
 import { auditDraftForSync, syncLocalDraftsToAccount } from '../../utils/draftSync'
 
 interface SubmissionsPanelProps {
   draftsList: LocalDraft[]
   entries: LexicalEntry[]
+  sandboxItems: SubmissionRecord[]
   userEmail: string | null
   refreshTrigger: number
   onResumeDraft: (entryId: string) => void
+  onStartRevision: (submission: SubmissionRecord) => void
   onDeleteDraft: (entryId: string) => void
   onRemoveMultipleDrafts: (entryIds: string[]) => void
   onOpenAuth: () => void
@@ -19,9 +31,11 @@ interface SubmissionsPanelProps {
 export function SubmissionsPanel({
   draftsList,
   entries,
+  sandboxItems,
   userEmail,
   refreshTrigger,
   onResumeDraft,
+  onStartRevision,
   onDeleteDraft,
   onRemoveMultipleDrafts,
   onOpenAuth,
@@ -38,6 +52,12 @@ export function SubmissionsPanel({
     () => draftsList.filter((d) => auditDraftForSync(d, entries).ready).length,
     [draftsList, entries],
   )
+
+  const entryById = useMemo(() => {
+    const m = new Map<string, LexicalEntry>()
+    for (const e of entries) m.set(e.id, e)
+    return m
+  }, [entries])
 
   async function loadSubmissions() {
     if (!supabase || !userEmail) {
@@ -107,6 +127,85 @@ export function SubmissionsPanel({
           : `تمت مزامنة وإرسال جميع المسودات الجاهزة (${res.syncedEntryIds.length}) إلى حسابك بنجاح.`,
     })
   }
+
+  function renderSubmissionRow(sub: SubmissionRecord) {
+    const isNew = isNewEntrySubmission(sub)
+    const target = entryById.get(sub.entry_id)
+    const titleLabel = isNew
+      ? `${sub.proposed_data?.word_ar || 'مفردة جديدة'} (مفردة جديدة)`
+      : `${target?.word ?? `مدخل #${sub.entry_id}`} (${formatAccessionCode(sub.entry_id, target?.numericId ?? null)})`
+    const canRevise = sub.status === 'needs_changes' || sub.status === 'rejected'
+
+    return (
+      <div
+        key={sub.id}
+        className="py-4 flex flex-col sm:flex-row sm:items-start justify-between gap-4"
+      >
+        <div className="space-y-1.5 flex-1">
+          <div className="flex flex-wrap items-center gap-2 text-xs">
+            <span className="font-display text-sm font-bold text-stone-900 dark:text-stone-100">
+              {titleLabel}
+            </span>
+            <span aria-hidden="true" className="text-stone-300 dark:text-stone-600">
+              ·
+            </span>
+            <span className="font-medium text-[#0F5C4E] dark:text-[#4FD1C5]">
+              {formatStatusLabel(sub.status)}
+            </span>
+            {sub.supersedes_id && (
+              <>
+                <span aria-hidden="true" className="text-stone-300 dark:text-stone-600">
+                  ·
+                </span>
+                <span className="inline-flex items-center gap-1 font-mono text-[11px] text-stone-600 dark:text-stone-400">
+                  <GitBranch className="h-3 w-3" aria-hidden="true" />
+                  <span>تنقيح لـ #{sub.supersedes_id.slice(0, 8)}</span>
+                </span>
+              </>
+            )}
+            <span aria-hidden="true" className="text-stone-300 dark:text-stone-600">
+              ·
+            </span>
+            <span className="font-mono tabular-nums text-stone-500 dark:text-stone-400">
+              {new Date(sub.created_at).toLocaleDateString('ar-MA')}
+            </span>
+          </div>
+
+          {sub.reviewer_note && (
+            <p className="text-xs leading-relaxed text-stone-700 dark:text-stone-300">
+              ملاحظة المراجع: {sub.reviewer_note}
+            </p>
+          )}
+          {sub.editor_note && (
+            <p className="rounded-md border border-[#E5DFD3] bg-[#FBF9F5] px-3 py-2 text-xs leading-relaxed text-stone-700 dark:border-[#2E2B27] dark:bg-[#141312] dark:text-stone-300">
+              <strong className="font-semibold">رد المحرر:</strong> {sub.editor_note}
+            </p>
+          )}
+        </div>
+
+        {canRevise && (
+          <div className="shrink-0">
+            <button
+              type="button"
+              onClick={() => onStartRevision(sub)}
+              className="inline-flex min-h-[36px] items-center gap-1.5 rounded-lg border border-[#0F5C4E] bg-[#FBF9F5] px-3.5 py-1.5 text-xs font-semibold text-[#0F5C4E] hover:bg-[#EFECE4] whitespace-nowrap cursor-pointer dark:border-[#4FD1C5]/60 dark:bg-[#141312] dark:text-[#4FD1C5]"
+            >
+              <RotateCcw className="h-3.5 w-3.5" aria-hidden="true" />
+              <span>تقديم نسخة منقحة</span>
+            </button>
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  const sandboxRevisableOrRecent = useMemo(
+    () =>
+      sandboxItems.filter(
+        (s) => s.status === 'needs_changes' || s.status === 'rejected' || Boolean(s.supersedes_id),
+      ),
+    [sandboxItems],
+  )
 
   return (
     <div className="rounded-xl border border-[#E5DFD3] bg-white p-5 sm:p-8 space-y-10 dark:border-[#2E2B27] dark:bg-[#1C1A18]">
@@ -234,7 +333,7 @@ export function SubmissionsPanel({
               المقترحات المرسلة إلى سجل المراجعة
             </h3>
             <p className="mt-1 text-xs text-stone-600 dark:text-stone-400">
-              سجل المساهمات المرتبطة بحسابك في قاعدة بيانات المراجعة وحالة التحكيم لكل مقترح.
+              بما أن المقترح المرسل ثابت لا يُعدَّل في مكانه حفاظاً على سجل التدقيق، يمكنك إرسال «نسخة منقحة» مرتبطة بأي مقترح طُلبت عليه تعديلات (<code className="font-mono">supersedes_id</code>).
             </p>
           </div>
 
@@ -252,9 +351,9 @@ export function SubmissionsPanel({
         </div>
 
         {!userEmail ? (
-          <div className="py-10 text-center">
+          <div className="py-8 text-center">
             <p className="text-xs text-stone-600 dark:text-stone-400">
-              سجّل الدخول بحساب مراجع لعرض المقترحات التي أرسلتها ومتابعة قرارات المحررين بشأنها.
+              سجّل الدخول بحساب مراجع لعرض المقترحات التي أرسلتها ومتابعة قرارات المحررين وتقديم النسخ المنقحة.
             </p>
             <button
               type="button"
@@ -280,37 +379,27 @@ export function SubmissionsPanel({
           </p>
         ) : (
           <div className="divide-y divide-[#E5DFD3] dark:divide-[#2E2B27]">
-            {submissions.map((sub) => (
-              <div key={sub.id} className="py-4 space-y-1.5">
-                <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
-                  <div className="flex items-center gap-2">
-                    <span className="font-mono font-semibold tabular-nums text-stone-900 dark:text-stone-100">
-                      مدخل #{sub.entry_id}
-                    </span>
-                    <span aria-hidden="true">·</span>
-                    <span className="font-medium text-[#0F5C4E] dark:text-[#4FD1C5]">
-                      {formatStatusLabel(sub.status)}
-                    </span>
-                  </div>
-                  <span className="font-mono tabular-nums text-stone-500 dark:text-stone-400">
-                    {new Date(sub.created_at).toLocaleDateString('ar-MA')}
-                  </span>
-                </div>
-                {sub.reviewer_note && (
-                  <p className="text-xs leading-relaxed text-stone-700 dark:text-stone-300">
-                    ملاحظة المراجع: {sub.reviewer_note}
-                  </p>
-                )}
-                {sub.editor_note && (
-                  <p className="text-xs leading-relaxed text-stone-600 dark:text-stone-400">
-                    رد المحرر: {sub.editor_note}
-                  </p>
-                )}
-              </div>
-            ))}
+            {submissions.map((sub) => renderSubmissionRow(sub))}
           </div>
         )}
       </div>
+
+      {/* Section 3: Sandbox Revisions Shortcut */}
+      {sandboxRevisableOrRecent.length > 0 && (
+        <div className="pt-8 border-t border-[#E5DFD3] dark:border-[#2E2B27]">
+          <div className="pb-3 border-b border-[#E5DFD3] dark:border-[#2E2B27]">
+            <h4 className="font-display text-sm font-bold text-stone-900 dark:text-stone-100">
+              مقترحات المحاكاة القابلة للتنقيح ({sandboxRevisableOrRecent.length})
+            </h4>
+            <p className="mt-1 text-xs text-stone-500 dark:text-stone-400">
+              مقترحات في طابور المحاكاة المحلي طُلبت عليها تعديلات أو أُرسلت كنسخ منقحة:
+            </p>
+          </div>
+          <div className="divide-y divide-[#E5DFD3] dark:divide-[#2E2B27]">
+            {sandboxRevisableOrRecent.map((sub) => renderSubmissionRow(sub))}
+          </div>
+        </div>
+      )}
     </div>
   )
 }

@@ -2,11 +2,13 @@ import { useCallback, useEffect, useState } from 'react'
 import type {
   EvidenceItem,
   ProposedFields,
+  ReviewDecisionEvent,
   SubmissionRecord,
   SubmissionStatus,
 } from '../types/lexicon'
 
 const SANDBOX_STORAGE_KEY = 'arcode_darija_lexreview_sandbox_queue_v3'
+const SANDBOX_EVENTS_STORAGE_KEY = 'arcode_darija_lexreview_sandbox_events_v1'
 
 const INITIAL_SANDBOX_SUBMISSIONS: SubmissionRecord[] = [
   {
@@ -159,6 +161,12 @@ const INITIAL_SANDBOX_SUBMISSIONS: SubmissionRecord[] = [
     proposed_data: {
       submission_kind: 'edit_entry',
       usage_note: 'تحية صباحية عامة في الحواضر والبوادي المغربية.',
+      rights_confirmed: true,
+      rights_holder: 'contributor',
+      license: 'CC BY-NC 4.0',
+      redistribution_permission: 'allowed',
+      training_permission: 'not_allowed',
+      commercial_permission: 'not_allowed',
     },
     evidence: [
       {
@@ -231,6 +239,37 @@ const INITIAL_SANDBOX_SUBMISSIONS: SubmissionRecord[] = [
   },
 ]
 
+function buildSeedEvents(items: SubmissionRecord[]): ReviewDecisionEvent[] {
+  const seeded: ReviewDecisionEvent[] = []
+  for (const sub of items) {
+    seeded.push({
+      id: `ev-sub-${sub.id}`,
+      submission_id: sub.id,
+      actor_id: sub.reviewer_id ?? 'contributor-sandbox',
+      actor_display_name: 'مراجع مساهم (محاكاة)',
+      event_type: 'submitted',
+      previous_status: null,
+      new_status: 'pending',
+      editor_note: null,
+      occurred_at: sub.created_at,
+    })
+    if (sub.status !== 'pending') {
+      seeded.push({
+        id: `ev-dec-${sub.id}`,
+        submission_id: sub.id,
+        actor_id: sub.editor_id ?? 'ed-sandbox',
+        actor_display_name: sub.editor_display_name ?? 'محرر معتمد',
+        event_type: 'decision',
+        previous_status: 'pending',
+        new_status: sub.status,
+        editor_note: sub.editor_note,
+        occurred_at: sub.updated_at,
+      })
+    }
+  }
+  return seeded
+}
+
 export function useSandboxModeration() {
   const [sandboxItems, setSandboxItems] = useState<SubmissionRecord[]>(() => {
     try {
@@ -243,6 +282,19 @@ export function useSandboxModeration() {
     }
   })
 
+  const [sandboxEvents, setSandboxEvents] = useState<ReviewDecisionEvent[]>(() => {
+    try {
+      const raw = localStorage.getItem(SANDBOX_EVENTS_STORAGE_KEY)
+      if (!raw) return buildSeedEvents(INITIAL_SANDBOX_SUBMISSIONS)
+      const parsed = JSON.parse(raw) as ReviewDecisionEvent[]
+      return Array.isArray(parsed) && parsed.length > 0
+        ? parsed
+        : buildSeedEvents(INITIAL_SANDBOX_SUBMISSIONS)
+    } catch {
+      return buildSeedEvents(INITIAL_SANDBOX_SUBMISSIONS)
+    }
+  })
+
   useEffect(() => {
     try {
       localStorage.setItem(SANDBOX_STORAGE_KEY, JSON.stringify(sandboxItems))
@@ -251,17 +303,27 @@ export function useSandboxModeration() {
     }
   }, [sandboxItems])
 
+  useEffect(() => {
+    try {
+      localStorage.setItem(SANDBOX_EVENTS_STORAGE_KEY, JSON.stringify(sandboxEvents))
+    } catch {
+      // Ignore storage quota errors
+    }
+  }, [sandboxEvents])
+
   const addSandboxSubmission = useCallback(
     (params: {
       entryId: string
       proposedData: ProposedFields
       evidence: EvidenceItem[]
       reviewerNote: string | null
+      supersedesId?: string | null
     }) => {
       const now = new Date().toISOString()
       const item: SubmissionRecord = {
         id: `sandbox-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
         entry_id: params.entryId,
+        supersedes_id: params.supersedesId ?? null,
         proposed_data: params.proposedData,
         evidence: params.evidence,
         reviewer_note: params.reviewerNote,
@@ -272,6 +334,22 @@ export function useSandboxModeration() {
         is_sandbox: true,
       }
       setSandboxItems((prev) => [item, ...prev])
+      setSandboxEvents((prev) => [
+        ...prev,
+        {
+          id: `ev-sub-${item.id}`,
+          submission_id: item.id,
+          actor_id: 'contributor-session',
+          actor_display_name: 'المراجع الحالي (جلسة محاكاة)',
+          event_type: 'submitted',
+          previous_status: null,
+          new_status: 'pending',
+          editor_note: params.supersedesId
+            ? `نسخة منقحة تحل محل المقترح (${params.supersedesId.slice(0, 12)})`
+            : null,
+          occurred_at: now,
+        },
+      ])
       return item
     },
     [],
@@ -287,8 +365,28 @@ export function useSandboxModeration() {
       editorDisplayName?: string
     }) => {
       const now = new Date().toISOString()
-      setSandboxItems((prev) =>
-        prev.map((item) =>
+      setSandboxItems((prev) => {
+        const current = prev.find((i) => i.id === params.id)
+        if (current) {
+          setSandboxEvents((evPrev) => [
+            ...evPrev,
+            {
+              id: `ev-dec-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+              submission_id: params.id,
+              actor_id: params.editorId ?? current.editor_id ?? 'ed-session',
+              actor_display_name:
+                params.editorDisplayName ??
+                current.editor_display_name ??
+                'المحرر الحالي (جلسة محاكاة)',
+              event_type: 'decision',
+              previous_status: current.status,
+              new_status: params.status,
+              editor_note: params.editorNote,
+              occurred_at: now,
+            },
+          ])
+        }
+        return prev.map((item) =>
           item.id === params.id
             ? {
                 ...item,
@@ -301,8 +399,8 @@ export function useSandboxModeration() {
                 updated_at: now,
               }
             : item,
-        ),
-      )
+        )
+      })
     },
     [],
   )
@@ -316,8 +414,27 @@ export function useSandboxModeration() {
     }) => {
       const idSet = new Set(params.ids)
       const now = new Date().toISOString()
-      setSandboxItems((prev) =>
-        prev.map((item) =>
+      setSandboxItems((prev) => {
+        const newDecisionEvents: ReviewDecisionEvent[] = prev
+          .filter((item) => idSet.has(item.id))
+          .map((item, idx) => ({
+            id: `ev-bulk-${Date.now()}-${idx}`,
+            submission_id: item.id,
+            actor_id: params.editorId ?? item.editor_id ?? 'ed-session',
+            actor_display_name:
+              params.editorDisplayName ??
+              item.editor_display_name ??
+              'المحرر الحالي (جلسة محاكاة)',
+            event_type: 'decision',
+            previous_status: item.status,
+            new_status: 'accepted',
+            editor_note: params.editorNote,
+            occurred_at: now,
+          }))
+        if (newDecisionEvents.length > 0) {
+          setSandboxEvents((evPrev) => [...evPrev, ...newDecisionEvents])
+        }
+        return prev.map((item) =>
           idSet.has(item.id)
             ? {
                 ...item,
@@ -331,18 +448,20 @@ export function useSandboxModeration() {
                 updated_at: now,
               }
             : item,
-        ),
-      )
+        )
+      })
     },
     [],
   )
 
   const resetSandboxQueue = useCallback(() => {
     setSandboxItems(INITIAL_SANDBOX_SUBMISSIONS)
+    setSandboxEvents(buildSeedEvents(INITIAL_SANDBOX_SUBMISSIONS))
   }, [])
 
   return {
     sandboxItems,
+    sandboxEvents,
     addSandboxSubmission,
     moderateSandboxSubmission,
     bulkApproveSandboxSubmissions,

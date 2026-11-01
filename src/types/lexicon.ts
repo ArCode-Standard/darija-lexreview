@@ -116,6 +116,7 @@ export interface LocalDraft {
 export interface SubmissionRecord {
   id: string
   entry_id: string
+  supersedes_id?: string | null
   proposed_data: ProposedFields
   evidence: EvidenceItem[]
   reviewer_note: string | null
@@ -127,6 +128,18 @@ export interface SubmissionRecord {
   created_at: string
   updated_at: string
   is_sandbox?: boolean
+}
+
+export interface ReviewDecisionEvent {
+  id: string | number
+  submission_id: string
+  actor_id: string | null
+  actor_display_name?: string | null
+  event_type: 'baseline' | 'submitted' | 'decision'
+  previous_status: SubmissionStatus | null
+  new_status: SubmissionStatus
+  editor_note: string | null
+  occurred_at: string
 }
 
 export type UserRole = 'reviewer' | 'editor' | 'admin'
@@ -210,4 +223,8 @@ export type WorkbenchTab =
   | 'submissions'
   | 'moderation'
   | 'exporter'
-export type ExampleFilter = 'all' | 'with_examples' | 'needs_examples'
+export type ExampleFilter =
+  | 'all'
+  | 'with_examples'
+  | 'needs_examples'
+  | 'priority_enrichment'

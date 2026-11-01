@@ -151,6 +151,125 @@ export function isNewEntrySubmission(sub: SubmissionRecord): boolean {
 }
 
 /**
+ * Identifies which accepted submissions in the current candidate set cause blocking
+ * export errors (duplicate edit conflicts, duplicate new headword collisions, missing required fields,
+ * or unverified provenance/rights fields) so editors can isolate clean records in one click.
+ */
+export function findBlockingSubmissionIds(
+  rawCorpus: RawOfficialCorpus,
+  acceptedSubmissions: SubmissionRecord[],
+): string[] {
+  const blocking = new Set<string>()
+  const editByEntryId = new Map<number, string[]>()
+  const headwords = new Map<string, number>()
+
+  rawCorpus.rawEntries.forEach((entry) => {
+    const numId = typeof entry.id === 'number' ? entry.id : Number.parseInt(String(entry.id), 10)
+    const normWord = normalizeArabicHeadword(String(entry.darija_ar ?? ''))
+    if (normWord && !Number.isNaN(numId)) {
+      headwords.set(`${normWord}::${String(entry.category ?? '')}`, numId)
+    }
+  })
+
+  const rawById = new Map<number, Record<string, unknown>>()
+  rawCorpus.rawEntries.forEach((entry) => {
+    const numId = typeof entry.id === 'number' ? entry.id : Number.parseInt(String(entry.id), 10)
+    if (!Number.isNaN(numId)) rawById.set(numId, entry)
+  })
+
+  for (const sub of acceptedSubmissions) {
+    if (sub.status !== 'accepted') continue
+    const p = sub.proposed_data ?? {}
+
+    if (isNewEntrySubmission(sub)) {
+      const wordAr = (p.word_ar ?? '').trim()
+      const arabizi = (p.arabizi ?? '').trim()
+      const category = (p.category ?? '').trim()
+      const fushaAr = (p.msa_translation ?? p.meaning ?? '').trim()
+      const fr = (p.french_translation ?? '').trim()
+
+      if (!wordAr || !arabizi || !category || !fushaAr || !fr) {
+        blocking.add(sub.id)
+        continue
+      }
+      const dupKey = `${normalizeArabicHeadword(wordAr)}::${category}`
+      if (headwords.has(dupKey)) {
+        blocking.add(sub.id)
+        continue
+      }
+      headwords.set(dupKey, -1)
+
+      for (const f of [
+        p.rights_holder,
+        p.license,
+        p.redistribution_permission,
+        p.training_permission,
+        p.commercial_permission,
+      ]) {
+        const val = String(f ?? '').trim().toLowerCase()
+        if (!val || val === 'unknown') {
+          blocking.add(sub.id)
+        }
+      }
+    } else {
+      const targetId = Number.parseInt(sub.entry_id, 10)
+      if (Number.isNaN(targetId) || !rawById.has(targetId)) {
+        blocking.add(sub.id)
+        continue
+      }
+      const list = editByEntryId.get(targetId) ?? []
+      list.push(sub.id)
+      editByEntryId.set(targetId, list)
+
+      const baseEntry = rawById.get(targetId) ?? {}
+      const baseProv =
+        typeof baseEntry.provenance === 'object' && baseEntry.provenance !== null
+          ? (baseEntry.provenance as Record<string, unknown>)
+          : {}
+
+      const mergedRights = {
+        rights_holder:
+          p.rights_holder && p.rights_holder !== 'unknown'
+            ? p.rights_holder
+            : baseProv.rights_holder,
+        license: p.license && p.license !== 'unknown' ? p.license : baseProv.license,
+        redistribution_permission:
+          p.redistribution_permission && p.redistribution_permission !== 'unknown'
+            ? p.redistribution_permission
+            : baseProv.redistribution_permission,
+        training_permission:
+          p.training_permission && p.training_permission !== 'unknown'
+            ? p.training_permission
+            : baseProv.training_permission,
+        commercial_permission:
+          p.commercial_permission && p.commercial_permission !== 'unknown'
+            ? p.commercial_permission
+            : baseProv.commercial_permission,
+      }
+
+      for (const val of Object.values(mergedRights)) {
+        const clean = String(val ?? '').trim().toLowerCase()
+        if (!clean || clean === 'unknown') {
+          blocking.add(sub.id)
+        }
+      }
+    }
+  }
+
+  // If multiple accepted edits target the same entry, mark all except the newest one as blocking
+  // (or mark all if editor wants clean non-conflicting export; keeping the latest non-blocking if its rights are valid, or excluding older duplicates)
+  for (const [, subIds] of editByEntryId.entries()) {
+    if (subIds.length > 1) {
+      for (const id of subIds) {
+        blocking.add(id)
+      }
+    }
+  }
+
+  return Array.from(blocking)
+}
+
+/**
  * Deterministically merges accepted submissions onto a deep clone of the official corpus
  * and runs internal structural checks. This is not a substitute for JSON Schema validation.
  */
@@ -428,6 +547,22 @@ export function buildOfficialExportBundle(
               commercial_permission: String(p.commercial_permission ?? 'unknown'),
               license: String(p.license ?? 'unknown'),
             }
+
+      // Apply verified contributor rights fields if canonical entry still had 'unknown' placeholders
+      const rightsKeys = [
+        'rights_holder',
+        'license',
+        'redistribution_permission',
+        'training_permission',
+        'commercial_permission',
+      ] as const
+      for (const rk of rightsKeys) {
+        const propVal = p[rk]
+        const curVal = String(existingProv[rk] ?? '').trim().toLowerCase()
+        if (propVal && String(propVal).trim().toLowerCase() !== 'unknown' && (!curVal || curVal === 'unknown')) {
+          existingProv[rk] = propVal
+        }
+      }
 
       if (firstSafeUrl && !existingProv.source_url) {
         existingProv.source_url = firstSafeUrl

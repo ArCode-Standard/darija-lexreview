@@ -7,6 +7,8 @@ import {
   AlertTriangle,
   AlertCircle,
   RefreshCw,
+  ShieldCheck,
+  FilterX,
 } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import type {
@@ -18,8 +20,13 @@ import type {
 import {
   buildOfficialExportBundle,
   bumpPatchVersion,
+  findBlockingSubmissionIds,
   isNewEntrySubmission,
 } from '../../services/exporter'
+import {
+  validateExportBundleWithOfficialSchemas,
+  type SchemaValidationReport,
+} from '../../services/schemaValidator'
 import { formatAccessionCode } from '../../services/dataset'
 
 interface DatasetExporterPanelProps {
@@ -100,14 +107,52 @@ export function DatasetExporterPanel({
     [candidateAccepted, excludedIds],
   )
 
+  const blockingIdsInSelected = useMemo(
+    () => findBlockingSubmissionIds(rawCorpus, selectedSubmissions),
+    [rawCorpus, selectedSubmissions],
+  )
+
   const bundle = useMemo(
     () => buildOfficialExportBundle(rawCorpus, selectedSubmissions, targetVersion),
     [rawCorpus, selectedSubmissions, targetVersion],
   )
 
+  const [schemaReport, setSchemaReport] = useState<SchemaValidationReport | null>(null)
+  const [validatingSchema, setValidatingSchema] = useState(false)
+
+  useEffect(() => {
+    if (selectedSubmissions.length === 0) {
+      setSchemaReport(null)
+      setValidatingSchema(false)
+      return
+    }
+    let cancelled = false
+    setValidatingSchema(true)
+    validateExportBundleWithOfficialSchemas(bundle.lexiconJson, bundle.examplesJson)
+      .then((res) => {
+        if (!cancelled) {
+          setSchemaReport(res)
+          setValidatingSchema(false)
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setValidatingSchema(false)
+        }
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [bundle, selectedSubmissions.length])
+
   const errorIssues = bundle.issues.filter((i) => i.severity === 'error')
   const warningIssues = bundle.issues.filter((i) => i.severity === 'warning')
-  const canDownload = errorIssues.length === 0 && selectedSubmissions.length > 0
+  const schemaPassed = schemaReport ? schemaReport.valid : false
+  const canDownload =
+    errorIssues.length === 0 &&
+    !validatingSchema &&
+    schemaPassed &&
+    selectedSubmissions.length > 0
 
   const entryById = useMemo(() => {
     const m = new Map<string, LexicalEntry>()
@@ -120,6 +165,15 @@ export function DatasetExporterPanel({
       const next = new Set(prev)
       if (next.has(id)) next.delete(id)
       else next.add(id)
+      return next
+    })
+  }
+
+  function handleAutoExcludeBlocking() {
+    if (blockingIdsInSelected.length === 0) return
+    setExcludedIds((prev) => {
+      const next = new Set(prev)
+      for (const id of blockingIdsInSelected) next.add(id)
       return next
     })
   }
@@ -149,13 +203,13 @@ export function DatasetExporterPanel({
         <div className="flex flex-wrap items-start justify-between gap-4 pb-6 border-b border-[#E5DFD3] dark:border-[#2E2B27]">
           <div>
             <p className="text-xs font-semibold text-[#0F5C4E] dark:text-[#4FD1C5]">
-              جسر التصدير إلى المعجم الرسمي · فحوص بنيوية وحقوق إعادة الاستخدام
+              جسر التصدير إلى المعجم الرسمي · مدقق JSON Schema الفعلي (Ajv) وحقوق المصدر
             </p>
             <h3 className="mt-1.5 font-display text-xl sm:text-2xl font-bold text-stone-900 dark:text-stone-100">
               مُصدِّر التعديلات المعتمدة إلى المعجم الرسمي
             </h3>
             <p className="mt-1.5 max-w-[68ch] text-xs sm:text-sm leading-relaxed text-stone-600 dark:text-stone-400">
-              يدمج المقترحات المعتمدة فوق نسخة المعجم الرسمية، ويعيد حساب الفهارس والمعرفات، ويجري فحوصاً بنيوية داخلية. يتطلب التصدير أيضاً توثيق حقوق إعادة الاستخدام ومراجعتها بشرياً؛ هذه الفحوص ليست بديلاً عن مدقق JSON Schema الرسمي.
+              يدمج المقترحات المعتمدة فوق نسخة المعجم الرسمية، ويعيد حساب الفهارس والمعرفات، ويشغّل مدقق JSON Schema الرسمي (<code className="font-mono">schema.json</code> و<code className="font-mono">context-schema.json</code>) مع فحص توثيق حقوق إعادة الاستخدام قبل السماح بالتنزيل.
             </p>
           </div>
 
@@ -248,16 +302,32 @@ export function DatasetExporterPanel({
           </dl>
         </div>
 
-        {/* Schema Self-Audit Status */}
-        <div className="mt-6">
+        {/* Structural + Provenance + Official Ajv JSON Schema Status */}
+        <div className="mt-6 space-y-3">
           {errorIssues.length > 0 ? (
-            <div className="rounded-lg border border-red-300 bg-red-50 p-4 space-y-2 dark:border-red-900/60 dark:bg-red-950/40">
-              <div className="flex items-center gap-2 text-xs font-bold text-red-900 dark:text-red-200">
-                <AlertCircle className="h-4 w-4 shrink-0" />
-                <span>
-                  أوقف نظام التحقق عملية التصدير لوجود {errorIssues.length} خطأ بنيوي أو نقص في توثيق الحقوق:
-                </span>
+            <div className="rounded-lg border border-red-300 bg-red-50 p-4 space-y-3 dark:border-red-900/60 dark:bg-red-950/40">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="flex items-center gap-2 text-xs font-bold text-red-900 dark:text-red-200">
+                  <AlertCircle className="h-4 w-4 shrink-0" />
+                  <span>
+                    أوقف نظام التحقق عملية التصدير لوجود {errorIssues.length} خطأ تعارض أو نقص في توثيق الحقوق:
+                  </span>
+                </div>
+
+                {blockingIdsInSelected.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={handleAutoExcludeBlocking}
+                    className="inline-flex min-h-[34px] items-center gap-1.5 rounded-lg border border-red-400 bg-white px-3 py-1.5 text-xs font-semibold text-red-900 hover:bg-red-100/60 whitespace-nowrap shrink-0 cursor-pointer dark:border-red-700 dark:bg-[#1C1A18] dark:text-red-200"
+                  >
+                    <FilterX className="h-3.5 w-3.5" aria-hidden="true" />
+                    <span>
+                      استثناء المقترحات المتعارضة أو غير الموثقة تلقائياً ({blockingIdsInSelected.length})
+                    </span>
+                  </button>
+                )}
               </div>
+
               <ul className="space-y-1 ps-6 list-disc text-xs text-red-900 dark:text-red-200">
                 {errorIssues.map((iss, i) => (
                   <li key={i}>
@@ -271,7 +341,7 @@ export function DatasetExporterPanel({
               <div className="flex items-center gap-2 text-xs font-semibold text-emerald-950 dark:text-emerald-200">
                 <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-700 dark:text-emerald-400" />
                 <span>
-                  اجتازت الحزمة الفحوص البنيوية الداخلية واكتملت بيانات الحقوق المطلوبة. هذا لا يغني عن تشغيل مدقق JSON Schema أو المراجعة القانونية البشرية قبل الدمج.
+                  اجتازت الدفعة فحص عدم التعارض واكتملت حقول الملكية الفكرية ورخص إعادة الاستخدام لجميع السجلات المشمولة.
                 </span>
               </div>
               {warningIssues.length > 0 && (
@@ -289,7 +359,59 @@ export function DatasetExporterPanel({
             </div>
           ) : (
             <div className="rounded-lg border border-[#D6CEBE] bg-[#FBF9F5] p-4 text-xs text-stone-600 dark:border-[#3A3530] dark:bg-[#141312] dark:text-stone-400">
-              لا توجد مقترحات بحالة «معتمد (accepted)» في المصدر المحدد حالياً. اعتمد مقترحاً واحداً على الأقل من «لوحة تحكيم المحررين» لتفعيل التوليد والتنزيل.
+              لا توجد مقترحات مشمولة في الدفعة حالياً. اعتمد مقترحاً من «لوحة تحكيم المحررين» أو أعد تضمين المقترحات المستثناة أدناه.
+            </div>
+          )}
+
+          {/* Official Ajv JSON Schema Validation Status */}
+          {selectedSubmissions.length > 0 && (
+            <div
+              className={`rounded-lg border p-3.5 text-xs ${
+                validatingSchema
+                  ? 'border-[#D6CEBE] bg-[#FBF9F5] text-stone-700 dark:border-[#3A3530] dark:bg-[#141312] dark:text-stone-300'
+                  : schemaReport?.valid
+                    ? 'border-[#D6CEBE] bg-[#FBF9F5] text-stone-800 dark:border-[#3A3530] dark:bg-[#141312] dark:text-stone-200'
+                    : 'border-red-300 bg-red-50 text-red-900 dark:border-red-900/60 dark:bg-red-950/40 dark:text-red-200'
+              }`}
+            >
+              {validatingSchema ? (
+                <div className="flex items-center gap-2">
+                  <RefreshCw className="h-3.5 w-3.5 animate-spin text-[#0F5C4E] dark:text-[#4FD1C5]" />
+                  <span>جارٍ مطابقة الحزمة الناتجة مع مخططي JSON Schema الرسميين عبر محرك Ajv...</span>
+                </div>
+              ) : schemaReport?.valid ? (
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex items-center gap-2 font-semibold">
+                    <ShieldCheck className="h-4 w-4 shrink-0 text-[#0F5C4E] dark:text-[#4FD1C5]" />
+                    <span>
+                      مدقق JSON Schema الرسمي (Ajv): مطابق 100% لمخططي{' '}
+                      <code className="font-mono">schema.json</code> و
+                      <code className="font-mono">context-schema.json</code>
+                    </span>
+                  </div>
+                  <span className="font-mono text-[11px] text-stone-500 dark:text-stone-400">
+                    المصدر:{' '}
+                    {schemaReport.schemaSource === 'official_github'
+                      ? 'مستودع ArCode-Standard الحي'
+                      : 'المخطط المعياري المضمن'}
+                  </span>
+                </div>
+              ) : schemaReport ? (
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2 font-bold">
+                    <AlertCircle className="h-4 w-4 shrink-0" />
+                    <span>رفض مدقق JSON Schema الرسمي (Ajv) الحزمة للأسباب التالية:</span>
+                  </div>
+                  <ul className="space-y-1 ps-5 list-disc font-mono text-[11px]" dir="ltr">
+                    {schemaReport.lexiconErrors.map((e, i) => (
+                      <li key={`lex-${i}`}>moroccan-darija.json {e}</li>
+                    ))}
+                    {schemaReport.examplesErrors.map((e, i) => (
+                      <li key={`ctx-${i}`}>context-examples.json {e}</li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
             </div>
           )}
         </div>
@@ -338,10 +460,21 @@ export function DatasetExporterPanel({
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-12 items-start">
           {/* Accepted Submissions Selection */}
           <div className="lg:col-span-5 rounded-xl border border-[#E5DFD3] bg-white p-5 dark:border-[#2E2B27] dark:bg-[#1C1A18]">
-            <h4 className="font-display text-sm font-bold text-stone-900 pb-3 border-b border-[#E5DFD3] dark:text-stone-100 dark:border-[#2E2B27]">
-              المقترحات المعتمدة المشمولة في الدفعة ({selectedSubmissions.length} /{' '}
-              {candidateAccepted.length})
-            </h4>
+            <div className="flex items-center justify-between gap-2 pb-3 border-b border-[#E5DFD3] dark:border-[#2E2B27]">
+              <h4 className="font-display text-sm font-bold text-stone-900 dark:text-stone-100">
+                المقترحات المعتمدة المشمولة في الدفعة ({selectedSubmissions.length} /{' '}
+                {candidateAccepted.length})
+              </h4>
+              {excludedIds.size > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setExcludedIds(new Set())}
+                  className="text-xs font-medium text-[#0F5C4E] hover:underline whitespace-nowrap cursor-pointer dark:text-[#4FD1C5]"
+                >
+                  إعادة تضمين الكل
+                </button>
+              )}
+            </div>
             <div className="mt-3 divide-y divide-[#E5DFD3] max-h-[420px] overflow-y-auto dark:divide-[#2E2B27]">
               {candidateAccepted.map((sub) => {
                 const included = !excludedIds.has(sub.id)

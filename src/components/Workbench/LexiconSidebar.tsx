@@ -91,7 +91,7 @@ export function LexiconSidebar({
             type="search"
             value={query}
             onChange={(e) => onQueryChange(e.target.value)}
-            placeholder="ابحث بالكلمة، Arabizi، المعنى، أو الرمز..."
+            placeholder="بحث صوتي بالعربية أو Arabizi (مثل bzzaf / بزاف)..."
             className="w-full min-h-[40px] rounded-lg border border-[#D6CEBE] bg-[#FBF9F5] ps-9 pe-3 py-2 text-xs text-stone-900 placeholder:text-stone-400 focus:border-[#0F5C4E] focus:bg-white focus:outline-none dark:border-[#3A3530] dark:bg-[#141312] dark:text-stone-100 dark:focus:border-[#4FD1C5]"
           />
         </label>
@@ -112,14 +112,15 @@ export function LexiconSidebar({
 
         <div
           role="group"
-          aria-label="تصفية حسب توفر الشاهد السياقي"
-          className="grid grid-cols-3 gap-1 rounded-lg bg-[#F3EFE6] p-1 dark:bg-[#141312]"
+          aria-label="تصفية حسب توفر الشاهد السياقي وأولوية الإثراء"
+          className="grid grid-cols-2 gap-1 rounded-lg bg-[#F3EFE6] p-1 dark:bg-[#141312]"
         >
           {(
             [
               ['all', 'الكل'],
               ['with_examples', 'بشاهد سياقي'],
               ['needs_examples', 'بدون شاهد'],
+              ['priority_enrichment', 'أولوية الإثراء'],
             ] as const
           ).map(([val, label]) => (
             <button

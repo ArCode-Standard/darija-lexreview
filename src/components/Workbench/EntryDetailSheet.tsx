@@ -14,6 +14,8 @@ import {
   CheckCircle2,
   FlaskConical,
   ArrowLeft,
+  GitBranch,
+  X,
 } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import type {
@@ -22,19 +24,22 @@ import type {
   LexicalEntry,
   LocalDraft,
   ProposedFields,
+  SubmissionRecord,
 } from '../../types/lexicon'
 import {
   formatAccessionCode,
   formatRegisterLabel,
   formatStatusLabel,
 } from '../../services/dataset'
-import { validateEvidenceItems } from '../../utils/validation'
+import { MAX_EVIDENCE_ITEMS, validateEvidenceItems } from '../../utils/validation'
 
 interface EntryDetailSheetProps {
   entry: LexicalEntry
   currentIndex: number
   totalFiltered: number
   existingDraft?: LocalDraft
+  revisionTarget?: SubmissionRecord | null
+  onClearRevisionTarget?: () => void
   onPrev: () => void
   onNext: () => void
   onSaveDraft: (draft: LocalDraft) => void
@@ -44,6 +49,7 @@ interface EntryDetailSheetProps {
     proposedData: ProposedFields
     evidence: EvidenceItem[]
     reviewerNote: string | null
+    supersedesId?: string | null
   }) => void
   onOpenModerationSandbox: () => void
   onRequireLogin: () => void
@@ -135,6 +141,8 @@ export function EntryDetailSheet({
   currentIndex,
   totalFiltered,
   existingDraft,
+  revisionTarget,
+  onClearRevisionTarget,
   onPrev,
   onNext,
   onSaveDraft,
@@ -158,8 +166,21 @@ export function EntryDetailSheet({
     showSandboxJump?: boolean
   } | null>(null)
 
+  const activeRevision =
+    revisionTarget && revisionTarget.entry_id === entry.id ? revisionTarget : null
+
   useEffect(() => {
-    if (existingDraft) {
+    if (activeRevision) {
+      setForm(activeRevision.proposed_data ?? {})
+      setRightsConfirmed(Boolean(activeRevision.proposed_data?.rights_confirmed))
+      setTrainingPermission(activeRevision.proposed_data?.training_permission ?? 'not_allowed')
+      setEvidenceList(
+        Array.isArray(activeRevision.evidence) && activeRevision.evidence.length > 0
+          ? activeRevision.evidence
+          : [{ url: '', note: '' }],
+      )
+      setReviewerNote(activeRevision.reviewer_note ?? '')
+    } else if (existingDraft) {
       setForm(existingDraft.proposedData ?? {})
       setRightsConfirmed(Boolean(existingDraft.proposedData?.rights_confirmed))
       setTrainingPermission(existingDraft.proposedData?.training_permission ?? 'not_allowed')
@@ -175,7 +196,7 @@ export function EntryDetailSheet({
       setReviewerNote('')
     }
     setFeedback(null)
-  }, [entry.id, existingDraft])
+  }, [entry.id, existingDraft, activeRevision])
 
   const accessionCode = formatAccessionCode(entry.id, entry.numericId)
 
@@ -194,7 +215,9 @@ export function EntryDetailSheet({
   }
 
   function addEvidenceRow() {
-    setEvidenceList((prev) => [...prev, { url: '', note: '' }])
+    setEvidenceList((prev) =>
+      prev.length < MAX_EVIDENCE_ITEMS ? [...prev, { url: '', note: '' }] : prev,
+    )
   }
 
   function removeEvidenceRow(idx: number) {
@@ -255,7 +278,14 @@ export function EntryDetailSheet({
       }
     }
 
-    const { cleaned, invalidUrls } = validateEvidenceItems(evidenceList)
+    const { cleaned, invalidUrls, tooMany } = validateEvidenceItems(evidenceList)
+    if (tooMany) {
+      return {
+        valid: false,
+        error: `لا يمكن إرفاق أكثر من ${MAX_EVIDENCE_ITEMS} شواهد في المقترح الواحد.`,
+        cleanedEvidence: [],
+      }
+    }
     if (invalidUrls.length > 0) {
       return {
         valid: false,
@@ -318,9 +348,11 @@ export function EntryDetailSheet({
       proposedData: buildCleanProposedData(),
       evidence: check.cleanedEvidence,
       reviewerNote: reviewerNote.trim() || null,
+      supersedesId: activeRevision ? activeRevision.id : null,
     })
 
     if (existingDraft) onRemoveDraft(entry.id)
+    if (activeRevision) onClearRevisionTarget?.()
     setForm({})
     setRightsConfirmed(false)
     setTrainingPermission('not_allowed')
@@ -328,7 +360,9 @@ export function EntryDetailSheet({
     setReviewerNote('')
     setFeedback({
       type: 'success',
-      text: 'أُضيف المقترح إلى طابور المحاكاة التحريرية المحلية لفحصه واعتماده وتجربة تصديره.',
+      text: activeRevision
+        ? 'أُرسلت النسخة المنقحة إلى طابور المحاكاة مع ربطها بالمقترح السابق.'
+        : 'أُضيف المقترح إلى طابور المحاكاة التحريرية المحلية لفحصه واعتماده وتجربة تصديره.',
       showSandboxJump: true,
     })
   }
@@ -341,6 +375,9 @@ export function EntryDetailSheet({
     setReviewerNote('')
     if (existingDraft) {
       onRemoveDraft(entry.id)
+    }
+    if (activeRevision) {
+      onClearRevisionTarget?.()
     }
     setFeedback(null)
   }
@@ -375,13 +412,18 @@ export function EntryDetailSheet({
 
     setBusy(true)
     setFeedback(null)
-    const { error } = await supabase.from('review_submissions').insert({
+    const insertPayload: Record<string, unknown> = {
       entry_id: entry.id,
       proposed_data: buildCleanProposedData(),
       evidence: check.cleanedEvidence,
       reviewer_note: reviewerNote.trim() || null,
       status: 'pending',
-    })
+    }
+    if (activeRevision && !activeRevision.is_sandbox) {
+      insertPayload.supersedes_id = activeRevision.id
+    }
+
+    const { error } = await supabase.from('review_submissions').insert(insertPayload)
     setBusy(false)
 
     if (error) {
@@ -392,12 +434,18 @@ export function EntryDetailSheet({
     if (existingDraft) {
       onRemoveDraft(entry.id)
     }
+    const wasRevision = Boolean(activeRevision)
+    if (activeRevision) {
+      onClearRevisionTarget?.()
+    }
     setForm({})
     setEvidenceList([{ url: '', note: '' }])
     setReviewerNote('')
     setFeedback({
       type: 'success',
-      text: 'تم تسجيل المقترح في سجل التحكيم بحالة قيد المراجعة (pending). لا يتغير المعجم الرسمي إلا بعد اعتماد المحررين.',
+      text: wasRevision
+        ? 'تم تسجيل النسخة المنقحة في سجل التحكيم وربطها بالمقترح السابق عبر supersedes_id.'
+        : 'تم تسجيل المقترح في سجل التحكيم بحالة قيد المراجعة (pending). لا يتغير المعجم الرسمي إلا بعد اعتماد المحررين.',
     })
     onSubmissionSuccess()
   }
@@ -618,10 +666,39 @@ export function EntryDetailSheet({
 
       {/* Structured Contribution & Evidence Form */}
       <div className="pt-6">
+        {activeRevision && (
+          <div className="mb-5 rounded-lg border border-amber-300 bg-amber-50/80 p-4 text-xs text-amber-950 dark:border-amber-800/60 dark:bg-amber-950/30 dark:text-amber-200">
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-start gap-2">
+                <GitBranch className="h-4 w-4 shrink-0 mt-0.5 text-amber-700 dark:text-amber-400" />
+                <div>
+                  <p className="font-semibold">
+                    وضع إعداد نسخة منقحة تحل محل المقترح #{activeRevision.id.slice(0, 8)}
+                  </p>
+                  {activeRevision.editor_note && (
+                    <p className="mt-1 leading-relaxed">
+                      <strong>ملاحظة المحرر المطلوب استيفاؤها:</strong> {activeRevision.editor_note}
+                    </p>
+                  )}
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => onClearRevisionTarget?.()}
+                aria-label="إلغاء وضع التنقيح"
+                className="inline-flex items-center gap-1 rounded-md border border-amber-400/70 bg-white px-2.5 py-1 text-[11px] font-medium text-amber-950 hover:bg-amber-100/50 cursor-pointer dark:border-amber-700 dark:bg-[#141312] dark:text-amber-200"
+              >
+                <X className="h-3 w-3" />
+                <span>إلغاء</span>
+              </button>
+            </div>
+          </div>
+        )}
+
         <div className="flex flex-wrap items-baseline justify-between gap-2">
           <div>
             <h4 className="font-display text-base font-bold text-stone-900 dark:text-stone-100">
-              اقتراح تصحيح أو إثراء معجمي
+              {activeRevision ? 'تقديم نسخة منقحة للمقترح' : 'اقتراح تصحيح أو إثراء معجمي'}
             </h4>
             <p className="mt-1 text-xs text-stone-600 dark:text-stone-400">
               املأ فقط الحقول التي تقترح تعديلها أو استكمالها، وأرفق شاهداً مستقلاً يثبت الاستعمال.
@@ -667,16 +744,17 @@ export function EntryDetailSheet({
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div>
                 <h5 className="text-xs font-semibold text-stone-800 dark:text-stone-200">
-                  ٤. الشواهد ومصادر التحقق المستقلة
+                  ٤. الشواهد ومصادر التحقق المستقلة ({evidenceList.length} / {MAX_EVIDENCE_ITEMS})
                 </h5>
                 <p className="mt-0.5 text-xs text-stone-500 dark:text-stone-400">
-                  أرفق رابطاً صحيحاً يبدأ بـ https:// يوضح ورود الكلمة في سياق مغربي أصيل.
+                  أرفق رابطاً صحيحاً يبدأ بـ https:// يوضح ورود الكلمة في سياق مغربي أصيل (حد أقصى 10 شواهد).
                 </p>
               </div>
               <button
                 type="button"
+                disabled={evidenceList.length >= MAX_EVIDENCE_ITEMS}
                 onClick={addEvidenceRow}
-                className="inline-flex min-h-[34px] items-center gap-1.5 rounded-lg border border-[#D6CEBE] bg-[#FBF9F5] px-3 py-1.5 text-xs font-medium text-stone-800 hover:bg-[#EFECE4] whitespace-nowrap shrink-0 cursor-pointer dark:border-[#3A3530] dark:bg-[#141312] dark:text-stone-200 dark:hover:bg-[#262320]"
+                className="inline-flex min-h-[34px] items-center gap-1.5 rounded-lg border border-[#D6CEBE] bg-[#FBF9F5] px-3 py-1.5 text-xs font-medium text-stone-800 hover:bg-[#EFECE4] disabled:opacity-45 whitespace-nowrap shrink-0 cursor-pointer dark:border-[#3A3530] dark:bg-[#141312] dark:text-stone-200 dark:hover:bg-[#262320]"
               >
                 <Plus className="h-3.5 w-3.5" />
                 <span>إضافة شاهد آخر</span>

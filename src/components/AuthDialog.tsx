@@ -166,14 +166,7 @@ export function AuthDialog({
     if (!open || !supabase) return
 
     const handlePopupMessage = async (event: MessageEvent) => {
-      const origin = event.origin
-      const isAllowedOrigin =
-        origin === window.location.origin ||
-        origin.endsWith('.run.app') ||
-        origin.includes('localhost') ||
-        origin.endsWith('.pages.dev')
-
-      if (!isAllowedOrigin) return
+      if (event.origin !== window.location.origin) return
       if (event.data?.type !== 'OAUTH_AUTH_SUCCESS') return
 
       const rawHash = typeof event.data.hash === 'string' ? event.data.hash : ''
