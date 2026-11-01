@@ -184,7 +184,8 @@ export function LexiconSidebar({
             </label>
           </div>
         )}
-\n      <div className="mt-4 max-h-[540px] overflow-y-auto pe-1 space-y-1">
+
+      <div className="mt-4 max-h-[540px] overflow-y-auto pe-1 space-y-1">
         {dataMode === 'loading' ? (
           Array.from({ length: 6 }).map((_, idx) => (
             <div
