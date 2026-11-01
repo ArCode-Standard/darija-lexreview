@@ -35,6 +35,7 @@ const CorpusOverview = lazy(() => import('./components/Workbench/CorpusOverview'
 const SubmissionsPanel = lazy(() => import('./components/Workbench/SubmissionsPanel').then((module) => ({ default: module.SubmissionsPanel })))
 const EditorModerationPanel = lazy(() => import('./components/Workbench/EditorModerationPanel').then((module) => ({ default: module.EditorModerationPanel })))
 const DatasetExporterPanel = lazy(() => import('./components/Workbench/DatasetExporterPanel').then((module) => ({ default: module.DatasetExporterPanel })))
+const ContributorProfilePanel = lazy(() => import('./components/Workbench/ContributorProfilePanel').then((module) => ({ default: module.ContributorProfilePanel })))
 const MethodologySection = lazy(() => import('./components/MethodologySection').then((module) => ({ default: module.MethodologySection })))
 const AuthDialog = lazy(() => import('./components/AuthDialog').then((module) => ({ default: module.AuthDialog })))
 import { Footer } from './components/Footer'
@@ -65,6 +66,9 @@ export default function App() {
   const [query, setQuery] = useState(initialUrlState.query)
   const [selectedCategory, setSelectedCategory] = useState(initialUrlState.category)
   const [exampleFilter, setExampleFilter] = useState<ExampleFilter>(initialUrlState.exampleFilter)
+  const [selectedEntryType, setSelectedEntryType] = useState('all')
+  const [selectedRegister, setSelectedRegister] = useState('all')
+  const [selectedRegion, setSelectedRegion] = useState('all')
   const [activeId, setActiveId] = useState<string>(initialUrlState.entryId ?? DEMO_ENTRIES[0].id)
 
   const [resumedNewDraft, setResumedNewDraft] = useState<LocalDraft | null>(null)
@@ -953,7 +957,7 @@ export default function App() {
             />
           )}
 
-          {workbenchTab === 'moderation' && canAccessEditorialTools && (
+          {workbenchTab === 'profile' && userEmail && (\n            <ContributorProfilePanel profile={reviewerProfile} userEmail={userEmail} onProfileSaved={syncUserSession} />\n          )}\n\n          {workbenchTab === 'moderation' && canAccessEditorialTools && (
             <EditorModerationPanel
               entries={entries}
               categories={categories}
