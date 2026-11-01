@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Search, Shuffle, RotateCcw } from 'lucide-react'
+import { Search, Shuffle, RotateCcw, SlidersHorizontal } from 'lucide-react'
 import type { DataMode, ExampleFilter, LexicalEntry, LocalDraft } from '../../types/lexicon'
 import { formatAccessionCode, formatStatusLabel } from '../../services/dataset'
 
@@ -11,11 +11,18 @@ interface LexiconSidebarProps {
   query: string
   selectedCategory: string
   exampleFilter: ExampleFilter
+  selectedEntryType: string
+  selectedRegister: string
+  selectedRegion: string
+  regions: string[]
   dataMode: DataMode
   drafts: Record<string, LocalDraft>
   onQueryChange: (q: string) => void
   onCategoryChange: (cat: string) => void
   onExampleFilterChange: (f: ExampleFilter) => void
+  onEntryTypeChange: (value: string) => void
+  onRegisterChange: (value: string) => void
+  onRegionChange: (value: string) => void
   onSelectEntry: (entry: LexicalEntry) => void
   onResetFilters: () => void
 }
@@ -30,23 +37,31 @@ export function LexiconSidebar({
   query,
   selectedCategory,
   exampleFilter,
+  selectedEntryType,
+  selectedRegister,
+  selectedRegion,
+  regions,
   dataMode,
   drafts,
   onQueryChange,
   onCategoryChange,
   onExampleFilterChange,
+  onEntryTypeChange,
+  onRegisterChange,
+  onRegionChange,
   onSelectEntry,
   onResetFilters,
 }: LexiconSidebarProps) {
   const [visibleCount, setVisibleCount] = useState(PAGE_STEP)
+  const [advancedOpen, setAdvancedOpen] = useState(false)
 
   useEffect(() => {
     setVisibleCount(PAGE_STEP)
-  }, [query, selectedCategory, exampleFilter])
+  }, [query, selectedCategory, exampleFilter, selectedEntryType, selectedRegister, selectedRegion])
 
   const visibleSlice = filteredEntries.slice(0, visibleCount)
   const hasActiveFilters =
-    query.trim() !== '' || selectedCategory !== 'all' || exampleFilter !== 'all'
+    query.trim() !== '' || selectedCategory !== 'all' || exampleFilter !== 'all' || selectedEntryType !== 'all' || selectedRegister !== 'all' || selectedRegion !== 'all'
 
   function handlePickRandom() {
     const pool = filteredEntries.length > 0 ? filteredEntries : entries
@@ -139,6 +154,36 @@ export function LexiconSidebar({
           ))}
         </div>
       </div>
+
+        <button
+          type="button"
+          aria-expanded={advancedOpen}
+          onClick={() => setAdvancedOpen((open) => !open)}
+          className="inline-flex min-h-9 items-center gap-2 rounded-lg border border-stone-200 px-3 text-xs font-semibold text-stone-700 hover:bg-stone-50 dark:border-stone-700 dark:text-stone-300 dark:hover:bg-stone-800"
+        >
+          <SlidersHorizontal className="h-3.5 w-3.5" />
+          بحث متقدم
+          <span className="text-stone-400">{advancedOpen ? '−' : '+'}</span>
+        </button>
+        {advancedOpen && (
+          <div className="grid gap-2 rounded-xl border border-stone-200 bg-[#FBFAF7] p-3 sm:grid-cols-2 dark:border-stone-700 dark:bg-[#141312]">
+            <label className="space-y-1 text-[11px] font-semibold text-stone-600 dark:text-stone-400">نوع المدخل
+              <select value={selectedEntryType} onChange={(e) => onEntryTypeChange(e.target.value)} className="min-h-9 w-full rounded-lg border border-stone-200 bg-white px-2 text-xs dark:border-stone-700 dark:bg-[#1C1A18]">
+                <option value="all">جميع الأنواع</option><option value="word">كلمة</option><option value="expression">تعبير</option><option value="sentence">جملة</option><option value="proverb">مثل</option><option value="question">سؤال</option><option value="conversational">تعبير محادثة</option><option value="unknown">غير محدد</option>
+              </select>
+            </label>
+            <label className="space-y-1 text-[11px] font-semibold text-stone-600 dark:text-stone-400">سجل الاستعمال
+              <select value={selectedRegister} onChange={(e) => onRegisterChange(e.target.value)} className="min-h-9 w-full rounded-lg border border-stone-200 bg-white px-2 text-xs dark:border-stone-700 dark:bg-[#1C1A18]">
+                <option value="all">جميع السجلات</option><option value="neutral">محايد</option><option value="formal">رسمي</option><option value="informal">دارج / غير رسمي</option><option value="vulgar">فج / مبتذل</option><option value="literary">أدبي</option><option value="religious">ديني</option><option value="unknown">غير محدد</option>
+              </select>
+            </label>
+            <label className="space-y-1 text-[11px] font-semibold text-stone-600 dark:text-stone-400 sm:col-span-2">المنطقة اللهجية
+              <select value={selectedRegion} onChange={(e) => onRegionChange(e.target.value)} className="min-h-9 w-full rounded-lg border border-stone-200 bg-white px-2 text-xs dark:border-stone-700 dark:bg-[#1C1A18]">
+                <option value="all">جميع المناطق</option>{regions.map((region) => <option key={region} value={region}>{region}</option>)}
+              </select>
+            </label>
+          </div>
+        )}
 
       <div className="mt-4 max-h-[540px] overflow-y-auto pe-1 space-y-1">
         {dataMode === 'loading' ? (
