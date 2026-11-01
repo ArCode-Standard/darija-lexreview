@@ -56,11 +56,8 @@ begin
   if char_length(pg_catalog.btrim(new.entry_id)) not between 1 and 40
      or pg_catalog.pg_column_size(new.proposed_data) >= 20000
      or pg_catalog.pg_column_size(new.evidence) >= 20000
-     or case
-          when pg_catalog.jsonb_typeof(new.evidence) = 'array'
-            then pg_catalog.jsonb_array_length(new.evidence) > 5
-          else true
-        end then
+     or pg_catalog.jsonb_typeof(new.evidence) <> 'array'
+     or pg_catalog.jsonb_array_length(new.evidence) > 5 then
     raise exception 'Submission payload exceeds the permitted bounds'
       using errcode = '23514';
   end if;
