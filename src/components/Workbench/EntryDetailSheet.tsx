@@ -17,6 +17,7 @@ import {
 } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import type {
+  DataPermission,
   EvidenceItem,
   LexicalEntry,
   LocalDraft,
@@ -144,6 +145,8 @@ export function EntryDetailSheet({
   onSubmissionSuccess,
 }: EntryDetailSheetProps) {
   const [form, setForm] = useState<ProposedFields>({})
+  const [rightsConfirmed, setRightsConfirmed] = useState(false)
+  const [trainingPermission, setTrainingPermission] = useState<DataPermission>('not_allowed')
   const [evidenceList, setEvidenceList] = useState<EvidenceItem[]>([{ url: '', note: '' }])
   const [reviewerNote, setReviewerNote] = useState('')
   const [showProvenance, setShowProvenance] = useState(false)
@@ -158,12 +161,16 @@ export function EntryDetailSheet({
   useEffect(() => {
     if (existingDraft) {
       setForm(existingDraft.proposedData ?? {})
+      setRightsConfirmed(Boolean(existingDraft.proposedData?.rights_confirmed))
+      setTrainingPermission(existingDraft.proposedData?.training_permission ?? 'not_allowed')
       setEvidenceList(
         existingDraft.evidence.length > 0 ? existingDraft.evidence : [{ url: '', note: '' }],
       )
       setReviewerNote(existingDraft.reviewerNote ?? '')
     } else {
       setForm({})
+      setRightsConfirmed(false)
+      setTrainingPermission('not_allowed')
       setEvidenceList([{ url: '', note: '' }])
       setReviewerNote('')
     }
@@ -205,10 +212,25 @@ export function EntryDetailSheet({
   function buildCleanProposedData(): ProposedFields {
     const out: ProposedFields = { submission_kind: 'edit_entry' }
     for (const [k, v] of Object.entries(form)) {
+      if (
+        k === 'rights_holder' ||
+        k === 'license' ||
+        k === 'redistribution_permission' ||
+        k === 'training_permission' ||
+        k === 'commercial_permission'
+      ) {
+        continue
+      }
       if (typeof v === 'string' && v.trim()) {
         ;(out as Record<string, unknown>)[k] = v.trim()
       }
     }
+    out.rights_confirmed = rightsConfirmed
+    out.rights_holder = rightsConfirmed ? 'contributor' : 'unknown'
+    out.license = rightsConfirmed ? 'CC BY-NC 4.0' : 'unknown'
+    out.redistribution_permission = rightsConfirmed ? 'allowed' : 'unknown'
+    out.training_permission = rightsConfirmed ? trainingPermission : 'unknown'
+    out.commercial_permission = rightsConfirmed ? 'not_allowed' : 'unknown'
     return out
   }
 
@@ -300,6 +322,8 @@ export function EntryDetailSheet({
 
     if (existingDraft) onRemoveDraft(entry.id)
     setForm({})
+    setRightsConfirmed(false)
+    setTrainingPermission('not_allowed')
     setEvidenceList([{ url: '', note: '' }])
     setReviewerNote('')
     setFeedback({
@@ -311,6 +335,8 @@ export function EntryDetailSheet({
 
   function handleResetForm() {
     setForm({})
+    setRightsConfirmed(false)
+    setTrainingPermission('not_allowed')
     setEvidenceList([{ url: '', note: '' }])
     setReviewerNote('')
     if (existingDraft) {
@@ -712,6 +738,35 @@ export function EntryDetailSheet({
                 className="mt-1.5 w-full rounded-lg border border-[#D6CEBE] bg-[#FBF9F5] p-3 text-xs leading-relaxed text-stone-900 placeholder:text-stone-400 focus:border-[#0F5C4E] focus:bg-white focus:outline-none dark:border-[#3A3530] dark:bg-[#141312] dark:text-stone-100"
               />
             </label>
+
+            <div className="mt-4 space-y-3 pt-4 border-t border-[#E5DFD3] dark:border-[#2E2B27]">
+              <label className="block max-w-xl">
+                <span className="block text-xs text-stone-600 dark:text-stone-400">
+                  إذن استخدام الشاهد أو الصياغة المضافة في تدريب نماذج الذكاء الاصطناعي
+                </span>
+                <select
+                  value={trainingPermission}
+                  onChange={(e) => setTrainingPermission(e.target.value as DataPermission)}
+                  className="mt-1.5 w-full min-h-[40px] rounded-lg border border-[#D6CEBE] bg-[#FBF9F5] px-3 py-2 text-xs text-stone-900 focus:border-[#0F5C4E] focus:outline-none dark:border-[#3A3530] dark:bg-[#141312] dark:text-stone-100"
+                >
+                  <option value="not_allowed">غير مسموح</option>
+                  <option value="allowed">مسموح</option>
+                  <option value="not_applicable">لا ينطبق</option>
+                </select>
+              </label>
+
+              <label className="flex items-start gap-2.5 rounded-lg border border-[#E5DFD3] bg-[#FBF9F5] p-3 cursor-pointer dark:border-[#2E2B27] dark:bg-[#141312]">
+                <input
+                  type="checkbox"
+                  checked={rightsConfirmed}
+                  onChange={(e) => setRightsConfirmed(e.target.checked)}
+                  className="mt-0.5 h-4 w-4 accent-[#0F5C4E] shrink-0"
+                />
+                <span className="text-xs leading-relaxed text-stone-700 dark:text-stone-300">
+                  أقرّ بأن التعديل أو الشاهد المضاف من صياغتي الأصلية أو من استعمال لغوي عام غير منقول حرفياً من مصدر محمي، وأملك حق إتاحته ضمن CC BY-NC 4.0 (إن تُرك دون تأكيد تبقى بيانات الحقوق <span className="font-mono">unknown</span> لحين المراجعة البشرية).
+                </span>
+              </label>
+            </div>
           </div>
         </div>
 

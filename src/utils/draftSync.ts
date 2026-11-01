@@ -167,10 +167,22 @@ export function auditDraftForSync(
   }
 
   // Edit existing entry draft
+  const PROVENANCE_KEYS = new Set([
+    'rights_confirmed',
+    'rights_holder',
+    'license',
+    'redistribution_permission',
+    'training_permission',
+    'commercial_permission',
+  ])
   const cleanOut: ProposedFields = { submission_kind: 'edit_entry' }
   let filledFieldsCount = 0
   for (const [k, v] of Object.entries(p)) {
     if (k === 'submission_kind') continue
+    if (PROVENANCE_KEYS.has(k)) {
+      ;(cleanOut as Record<string, unknown>)[k] = v
+      continue
+    }
     if (typeof v === 'string' && v.trim()) {
       ;(cleanOut as Record<string, unknown>)[k] = v.trim()
       filledFieldsCount += 1

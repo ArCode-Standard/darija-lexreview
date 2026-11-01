@@ -287,7 +287,7 @@ export function EditorModerationPanel({
       )
       if (otherAcceptedSameEntry.length > 0) {
         warnings.push(
-          `تداخل تعديلات: يوجد مقترح آخر معتمد مسبقاً لنفس المدخل (#${activeSubmission.entry_id}). سيسود التحديث الأحدث زمنياً عند التصدير.`,
+          `تعارض تصدير: يوجد مقترح آخر معتمد مسبقاً لنفس المدخل (#${activeSubmission.entry_id}). المقترحات المتعارضة على المدخل نفسه تُوقف من التصدير حتى تسويتها.`,
         )
       }
     }
@@ -363,16 +363,34 @@ export function EditorModerationPanel({
       return
     }
 
+    if (profile?.id && activeSubmission.reviewer_id === profile.id) {
+      setActionMessage({
+        type: 'error',
+        text: 'لا يُسمح للمحرر بمراجعة مقترحه الشخصي بموجب قواعد الحوكمة.',
+      })
+      return
+    }
+
+    if (
+      (activeSubmission.status !== 'pending' && activeSubmission.status !== 'needs_changes') ||
+      activeSubmission.status === nextStatus
+    ) {
+      setActionMessage({
+        type: 'error',
+        text: `لا يُسمح بالانتقال من حالة «${formatStatusLabel(activeSubmission.status)}» إلى «${formatStatusLabel(nextStatus)}» في السجل الحي.`,
+      })
+      return
+    }
+
     setSavingDecision(true)
     setActionMessage(null)
 
+    // Update strictly decision columns (status, editor_note); editor_id and audit event are stamped by DB trigger
     const { data, error } = await supabase
       .from('review_submissions')
       .update({
         status: nextStatus,
-        editor_id: profile?.id ?? null,
         editor_note: editorNote.trim() || null,
-        proposed_data: editableProposed,
       })
       .eq('id', activeSubmission.id)
       .select()
@@ -386,7 +404,7 @@ export function EditorModerationPanel({
     if (!data || data.length === 0) {
       setActionMessage({
         type: 'error',
-        text: 'لم يُسمح بتحديث السجل بموجب سياسات الأمان (RLS). تحقق من امتلاكك دور editor أو admin.',
+        text: 'لم يُسمح بتحديث السجل بموجب سياسات الأمان (RLS). تحقق من امتلاكك دور editor وعدم كون المقترح مرسلاً من حسابك.',
       })
       return
     }
@@ -403,13 +421,23 @@ export function EditorModerationPanel({
     setEditMode(false)
     setActionMessage({
       type: 'success',
-      text: `تم تسجيل القرار التحريري «${formatStatusLabel(nextStatus)}» في قاعدة البيانات.`,
+      text: `تم تسجيل القرار التحريري «${formatStatusLabel(nextStatus)}» في سجل القرارات المستقل.`,
     })
   }
 
   const selectableFilteredIds = useMemo(
-    () => filteredQueue.filter((item) => item.status !== 'accepted').map((item) => item.id),
-    [filteredQueue],
+    () =>
+      filteredQueue
+        .filter((item) => {
+          if (item.status === 'accepted') return false
+          if (queueSource === 'live') {
+            if (item.status !== 'pending' && item.status !== 'needs_changes') return false
+            if (profile?.id && item.reviewer_id === profile.id) return false
+          }
+          return true
+        })
+        .map((item) => item.id),
+    [filteredQueue, queueSource, profile?.id],
   )
 
   const allSelectableChecked =
@@ -479,11 +507,11 @@ export function EditorModerationPanel({
     setBulkBusy(true)
     setBulkError(null)
 
+    // Update strictly decision columns (status, editor_note) per DB governance policy
     const { data, error } = await supabase
       .from('review_submissions')
       .update({
         status: 'accepted',
-        editor_id: profile?.id ?? null,
         editor_note: justificationComment,
       })
       .in('id', eligibleIds)
@@ -941,18 +969,24 @@ export function EditorModerationPanel({
                     </h4>
                   </div>
 
-                  <button
-                    type="button"
-                    onClick={() => setEditMode((v) => !v)}
-                    className={`inline-flex min-h-[36px] items-center gap-1.5 rounded-lg border px-3.5 py-1.5 text-xs font-semibold transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
-                      editMode
-                        ? 'border-[#0F5C4E] bg-[#0F5C4E] text-white dark:bg-[#147A67]'
-                        : 'border-[#D6CEBE] bg-[#FBF9F5] text-stone-800 hover:bg-[#EFECE4] dark:border-[#3A3530] dark:bg-[#141312] dark:text-stone-200'
-                    }`}
-                  >
-                    <Edit3 className="h-3.5 w-3.5" />
-                    <span>{editMode ? 'إنهاء تهذيب الحقول' : 'تهذيب الحقول قبل الاعتماد'}</span>
-                  </button>
+                  {queueSource === 'sandbox' ? (
+                    <button
+                      type="button"
+                      onClick={() => setEditMode((v) => !v)}
+                      className={`inline-flex min-h-[36px] items-center gap-1.5 rounded-lg border px-3.5 py-1.5 text-xs font-semibold transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
+                        editMode
+                          ? 'border-[#0F5C4E] bg-[#0F5C4E] text-white dark:bg-[#147A67]'
+                          : 'border-[#D6CEBE] bg-[#FBF9F5] text-stone-800 hover:bg-[#EFECE4] dark:border-[#3A3530] dark:bg-[#141312] dark:text-stone-200'
+                      }`}
+                    >
+                      <Edit3 className="h-3.5 w-3.5" />
+                      <span>{editMode ? 'إنهاء تهذيب الحقول' : 'تهذيب الحقول (محاكاة)'}</span>
+                    </button>
+                  ) : (
+                    <span className="text-[11px] text-stone-500 dark:text-stone-400">
+                      محتوى المقترح ثابت بعد الإرسال (اطلب تعديلاً عند الحاجة)
+                    </span>
+                  )}
                 </div>
 
                 {/* Automated Integrity Warnings */}
@@ -1212,6 +1246,7 @@ export function EditorModerationPanel({
         open={bulkModalOpen}
         selectedSubmissions={selectedBatchSubmissions}
         entries={entries}
+        currentEditorId={profile?.id ?? null}
         editorLabel={
           profile?.display_name?.trim() || userEmail || 'المحرر الحالي (جلسة محاكاة)'
         }

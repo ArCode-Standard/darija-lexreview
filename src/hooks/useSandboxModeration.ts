@@ -6,7 +6,7 @@ import type {
   SubmissionStatus,
 } from '../types/lexicon'
 
-const SANDBOX_STORAGE_KEY = 'arcode_darija_lexreview_sandbox_queue_v2'
+const SANDBOX_STORAGE_KEY = 'arcode_darija_lexreview_sandbox_queue_v3'
 
 const INITIAL_SANDBOX_SUBMISSIONS: SubmissionRecord[] = [
   {
@@ -20,6 +20,12 @@ const INITIAL_SANDBOX_SUBMISSIONS: SubmissionRecord[] = [
       example_translation: 'السلام عليكم، تفضلوا البيت بيتكم.',
       example_french: 'Bonjour, entrez je vous en prie, faites comme chez vous.',
       register: 'neutral',
+      rights_confirmed: true,
+      rights_holder: 'contributor',
+      license: 'CC BY-NC 4.0',
+      redistribution_permission: 'allowed',
+      training_permission: 'not_allowed',
+      commercial_permission: 'not_allowed',
     },
     evidence: [
       {
@@ -50,6 +56,11 @@ const INITIAL_SANDBOX_SUBMISSIONS: SubmissionRecord[] = [
       source_type: 'contributor',
       source_name: 'رصد ميداني — Darija LexReview',
       rights_confirmed: true,
+      rights_holder: 'contributor',
+      license: 'CC BY-NC 4.0',
+      redistribution_permission: 'allowed',
+      training_permission: 'not_allowed',
+      commercial_permission: 'not_allowed',
       example_darija: 'تبارك الله عليك، الخدمة متقونة بزاف.',
       example_arabizi: 'tbarkllah 3lik, lkhdma mt9ouna bzzaf.',
       example_translation: 'ما شاء الله عليك، العمل متقن جداً.',
@@ -79,6 +90,12 @@ const INITIAL_SANDBOX_SUBMISSIONS: SubmissionRecord[] = [
       example_translation: 'وعليكم السلام، مرحباً بكم عندنا.',
       example_french: 'Et sur vous la paix, soyez les bienvenus chez nous.',
       register: 'neutral',
+      rights_confirmed: true,
+      rights_holder: 'contributor',
+      license: 'CC BY-NC 4.0',
+      redistribution_permission: 'allowed',
+      training_permission: 'not_allowed',
+      commercial_permission: 'not_allowed',
     },
     evidence: [
       {
@@ -111,6 +128,11 @@ const INITIAL_SANDBOX_SUBMISSIONS: SubmissionRecord[] = [
       source_type: 'contributor',
       source_name: 'رصد ميداني — Darija LexReview',
       rights_confirmed: true,
+      rights_holder: 'contributor',
+      license: 'CC BY-NC 4.0',
+      redistribution_permission: 'allowed',
+      training_permission: 'not_allowed',
+      commercial_permission: 'not_allowed',
       example_darija: 'على سلامتك منين وصلتي على خير.',
       example_arabizi: '3la slamtk mnin wslti 3la khir.',
       example_translation: 'الحمد لله على سلامتك حين وصلت بخير.',

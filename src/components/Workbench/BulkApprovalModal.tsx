@@ -15,6 +15,7 @@ interface BulkApprovalModalProps {
   open: boolean
   selectedSubmissions: SubmissionRecord[]
   entries: LexicalEntry[]
+  currentEditorId?: string | null
   editorLabel: string
   queueSource: 'live' | 'sandbox'
   busy: boolean
@@ -33,6 +34,7 @@ export function BulkApprovalModal({
   open,
   selectedSubmissions,
   entries,
+  currentEditorId,
   editorLabel,
   queueSource,
   busy,
@@ -97,6 +99,29 @@ export function BulkApprovalModal({
         continue
       }
 
+      if (queueSource === 'live' && sub.status !== 'pending' && sub.status !== 'needs_changes') {
+        blocked.push({
+          sub,
+          title,
+          reason: 'لا يُسمح في السجل الحي إلا بتحويل المقترحات المعلقة أو المطلوب تعديلها.',
+        })
+        continue
+      }
+
+      if (
+        queueSource === 'live' &&
+        currentEditorId &&
+        sub.reviewer_id &&
+        sub.reviewer_id === currentEditorId
+      ) {
+        blocked.push({
+          sub,
+          title,
+          reason: 'لا يُسمح للمحرر بتحكيم واعتماد مقترحه الشخصي بموجب قواعد الحوكمة.',
+        })
+        continue
+      }
+
       if (isNew) {
         const hasRequiredFive =
           Boolean(p.word_ar?.trim()) &&
@@ -146,13 +171,13 @@ export function BulkApprovalModal({
     for (const [entryId, count] of seenEntryTargets.entries()) {
       if (count > 1) {
         warnings.push(
-          `تضم الدفعة المحددة (${count}) مقترحات تستهدف نفس المدخل (#${entryId}). سيسود الترتيب الزمني عند التصدير.`,
+          `تنبيه تعارض: تضم الدفعة المحددة (${count}) مقترحات تستهدف نفس المدخل (#${entryId}). المقترحات المتعارضة على المدخل نفسه تُوقف من التصدير حتى تسويتها.`,
         )
       }
     }
 
     return { eligible, blocked, warnings }
-  }, [selectedSubmissions, entryById, entries])
+  }, [selectedSubmissions, entryById, entries, queueSource, currentEditorId])
 
   if (!open) return null
 
