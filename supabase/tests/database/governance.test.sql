@@ -13,14 +13,37 @@ insert into auth.users (
   ('10000000-0000-4000-8000-000000000002','00000000-0000-0000-0000-000000000000','authenticated','authenticated','editor@example.invalid','',now(),'{"provider":"email","providers":["email"]}','{"name":"CI Editor"}',now(),now()),
   ('10000000-0000-4000-8000-000000000003','00000000-0000-0000-0000-000000000000','authenticated','authenticated','admin@example.invalid','',now(),'{"provider":"email","providers":["email"]}','{"name":"CI Admin"}',now(),now());
 
--- CI fixtures need pre-provisioned staff roles. This privileged setup mirrors
--- the documented one-time admin bootstrap; it is not an application execution path.
-set local session_replication_role = replica;
-update public.reviewer_profiles set role = 'editor'
-where id = '10000000-0000-4000-8000-000000000002';
-update public.reviewer_profiles set role = 'admin'
+-- Bootstrap the first CI admin using the same one-time privileged provisioning
+-- boundary documented for production. The auth trigger initially creates a reviewer
+-- profile; replace only this synthetic fixture row with its pre-provisioned admin role.
+delete from public.reviewer_profiles
 where id = '10000000-0000-4000-8000-000000000003';
-set local session_replication_role = origin;
+insert into public.reviewer_profiles (id, display_name, role)
+values ('10000000-0000-4000-8000-000000000003', 'CI Admin', 'admin');
+
+-- Promote the editor fixture through the real reviewer -> admin approval workflow.
+set local role authenticated;
+select set_config('request.jwt.claim.sub','10000000-0000-4000-8000-000000000002',true);
+select set_config('request.jwt.claim.role','authenticated',true);
+insert into public.role_promotion_requests (
+  id, requester_id, requester_name, experience_summary
+) values (
+  '20000000-0000-4000-8000-000000000002',
+  '10000000-0000-4000-8000-000000000002',
+  'CI Editor',
+  'Synthetic integration-test fixture requesting editorial permissions.'
+);
+reset role;
+
+set local role authenticated;
+select set_config('request.jwt.claim.sub','10000000-0000-4000-8000-000000000003',true);
+select set_config('request.jwt.claim.role','authenticated',true);
+select public.review_role_promotion_request(
+  '20000000-0000-4000-8000-000000000002',
+  'approved',
+  null
+);
+reset role;
 
 select ok(
   (select relrowsecurity from pg_class where oid = 'public.review_submissions'::regclass),
