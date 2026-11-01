@@ -164,8 +164,8 @@ set local role authenticated;
 select set_config('request.jwt.claim.sub','10000000-0000-4000-8000-000000000001',true);
 select set_config('request.jwt.claim.role','authenticated',true);
 select throws_ok(
-  $ insert into public.review_submissions(entry_id, proposed_data, evidence, reviewer_id)
-     values ('ci-entry-spoof','{"lemma":"مزور"}','[]','10000000-0000-4000-8000-000000000002') $,
+  $test$ insert into public.review_submissions(entry_id, proposed_data, evidence, reviewer_id)
+     values ('ci-entry-spoof','{"lemma":"مزور"}','[]','10000000-0000-4000-8000-000000000002') $test$,
   '42501',
   'Authenticated contributor required',
   'submission reviewer_id cannot be spoofed'
