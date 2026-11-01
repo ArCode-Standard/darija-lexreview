@@ -32,13 +32,13 @@ npm run dev
 
 ```env
 VITE_SUPABASE_URL=https://YOUR_PROJECT.supabase.co
-VITE_SUPABASE_ANON_KEY=YOUR_SUPABASE_PUBLISHABLE_OR_ANON_KEY
+VITE_SUPABASE_PUBLISHABLE_KEY=YOUR_SUPABASE_PUBLISHABLE_KEY
 ```
 
 نفّذ الملفات بالترتيب التالي في SQL Editor داخل Supabase:
 
 1. للمشروع الجديد فقط: [supabase/schema.sql](supabase/schema.sql) لإنشاء الجداول وسياسات RLS الأساسية.
-2. طبّق ملفات [supabase/migrations](supabase/migrations) بالترتيب التصاعدي لأسمائها، بما فيها `20261101130441_security_governance_hardening.sql` و`20261101130559_audit_actor_index.sql`.
+2. طبّق ملفات [supabase/migrations](supabase/migrations) بالترتيب التصاعدي لأسمائها، بما فيها `20261101130441_security_governance_hardening.sql` و`20261101130559_audit_actor_index.sql` و`20261101131000_rbac_promotions_and_profiles.sql` و`20261101132000_close_governance_gaps.sql`.
 3. للمشروع القائم الذي سبق تطبيق المخطط الأساسي عليه: لا تُعد تشغيل المخطط الأساسي؛ طبّق ملفات الترحيل الجديدة غير المسجلة فقط وبالترتيب.
 
 لا تفتح استقبال المساهمات العامة قبل تطبيق الترحيلات والتحقق من الصلاحيات بحسابات اختبار منفصلة.
