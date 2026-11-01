@@ -318,12 +318,12 @@ export default function App() {
   useEffect(() => {
     if (
       authInitialized &&
-      !canAccessEditorialTools &&
-      (workbenchTab === 'moderation' || workbenchTab === 'exporter')
+      (!canAccessEditorialTools && (workbenchTab === 'moderation' || workbenchTab === 'exporter')) ||
+      (workbenchTab === 'profile' && !userEmail)
     ) {
       setWorkbenchTab('rapid_review')
     }
-  }, [authInitialized, canAccessEditorialTools, workbenchTab])
+  }, [authInitialized, canAccessEditorialTools, workbenchTab, userEmail])
 
   // Sync workbench state to URL query parameters for shareable deep-links
   useEffect(() => {
