@@ -78,9 +78,9 @@ insert into public.role_promotion_requests (
   'Synthetic contributor request used to verify administrative authorization.'
 );
 select throws_ok(
-  $ select public.review_role_promotion_request(
+  $$ select public.review_role_promotion_request(
     '20000000-0000-4000-8000-000000000001', 'approved', null
-  ) $,
+  ) $$,
   '42501',
   'Only authenticated admins can review role promotion requests',
   'ordinary contributor cannot adjudicate a promotion request'
@@ -92,9 +92,9 @@ set local role authenticated;
 select set_config('request.jwt.claim.sub','10000000-0000-4000-8000-000000000003',true);
 select set_config('request.jwt.claim.role','authenticated',true);
 select throws_ok(
-  $ select public.review_role_promotion_request(
+  $$ select public.review_role_promotion_request(
     '20000000-0000-4000-8000-000000000002', 'rejected', 'replay attempt'
-  ) $,
+  ) $$,
   '55000',
   'Only pending promotion requests can be reviewed',
   'an already adjudicated promotion request cannot be replayed'
