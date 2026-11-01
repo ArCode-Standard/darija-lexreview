@@ -86,7 +86,7 @@ export function Navbar({
           onClick={onOpenAuth}
           className="min-h-[40px] px-4 py-2 text-xs font-semibold rounded-lg bg-[#0F5C4E] text-white hover:bg-[#0B463B] transition-colors duration-150 whitespace-nowrap shrink-0 cursor-pointer dark:bg-[#147A67] dark:hover:bg-[#0F5C4E] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0F5C4E]"
         >
-          {isAuthenticated ? 'حساب المراجع' : 'دخول المراجعين'}
+          {isAuthenticated ? 'حساب المراجع' : 'دخول / إنشاء حساب'}
         </button>
       </div>
     </header>

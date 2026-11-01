@@ -13,8 +13,10 @@ import type {
 import { DEMO_ENTRIES, DEMO_RAW_CORPUS, fetchOfficialCorpus } from './services/dataset'
 import { useLocalDrafts } from './hooks/useLocalDrafts'
 import { useSandboxModeration } from './hooks/useSandboxModeration'
+import { useRoleGovernance } from './hooks/useRoleGovernance'
 import { Navbar } from './components/Navbar'
 import { HeroSection } from './components/HeroSection'
+import { LocalDraftSyncBanner } from './components/LocalDraftSyncBanner'
 import { LexiconSidebar } from './components/Workbench/LexiconSidebar'
 import { EntryDetailSheet } from './components/Workbench/EntryDetailSheet'
 import { NewEntryProposalPanel } from './components/Workbench/NewEntryProposalPanel'
@@ -43,11 +45,13 @@ export default function App() {
 
   const [resumedNewDraft, setResumedNewDraft] = useState<LocalDraft | null>(null)
   const [forceSandboxModeration, setForceSandboxModeration] = useState(false)
+  const [forceGovernanceSection, setForceGovernanceSection] = useState(false)
   const [preferredExportSource, setPreferredExportSource] = useState<'live' | 'sandbox'>('sandbox')
 
   const [authDialogOpen, setAuthDialogOpen] = useState(false)
   const [recoveryMode, setRecoveryMode] = useState(false)
   const [userEmail, setUserEmail] = useState<string | null>(null)
+  const [authProvider, setAuthProvider] = useState<string | null>(null)
   const [reviewerProfile, setReviewerProfile] = useState<ReviewerProfile | null>(null)
   const [submissionsRefreshCounter, setSubmissionsRefreshCounter] = useState(0)
 
@@ -59,7 +63,7 @@ export default function App() {
     }
   })
 
-  const { drafts, draftsList, saveDraft, removeDraft } = useLocalDrafts()
+  const { drafts, draftsList, saveDraft, removeDraft, removeMultipleDrafts } = useLocalDrafts()
   const {
     sandboxItems,
     addSandboxSubmission,
@@ -67,6 +71,14 @@ export default function App() {
     bulkApproveSandboxSubmissions,
     resetSandboxQueue,
   } = useSandboxModeration()
+  const {
+    sandboxProfiles,
+    sandboxPromotionRequests,
+    submitSandboxPromotionRequest,
+    reviewSandboxPromotionRequest,
+    updateSandboxMemberRole,
+    resetSandboxGovernance,
+  } = useRoleGovernance()
 
   useEffect(() => {
     const root = document.documentElement
@@ -88,15 +100,50 @@ export default function App() {
       data: { user },
     } = await supabase.auth.getUser()
     setUserEmail(user?.email ?? null)
+    setAuthProvider(
+      typeof user?.app_metadata?.provider === 'string' ? user.app_metadata.provider : null,
+    )
     if (user) {
-      const { data } = await supabase
+      let prof: ReviewerProfile | null = null
+      const fullRes = await supabase
         .from('reviewer_profiles')
-        .select('id, display_name, role')
+        .select('id, display_name, dialect_region, specialty, github_handle, role')
         .eq('id', user.id)
         .maybeSingle()
-      const prof = (data as ReviewerProfile | null) ?? null
+
+      if (fullRes.error) {
+        const minRes = await supabase
+          .from('reviewer_profiles')
+          .select('id, display_name, role')
+          .eq('id', user.id)
+          .maybeSingle()
+        prof = (minRes.data as ReviewerProfile | null) ?? null
+      } else {
+        prof = (fullRes.data as ReviewerProfile | null) ?? null
+      }
+
+      // Safe fallback bootstrap if trigger did not create reviewer_profiles row yet
+      if (!prof) {
+        const meta = user.user_metadata ?? {}
+        const fallbackName =
+          (typeof meta.name === 'string' && meta.name.trim()) ||
+          (typeof meta.full_name === 'string' && meta.full_name.trim()) ||
+          (typeof meta.user_name === 'string' && meta.user_name.trim()) ||
+          null
+        await supabase.from('reviewer_profiles').insert({
+          id: user.id,
+          display_name: fallbackName,
+          role: 'reviewer',
+        })
+        prof = {
+          id: user.id,
+          display_name: fallbackName,
+          role: 'reviewer',
+        }
+      }
+
       setReviewerProfile(prof)
-      if (prof?.role === 'editor' || prof?.role === 'admin') {
+      if (prof.role === 'editor' || prof.role === 'admin') {
         setPreferredExportSource('live')
       }
     } else {
@@ -111,11 +158,16 @@ export default function App() {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((event, session) => {
       setUserEmail(session?.user?.email ?? null)
+      setAuthProvider(
+        typeof session?.user?.app_metadata?.provider === 'string'
+          ? session.user.app_metadata.provider
+          : null,
+      )
       if (event === 'PASSWORD_RECOVERY') {
         setRecoveryMode(true)
         setAuthDialogOpen(true)
       }
-      if (event === 'SIGNED_IN' || event === 'SIGNED_OUT') {
+      if (event === 'SIGNED_IN' || event === 'SIGNED_OUT' || event === 'USER_UPDATED') {
         syncUserSession()
       }
     })
@@ -238,6 +290,14 @@ export default function App() {
   function handleOpenModerationSandbox() {
     setForceSandboxModeration(true)
     setWorkbenchTab('moderation')
+  }
+
+  function handleJumpToAdminGovernance(source: 'live' | 'sandbox') {
+    setForceSandboxModeration(source === 'sandbox')
+    setForceGovernanceSection(true)
+    setWorkbenchTab('moderation')
+    const el = document.getElementById('workspace')
+    if (el) el.scrollIntoView({ behavior: 'smooth' })
   }
 
   function handleGoToExporter(source: 'live' | 'sandbox') {
@@ -371,6 +431,17 @@ export default function App() {
             ) : null}
           </div>
 
+          {/* Smart Post-Login / Post-Signup Local Drafts Sync Alert */}
+          <LocalDraftSyncBanner
+            isAuthenticated={Boolean(userEmail)}
+            userEmail={userEmail}
+            draftsList={draftsList}
+            entries={entries}
+            onRemoveSyncedDrafts={removeMultipleDrafts}
+            onResumeDraft={handleResumeDraft}
+            onSyncedSuccess={() => setSubmissionsRefreshCounter((c) => c + 1)}
+          />
+
           {/* Active Workbench View */}
           {workbenchTab === 'explorer' && (
             <div className="grid grid-cols-1 gap-6 lg:grid-cols-12 items-start">
@@ -448,10 +519,12 @@ export default function App() {
           {workbenchTab === 'submissions' && (
             <SubmissionsPanel
               draftsList={draftsList}
+              entries={entries}
               userEmail={userEmail}
               refreshTrigger={submissionsRefreshCounter}
               onResumeDraft={handleResumeDraft}
               onDeleteDraft={removeDraft}
+              onRemoveMultipleDrafts={removeMultipleDrafts}
               onOpenAuth={() => setAuthDialogOpen(true)}
             />
           )}
@@ -463,10 +536,17 @@ export default function App() {
               userEmail={userEmail}
               profile={reviewerProfile}
               sandboxItems={sandboxItems}
+              sandboxProfiles={sandboxProfiles}
+              sandboxPromotionRequests={sandboxPromotionRequests}
               forceSandboxMode={forceSandboxModeration}
+              forceGovernanceSection={forceGovernanceSection}
+              onClearForceGovernanceSection={() => setForceGovernanceSection(false)}
               onModerateSandbox={moderateSandboxSubmission}
               onBulkApproveSandbox={bulkApproveSandboxSubmissions}
               onResetSandbox={resetSandboxQueue}
+              onReviewSandboxPromotion={reviewSandboxPromotionRequest}
+              onUpdateSandboxMemberRole={updateSandboxMemberRole}
+              onResetSandboxGovernance={resetSandboxGovernance}
               onOpenAuth={() => setAuthDialogOpen(true)}
               onGoToExporter={handleGoToExporter}
             />
@@ -496,10 +576,18 @@ export default function App() {
         open={authDialogOpen}
         onClose={() => setAuthDialogOpen(false)}
         userEmail={userEmail}
+        authProvider={authProvider}
         profile={reviewerProfile}
         recoveryMode={recoveryMode}
+        draftsList={draftsList}
+        entries={entries}
+        sandboxPromotionRequests={sandboxPromotionRequests}
         onClearRecovery={() => setRecoveryMode(false)}
         onAuthChanged={syncUserSession}
+        onRemoveSyncedDrafts={removeMultipleDrafts}
+        onDraftsSyncedSuccess={() => setSubmissionsRefreshCounter((c) => c + 1)}
+        onSubmitSandboxPromotion={submitSandboxPromotionRequest}
+        onJumpToAdminGovernance={handleJumpToAdminGovernance}
       />
     </div>
   )

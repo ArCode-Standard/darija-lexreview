@@ -1,29 +1,43 @@
-import { useEffect, useState } from 'react'
-import { Download, Trash2, ArrowLeft, RefreshCw, LogIn } from 'lucide-react'
+import { useEffect, useMemo, useState } from 'react'
+import { Download, Trash2, ArrowLeft, RefreshCw, LogIn, CloudUpload } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
-import type { LocalDraft, SubmissionRecord } from '../../types/lexicon'
+import type { LexicalEntry, LocalDraft, SubmissionRecord } from '../../types/lexicon'
 import { formatStatusLabel } from '../../services/dataset'
+import { auditDraftForSync, syncLocalDraftsToAccount } from '../../utils/draftSync'
 
 interface SubmissionsPanelProps {
   draftsList: LocalDraft[]
+  entries: LexicalEntry[]
   userEmail: string | null
   refreshTrigger: number
   onResumeDraft: (entryId: string) => void
   onDeleteDraft: (entryId: string) => void
+  onRemoveMultipleDrafts: (entryIds: string[]) => void
   onOpenAuth: () => void
 }
 
 export function SubmissionsPanel({
   draftsList,
+  entries,
   userEmail,
   refreshTrigger,
   onResumeDraft,
   onDeleteDraft,
+  onRemoveMultipleDrafts,
   onOpenAuth,
 }: SubmissionsPanelProps) {
   const [submissions, setSubmissions] = useState<SubmissionRecord[]>([])
   const [loading, setLoading] = useState(false)
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
+  const [syncing, setSyncing] = useState(false)
+  const [syncMsg, setSyncMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(
+    null,
+  )
+
+  const readyDraftsCount = useMemo(
+    () => draftsList.filter((d) => auditDraftForSync(d, entries).ready).length,
+    [draftsList, entries],
+  )
 
   async function loadSubmissions() {
     if (!supabase || !userEmail) {
@@ -71,6 +85,29 @@ export function SubmissionsPanel({
     URL.revokeObjectURL(url)
   }
 
+  async function handleSyncReadyDrafts() {
+    setSyncing(true)
+    setSyncMsg(null)
+    const res = await syncLocalDraftsToAccount(draftsList, entries)
+    setSyncing(false)
+
+    if (res.error && res.syncedEntryIds.length === 0) {
+      setSyncMsg({ type: 'error', text: res.error })
+      return
+    }
+    if (res.syncedEntryIds.length > 0) {
+      onRemoveMultipleDrafts(res.syncedEntryIds)
+      await loadSubmissions()
+    }
+    setSyncMsg({
+      type: 'success',
+      text:
+        res.skippedAudits.length > 0
+          ? `تم إرسال ${res.syncedEntryIds.length} مسودات مكتملة إلى حسابك، وبقيت ${res.skippedAudits.length} مسودات لاستكمال حقولها.`
+          : `تمت مزامنة وإرسال جميع المسودات الجاهزة (${res.syncedEntryIds.length}) إلى حسابك بنجاح.`,
+    })
+  }
+
   return (
     <div className="rounded-xl border border-[#E5DFD3] bg-white p-5 sm:p-8 space-y-10 dark:border-[#2E2B27] dark:bg-[#1C1A18]">
       {/* Section 1: Local Browser Drafts */}
@@ -86,16 +123,44 @@ export function SubmissionsPanel({
           </div>
 
           {draftsList.length > 0 && (
-            <button
-              type="button"
-              onClick={handleExportDraftsJson}
-              className="inline-flex min-h-[38px] items-center gap-2 rounded-lg border border-[#D6CEBE] bg-[#FBF9F5] px-3.5 py-2 text-xs font-semibold text-stone-800 hover:bg-[#EFECE4] whitespace-nowrap shrink-0 cursor-pointer dark:border-[#3A3530] dark:bg-[#141312] dark:text-stone-200"
-            >
-              <Download className="h-3.5 w-3.5" aria-hidden="true" />
-              <span>تصدير بصيغة JSON</span>
-            </button>
+            <div className="flex flex-wrap items-center gap-2">
+              {userEmail && readyDraftsCount > 0 && (
+                <button
+                  type="button"
+                  disabled={syncing}
+                  onClick={handleSyncReadyDrafts}
+                  className="inline-flex min-h-[38px] items-center gap-2 rounded-lg bg-[#0F5C4E] px-3.5 py-2 text-xs font-semibold text-white hover:bg-[#0B463B] disabled:opacity-50 whitespace-nowrap shrink-0 cursor-pointer dark:bg-[#147A67]"
+                >
+                  <CloudUpload className="h-3.5 w-3.5" aria-hidden="true" />
+                  <span>
+                    {syncing ? 'جارٍ الإرسال...' : `مزامنة مع حسابي (${readyDraftsCount})`}
+                  </span>
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={handleExportDraftsJson}
+                className="inline-flex min-h-[38px] items-center gap-2 rounded-lg border border-[#D6CEBE] bg-[#FBF9F5] px-3.5 py-2 text-xs font-semibold text-stone-800 hover:bg-[#EFECE4] whitespace-nowrap shrink-0 cursor-pointer dark:border-[#3A3530] dark:bg-[#141312] dark:text-stone-200"
+              >
+                <Download className="h-3.5 w-3.5" aria-hidden="true" />
+                <span>تصدير بصيغة JSON</span>
+              </button>
+            </div>
           )}
         </div>
+
+        {syncMsg && (
+          <div
+            role="status"
+            className={`mt-4 rounded-lg border p-3 text-xs leading-relaxed ${
+              syncMsg.type === 'error'
+                ? 'border-red-200 bg-red-50 text-red-900 dark:border-red-900/50 dark:bg-red-950/40 dark:text-red-200'
+                : 'border-emerald-200 bg-emerald-50 text-emerald-900 dark:border-emerald-900/50 dark:bg-emerald-950/40 dark:text-emerald-200'
+            }`}
+          >
+            {syncMsg.text}
+          </div>
+        )}
 
         {draftsList.length === 0 ? (
           <div className="py-8 text-center">

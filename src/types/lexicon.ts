@@ -129,10 +129,35 @@ export interface SubmissionRecord {
   is_sandbox?: boolean
 }
 
+export type UserRole = 'reviewer' | 'editor' | 'admin'
+
 export interface ReviewerProfile {
   id: string
   display_name: string | null
-  role: 'reviewer' | 'editor' | 'admin'
+  dialect_region?: string | null
+  specialty?: string | null
+  github_handle?: string | null
+  role: UserRole
+  created_at?: string
+}
+
+export type PromotionRequestStatus = 'pending' | 'approved' | 'rejected'
+
+export interface RolePromotionRequest {
+  id: string
+  requester_id: string
+  requester_name: string
+  dialect_region: string | null
+  experience_summary: string
+  sample_links: string | null
+  requested_role: 'editor'
+  status: PromotionRequestStatus
+  reviewed_by: string | null
+  reviewed_by_name?: string | null
+  admin_note: string | null
+  created_at: string
+  updated_at: string
+  is_sandbox?: boolean
 }
 
 export interface RawOfficialCorpus {

@@ -14,16 +14,20 @@ import {
 import { supabase } from '../../lib/supabase'
 import type {
   LexicalEntry,
+  PromotionRequestStatus,
   ProposedFields,
   ReviewerProfile,
+  RolePromotionRequest,
   SubmissionRecord,
   SubmissionStatus,
+  UserRole,
 } from '../../types/lexicon'
 import { formatAccessionCode, formatStatusLabel } from '../../services/dataset'
 import { isNewEntrySubmission } from '../../services/exporter'
 import { findSimilarCorpusEntries, sanitizeExternalUrl } from '../../utils/validation'
 import { ModerationAnalyticsDashboard } from './ModerationAnalyticsDashboard'
 import { BulkApprovalModal } from './BulkApprovalModal'
+import { RoleGovernancePanel } from './RoleGovernancePanel'
 
 interface EditorModerationPanelProps {
   entries: LexicalEntry[]
@@ -31,7 +35,11 @@ interface EditorModerationPanelProps {
   userEmail: string | null
   profile: ReviewerProfile | null
   sandboxItems: SubmissionRecord[]
+  sandboxProfiles: ReviewerProfile[]
+  sandboxPromotionRequests: RolePromotionRequest[]
   forceSandboxMode?: boolean
+  forceGovernanceSection?: boolean
+  onClearForceGovernanceSection?: () => void
   onModerateSandbox: (params: {
     id: string
     status: SubmissionStatus
@@ -47,6 +55,15 @@ interface EditorModerationPanelProps {
     editorDisplayName?: string
   }) => void
   onResetSandbox: () => void
+  onReviewSandboxPromotion: (params: {
+    requestId: string
+    decision: Exclude<PromotionRequestStatus, 'pending'>
+    adminNote: string | null
+    adminId?: string
+    adminName?: string
+  }) => void
+  onUpdateSandboxMemberRole: (userId: string, nextRole: UserRole) => void
+  onResetSandboxGovernance: () => void
   onOpenAuth: () => void
   onGoToExporter: (source: 'live' | 'sandbox') => void
 }
@@ -76,10 +93,17 @@ export function EditorModerationPanel({
   userEmail,
   profile,
   sandboxItems,
+  sandboxProfiles,
+  sandboxPromotionRequests,
   forceSandboxMode,
+  forceGovernanceSection,
+  onClearForceGovernanceSection,
   onModerateSandbox,
   onBulkApproveSandbox,
   onResetSandbox,
+  onReviewSandboxPromotion,
+  onUpdateSandboxMemberRole,
+  onResetSandboxGovernance,
   onOpenAuth,
   onGoToExporter,
 }: EditorModerationPanelProps) {
@@ -89,6 +113,9 @@ export function EditorModerationPanel({
   const [queueSource, setQueueSource] = useState<'live' | 'sandbox'>(() =>
     isAuthorizedLiveEditor && !forceSandboxMode ? 'live' : 'sandbox',
   )
+  const [moderationSection, setModerationSection] = useState<'adjudication' | 'governance'>(
+    () => (forceGovernanceSection ? 'governance' : 'adjudication'),
+  )
 
   useEffect(() => {
     if (forceSandboxMode) {
@@ -97,6 +124,13 @@ export function EditorModerationPanel({
       setQueueSource('live')
     }
   }, [forceSandboxMode, isAuthorizedLiveEditor])
+
+  useEffect(() => {
+    if (forceGovernanceSection) {
+      setModerationSection('governance')
+      onClearForceGovernanceSection?.()
+    }
+  }, [forceGovernanceSection, onClearForceGovernanceSection])
 
   const [liveItems, setLiveItems] = useState<SubmissionRecord[]>([])
   const [editorNamesMap, setEditorNamesMap] = useState<Record<string, string>>({})
@@ -597,19 +631,80 @@ export function EditorModerationPanel({
             </button>
           </div>
         )}
+        {/* Sub-view Switcher: Submissions Adjudication vs RBAC Role Governance */}
+        <div className="mt-4 pt-4 border-t border-[#E5DFD3] flex flex-wrap items-center justify-between gap-3 dark:border-[#2E2B27]">
+          <div
+            role="tablist"
+            aria-label="أقسام التحكيم والحوكمة"
+            className="inline-flex items-center gap-1 rounded-lg bg-[#F3EFE6] p-1 dark:bg-[#141312]"
+          >
+            <button
+              type="button"
+              role="tab"
+              aria-selected={moderationSection === 'adjudication'}
+              onClick={() => setModerationSection('adjudication')}
+              className={`min-h-[34px] rounded-md px-3.5 py-1.5 text-xs font-semibold transition-colors whitespace-nowrap cursor-pointer ${
+                moderationSection === 'adjudication'
+                  ? 'bg-white text-stone-900 shadow-2xs dark:bg-[#2A2622] dark:text-stone-100'
+                  : 'text-stone-600 hover:text-stone-900 dark:text-stone-400'
+              }`}
+            >
+              طابور التحكيم ولوحة النشاط
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={moderationSection === 'governance'}
+              onClick={() => setModerationSection('governance')}
+              className={`min-h-[34px] rounded-md px-3.5 py-1.5 text-xs font-semibold transition-colors whitespace-nowrap cursor-pointer ${
+                moderationSection === 'governance'
+                  ? 'bg-white text-stone-900 shadow-2xs dark:bg-[#2A2622] dark:text-stone-100'
+                  : 'text-stone-600 hover:text-stone-900 dark:text-stone-400'
+              }`}
+            >
+              حوكمة الصلاحيات وطلبات الترقية
+              {queueSource === 'sandbox' &&
+              sandboxPromotionRequests.filter((r) => r.status === 'pending').length > 0
+                ? ` (${sandboxPromotionRequests.filter((r) => r.status === 'pending').length})`
+                : ''}
+            </button>
+          </div>
+
+          <span className="text-xs text-stone-500 dark:text-stone-400">
+            {moderationSection === 'governance'
+              ? 'مراجعة طلبات الترقية إلى «محرر معتمد» وإدارة صلاحيات الأعضاء (RBAC)'
+              : 'مراجعة المقترحات المعجمية واعتماد الدفعات للمتن الرسمي'}
+          </span>
+        </div>
       </div>
 
-      {/* Editorial Activity & Turnaround Analytics Dashboard */}
-      {(queueSource === 'sandbox' || isAuthorizedLiveEditor) && (
-        <ModerationAnalyticsDashboard
-          submissions={activePool}
-          editorNamesMap={editorNamesMap}
+      {moderationSection === 'governance' ? (
+        <RoleGovernancePanel
           queueSource={queueSource}
+          currentUserEmail={userEmail}
+          currentUserProfile={profile}
+          submissions={activePool}
+          sandboxProfiles={sandboxProfiles}
+          sandboxPromotionRequests={sandboxPromotionRequests}
+          onSwitchQueueSource={setQueueSource}
+          onReviewSandboxPromotion={onReviewSandboxPromotion}
+          onUpdateSandboxMemberRole={onUpdateSandboxMemberRole}
+          onResetSandboxGovernance={onResetSandboxGovernance}
+          onOpenAuth={onOpenAuth}
         />
-      )}
+      ) : (
+        <>
+          {/* Editorial Activity & Turnaround Analytics Dashboard */}
+          {(queueSource === 'sandbox' || isAuthorizedLiveEditor) && (
+            <ModerationAnalyticsDashboard
+              submissions={activePool}
+              editorNamesMap={editorNamesMap}
+              queueSource={queueSource}
+            />
+          )}
 
-      {/* Main Queue + Inspection Split */}
-      {(queueSource === 'sandbox' || isAuthorizedLiveEditor) && (
+          {/* Main Queue + Inspection Split */}
+          {(queueSource === 'sandbox' || isAuthorizedLiveEditor) && (
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-12 items-start">
           {/* Queue List Sidebar */}
           <aside className="lg:col-span-4 rounded-xl border border-[#E5DFD3] bg-white p-4 sm:p-5 space-y-3.5 dark:border-[#2E2B27] dark:bg-[#1C1A18]">
@@ -1109,6 +1204,8 @@ export function EditorModerationPanel({
             )}
           </div>
         </div>
+      )}
+        </>
       )}
 
       <BulkApprovalModal

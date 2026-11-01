@@ -38,6 +38,17 @@ export function useLocalDrafts() {
     })
   }, [])
 
+  const removeMultipleDrafts = useCallback((entryIds: string[]) => {
+    if (entryIds.length === 0) return
+    setDrafts((prev) => {
+      const next = { ...prev }
+      for (const id of entryIds) {
+        delete next[id]
+      }
+      return next
+    })
+  }, [])
+
   const clearAllDrafts = useCallback(() => {
     setDrafts({})
   }, [])
@@ -51,6 +62,7 @@ export function useLocalDrafts() {
     draftsList,
     saveDraft,
     removeDraft,
+    removeMultipleDrafts,
     clearAllDrafts,
   }
 }
