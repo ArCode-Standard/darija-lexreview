@@ -92,7 +92,7 @@ export function LexiconSidebar({
             value={query}
             onChange={(e) => onQueryChange(e.target.value)}
             placeholder="بحث صوتي بالعربية أو Arabizi (مثل bzzaf / بزاف)..."
-            className="w-full min-h-[40px] rounded-lg border border-[#D6CEBE] bg-[#FBF9F5] ps-9 pe-3 py-2 text-xs text-stone-900 placeholder:text-stone-400 focus:border-[#0F5C4E] focus:bg-white focus:outline-none dark:border-[#3A3530] dark:bg-[#141312] dark:text-stone-100 dark:focus:border-[#4FD1C5]"
+            className="w-full min-h-[40px] rounded-lg border border-[#D6CEBE] bg-[#FBF9F5] ps-9 pe-3 py-2 text-xs text-stone-900 placeholder:text-stone-400 focus:border-[#0F5C4E] focus:bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0F5C4E] dark:border-[#3A3530] dark:bg-[#141312] dark:text-stone-100 dark:focus:border-[#4FD1C5] dark:focus-visible:ring-[#4FD1C5]"
           />
         </label>
 
