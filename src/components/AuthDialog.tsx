@@ -21,6 +21,7 @@ import type {
 import { MOROCCAN_REGIONS, sanitizeExternalUrl } from '../utils/validation'
 import { auditDraftForSync, syncLocalDraftsToAccount } from '../utils/draftSync'
 import { humanizeSystemError } from '../utils/humanizeError'
+import { TurnstileWidget } from './TurnstileWidget'
 
 interface AuthDialogProps {
   open: boolean
@@ -83,6 +84,8 @@ export function AuthDialog({
   const [dialectRegion, setDialectRegion] = useState('')
   const [specialty, setSpecialty] = useState('')
   const [charterAccepted, setCharterAccepted] = useState(false)
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null)
+  const [turnstileResetKey, setTurnstileResetKey] = useState(0)
   const [awaitingEmailConfirmation, setAwaitingEmailConfirmation] = useState(false)
 
   // Optional 6-digit OTP mode inside Sign-In
@@ -334,6 +337,10 @@ export function AuthDialog({
       })
       return
     }
+    if (!turnstileToken) {
+      setFeedback({ type: 'error', text: 'أكمل اختبار التحقق الأمني قبل إنشاء الحساب.' })
+      return
+    }
 
     setBusy(true)
     setFeedback(null)
@@ -342,6 +349,7 @@ export function AuthDialog({
       email: email.trim(),
       password,
       options: {
+        captchaToken: turnstileToken,
         emailRedirectTo: `${window.location.origin}/auth/callback`,
         data: {
           name: displayName.trim(),
@@ -353,12 +361,17 @@ export function AuthDialog({
 
     if (error) {
       setBusy(false)
+      setTurnstileToken(null)
+      setTurnstileResetKey((key) => key + 1)
       setFeedback({
         type: 'error',
         text: humanizeSystemError(error, 'تعذر إنشاء الحساب حالياً. يرجى المحاولة مجدداً.'),
       })
       return
     }
+
+    setTurnstileToken(null)
+    setTurnstileResetKey((key) => key + 1)
 
     // If session is immediately active, ensure reviewer_profiles row has metadata
     if (data.session && data.user) {
@@ -1392,6 +1405,12 @@ export function AuthDialog({
                     </div>
                   </div>
 
+                  <TurnstileWidget
+                    key={turnstileResetKey}
+                    siteKey={(import.meta.env.VITE_TURNSTILE_SITE_KEY as string | undefined)?.trim() ?? ''}
+                    onToken={setTurnstileToken}
+                  />
+
                   <label className="flex items-start gap-2.5 rounded-lg border border-[#E5DFD3] bg-white p-3 text-xs leading-relaxed text-stone-700 cursor-pointer dark:border-[#2E2B27] dark:bg-[#141312] dark:text-stone-300">
                     <input
                       type="checkbox"
@@ -1407,7 +1426,7 @@ export function AuthDialog({
 
                   <button
                     type="submit"
-                    disabled={!isSupabaseConfigured || busy}
+                    disabled={!isSupabaseConfigured || busy || !turnstileToken}
                     className="w-full inline-flex min-h-[42px] items-center justify-center gap-2 rounded-lg bg-[#0F5C4E] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#0B463B] disabled:opacity-50 transition-colors cursor-pointer dark:bg-[#147A67]"
                   >
                     <UserPlus className="h-4 w-4" />
