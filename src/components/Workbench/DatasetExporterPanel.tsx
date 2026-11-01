@@ -1,0 +1,448 @@
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import {
+  Download,
+  Copy,
+  Check,
+  CheckCircle2,
+  AlertTriangle,
+  AlertCircle,
+  RefreshCw,
+} from 'lucide-react'
+import { supabase } from '../../lib/supabase'
+import type {
+  LexicalEntry,
+  RawOfficialCorpus,
+  ReviewerProfile,
+  SubmissionRecord,
+} from '../../types/lexicon'
+import {
+  buildOfficialExportBundle,
+  bumpPatchVersion,
+  isNewEntrySubmission,
+} from '../../services/exporter'
+import { formatAccessionCode } from '../../services/dataset'
+
+interface DatasetExporterPanelProps {
+  entries: LexicalEntry[]
+  rawCorpus: RawOfficialCorpus
+  userEmail: string | null
+  profile: ReviewerProfile | null
+  sandboxItems: SubmissionRecord[]
+  preferredSource: 'live' | 'sandbox'
+}
+
+export function DatasetExporterPanel({
+  entries,
+  rawCorpus,
+  userEmail,
+  profile,
+  sandboxItems,
+  preferredSource,
+}: DatasetExporterPanelProps) {
+  const isAuthorizedLiveEditor =
+    Boolean(userEmail) && (profile?.role === 'editor' || profile?.role === 'admin')
+
+  const [exportSource, setExportSource] = useState<'live' | 'sandbox'>(() =>
+    preferredSource === 'live' && isAuthorizedLiveEditor ? 'live' : 'sandbox',
+  )
+
+  useEffect(() => {
+    if (preferredSource === 'live' && isAuthorizedLiveEditor) {
+      setExportSource('live')
+    } else if (preferredSource === 'sandbox') {
+      setExportSource('sandbox')
+    }
+  }, [preferredSource, isAuthorizedLiveEditor])
+
+  const [liveAccepted, setLiveAccepted] = useState<SubmissionRecord[]>([])
+  const [loadingLive, setLoadingLive] = useState(false)
+  const [targetVersion, setTargetVersion] = useState(() =>
+    bumpPatchVersion(String(rawCorpus.lexiconMeta.version ?? '1.5.0')),
+  )
+
+  useEffect(() => {
+    setTargetVersion(bumpPatchVersion(String(rawCorpus.lexiconMeta.version ?? '1.5.0')))
+  }, [rawCorpus.lexiconMeta.version])
+
+  const fetchLiveAccepted = useCallback(async () => {
+    if (!supabase || !userEmail) {
+      setLiveAccepted([])
+      return
+    }
+    setLoadingLive(true)
+    const { data } = await supabase
+      .from('review_submissions')
+      .select('*')
+      .eq('status', 'accepted')
+      .order('updated_at', { ascending: true })
+
+    setLoadingLive(false)
+    setLiveAccepted((data ?? []) as SubmissionRecord[])
+  }, [userEmail])
+
+  useEffect(() => {
+    if (exportSource === 'live') {
+      fetchLiveAccepted()
+    }
+  }, [exportSource, fetchLiveAccepted])
+
+  const candidateAccepted = useMemo(() => {
+    if (exportSource === 'live') return liveAccepted
+    return sandboxItems.filter((item) => item.status === 'accepted')
+  }, [exportSource, liveAccepted, sandboxItems])
+
+  const [excludedIds, setExcludedIds] = useState<Set<string>>(new Set())
+  const [previewTab, setPreviewTab] = useState<'patch' | 'pr'>('patch')
+  const [copiedPr, setCopiedPr] = useState(false)
+
+  const selectedSubmissions = useMemo(
+    () => candidateAccepted.filter((s) => !excludedIds.has(s.id)),
+    [candidateAccepted, excludedIds],
+  )
+
+  const bundle = useMemo(
+    () => buildOfficialExportBundle(rawCorpus, selectedSubmissions, targetVersion),
+    [rawCorpus, selectedSubmissions, targetVersion],
+  )
+
+  const errorIssues = bundle.issues.filter((i) => i.severity === 'error')
+  const warningIssues = bundle.issues.filter((i) => i.severity === 'warning')
+  const canDownload = errorIssues.length === 0 && selectedSubmissions.length > 0
+
+  const entryById = useMemo(() => {
+    const m = new Map<string, LexicalEntry>()
+    for (const e of entries) m.set(e.id, e)
+    return m
+  }, [entries])
+
+  function toggleInclude(id: string) {
+    setExcludedIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  function downloadJsonFile(filename: string, dataObj: unknown) {
+    const content = `${JSON.stringify(dataObj, null, 2)}\n`
+    const blob = new Blob([content], { type: 'application/json;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = filename
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  function handleCopyPrMarkdown() {
+    navigator.clipboard?.writeText(bundle.prMarkdown).then(() => {
+      setCopiedPr(true)
+      setTimeout(() => setCopiedPr(false), 2000)
+    })
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Header & Source Controls */}
+      <div className="rounded-xl border border-[#E5DFD3] bg-white p-5 sm:p-8 dark:border-[#2E2B27] dark:bg-[#1C1A18]">
+        <div className="flex flex-wrap items-start justify-between gap-4 pb-6 border-b border-[#E5DFD3] dark:border-[#2E2B27]">
+          <div>
+            <p className="text-xs font-semibold text-[#0F5C4E] dark:text-[#4FD1C5]">
+              جسر الدمج مع GitHub · التحقق الهيكلي الآلي (schema.json & context-schema.json)
+            </p>
+            <h3 className="mt-1.5 font-display text-xl sm:text-2xl font-bold text-stone-900 dark:text-stone-100">
+              مُصدِّر التعديلات المعتمدة إلى المعجم الرسمي
+            </h3>
+            <p className="mt-1.5 max-w-[68ch] text-xs sm:text-sm leading-relaxed text-stone-600 dark:text-stone-400">
+              يدمج المقترحات المعتمدة تحريرياً فوق نسخة المعجم الرسمية دون فقدان أي حقل أرشيفي، ويعيد حساب فهارس الفئات والمعرفات المتسلسلة، ويتحقق من مطابقة كل سجل لمخطط المستودع قبل التنزيل.
+            </p>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-3">
+            <div
+              role="group"
+              aria-label="مصدر المقترحات المعتمدة"
+              className="inline-flex items-center gap-1 rounded-lg border border-[#E5DFD3] bg-[#F3EFE6] p-1 dark:border-[#2E2B27] dark:bg-[#141312]"
+            >
+              <button
+                type="button"
+                onClick={() => setExportSource('live')}
+                className={`min-h-[34px] rounded-md px-3 py-1.5 text-xs font-semibold transition-colors whitespace-nowrap cursor-pointer ${
+                  exportSource === 'live'
+                    ? 'bg-white text-stone-900 shadow-2xs dark:bg-[#2A2622] dark:text-stone-100'
+                    : 'text-stone-600 hover:text-stone-900 dark:text-stone-400'
+                }`}
+              >
+                معتمدات Supabase ({liveAccepted.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setExportSource('sandbox')}
+                className={`min-h-[34px] rounded-md px-3 py-1.5 text-xs font-semibold transition-colors whitespace-nowrap cursor-pointer ${
+                  exportSource === 'sandbox'
+                    ? 'bg-white text-stone-900 shadow-2xs dark:bg-[#2A2622] dark:text-stone-100'
+                    : 'text-stone-600 hover:text-stone-900 dark:text-stone-400'
+                }`}
+              >
+                معتمدات المحاكاة ({sandboxItems.filter((i) => i.status === 'accepted').length})
+              </button>
+            </div>
+
+            {exportSource === 'live' && (
+              <button
+                type="button"
+                onClick={fetchLiveAccepted}
+                disabled={loadingLive}
+                className="inline-flex min-h-[36px] items-center gap-1.5 rounded-lg border border-[#D6CEBE] bg-[#FBF9F5] px-3 py-1.5 text-xs font-medium text-stone-700 hover:bg-[#EFECE4] cursor-pointer dark:border-[#3A3530] dark:bg-[#141312] dark:text-stone-300"
+              >
+                <RefreshCw className={`h-3.5 w-3.5 ${loadingLive ? 'animate-spin' : ''}`} />
+                <span>تحديث</span>
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Version + Stats Strip */}
+        <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-12 items-center">
+          <div className="lg:col-span-4">
+            <label className="block">
+              <span className="block text-xs font-medium text-stone-600 dark:text-stone-400">
+                رقم الإصدار الجديد المستهدف (meta.version)
+              </span>
+              <input
+                type="text"
+                dir="ltr"
+                value={targetVersion}
+                onChange={(e) => setTargetVersion(e.target.value)}
+                className="mt-1.5 w-full max-w-[220px] min-h-[40px] rounded-lg border border-[#D6CEBE] bg-[#FBF9F5] px-3.5 py-2 font-mono text-xs text-left text-stone-900 focus:border-[#0F5C4E] focus:bg-white focus:outline-none dark:border-[#3A3530] dark:bg-[#141312] dark:text-stone-100"
+              />
+            </label>
+          </div>
+
+          <dl className="lg:col-span-8 grid grid-cols-2 sm:grid-cols-4 gap-4 border-t lg:border-t-0 lg:border-s border-[#E5DFD3] pt-4 lg:pt-0 lg:ps-6 dark:border-[#2E2B27]">
+            <div>
+              <dt className="text-xs text-stone-500 dark:text-stone-400">مداخل محدّثة</dt>
+              <dd className="mt-1 font-mono text-xl font-semibold tabular-nums text-stone-900 dark:text-stone-100">
+                {bundle.stats.modifiedEntriesCount}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-xs text-stone-500 dark:text-stone-400">مفردات جديدة</dt>
+              <dd className="mt-1 font-mono text-xl font-semibold tabular-nums text-stone-900 dark:text-stone-100">
+                {bundle.stats.addedEntriesCount}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-xs text-stone-500 dark:text-stone-400">شواهد سياقية مضافة</dt>
+              <dd className="mt-1 font-mono text-xl font-semibold tabular-nums text-stone-900 dark:text-stone-100">
+                {bundle.stats.addedExamplesCount}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-xs text-stone-500 dark:text-stone-400">إجمالي المتن الناتج</dt>
+              <dd className="mt-1 font-mono text-xl font-semibold tabular-nums text-stone-900 dark:text-stone-100">
+                {bundle.lexiconJson.entries.length.toLocaleString('en-US')}
+              </dd>
+            </div>
+          </dl>
+        </div>
+
+        {/* Schema Self-Audit Status */}
+        <div className="mt-6">
+          {errorIssues.length > 0 ? (
+            <div className="rounded-lg border border-red-300 bg-red-50 p-4 space-y-2 dark:border-red-900/60 dark:bg-red-950/40">
+              <div className="flex items-center gap-2 text-xs font-bold text-red-900 dark:text-red-200">
+                <AlertCircle className="h-4 w-4 shrink-0" />
+                <span>
+                  أوقف الفاحص الهيكلي عملية التصدير لوجود {errorIssues.length} خطأ يخالف مخطط JSON الرسمي:
+                </span>
+              </div>
+              <ul className="space-y-1 ps-6 list-disc text-xs text-red-900 dark:text-red-200">
+                {errorIssues.map((iss, i) => (
+                  <li key={i}>
+                    <code className="font-mono">{iss.itemRef}</code>: {iss.message}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : selectedSubmissions.length > 0 ? (
+            <div className="rounded-lg border border-emerald-200 bg-emerald-50/80 p-4 space-y-2 dark:border-emerald-900/50 dark:bg-emerald-950/30">
+              <div className="flex items-center gap-2 text-xs font-semibold text-emerald-950 dark:text-emerald-200">
+                <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-700 dark:text-emerald-400" />
+                <span>
+                  اجتازت الحزمة فحص المطابقة الصارم مع schema.json وcontext-schema.json بنجاح (0 أخطاء هيكلية).
+                </span>
+              </div>
+              {warningIssues.length > 0 && (
+                <ul className="pt-2 border-t border-emerald-200/70 space-y-1 text-xs text-amber-900 dark:border-emerald-800/50 dark:text-amber-300">
+                  {warningIssues.map((w, i) => (
+                    <li key={i} className="flex items-start gap-1.5">
+                      <AlertTriangle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+                      <span>
+                        <code className="font-mono">{w.itemRef}</code>: {w.message}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          ) : (
+            <div className="rounded-lg border border-[#D6CEBE] bg-[#FBF9F5] p-4 text-xs text-stone-600 dark:border-[#3A3530] dark:bg-[#141312] dark:text-stone-400">
+              لا توجد مقترحات بحالة «معتمد (accepted)» في المصدر المحدد حالياً. اعتمد مقترحاً واحداً على الأقل من «لوحة تحكيم المحررين» لتفعيل التوليد والتنزيل.
+            </div>
+          )}
+        </div>
+
+        {/* Download Actions */}
+        <div className="mt-6 pt-5 border-t border-[#E5DFD3] flex flex-wrap items-center gap-3 dark:border-[#2E2B27]">
+          <button
+            type="button"
+            disabled={!canDownload}
+            onClick={() => downloadJsonFile('moroccan-darija.json', bundle.lexiconJson)}
+            className="inline-flex min-h-[42px] items-center gap-2 rounded-lg bg-[#0F5C4E] px-5 py-2.5 text-xs font-semibold text-white hover:bg-[#0B463B] disabled:opacity-45 whitespace-nowrap shrink-0 cursor-pointer dark:bg-[#147A67]"
+          >
+            <Download className="h-4 w-4" />
+            <span>تنزيل moroccan-darija.json</span>
+          </button>
+
+          <button
+            type="button"
+            disabled={!canDownload}
+            onClick={() => downloadJsonFile('context-examples.json', bundle.examplesJson)}
+            className="inline-flex min-h-[42px] items-center gap-2 rounded-lg border border-[#D6CEBE] bg-[#FBF9F5] px-4 py-2.5 text-xs font-semibold text-stone-800 hover:bg-[#EFECE4] disabled:opacity-45 whitespace-nowrap shrink-0 cursor-pointer dark:border-[#3A3530] dark:bg-[#141312] dark:text-stone-200"
+          >
+            <Download className="h-4 w-4" />
+            <span>تنزيل context-examples.json</span>
+          </button>
+
+          <button
+            type="button"
+            disabled={!canDownload}
+            onClick={() =>
+              downloadJsonFile(
+                `lexreview-patch-v${targetVersion || 'next'}.json`,
+                bundle.patchSummary,
+              )
+            }
+            className="inline-flex min-h-[42px] items-center gap-2 rounded-lg border border-[#D6CEBE] bg-[#FBF9F5] px-4 py-2.5 text-xs font-semibold text-stone-800 hover:bg-[#EFECE4] disabled:opacity-45 whitespace-nowrap shrink-0 cursor-pointer dark:border-[#3A3530] dark:bg-[#141312] dark:text-stone-200"
+          >
+            <Download className="h-4 w-4" />
+            <span>تنزيل ملف الفروقات فقط (Patch)</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Checklist + Preview Grid */}
+      {candidateAccepted.length > 0 && (
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-12 items-start">
+          {/* Accepted Submissions Selection */}
+          <div className="lg:col-span-5 rounded-xl border border-[#E5DFD3] bg-white p-5 dark:border-[#2E2B27] dark:bg-[#1C1A18]">
+            <h4 className="font-display text-sm font-bold text-stone-900 pb-3 border-b border-[#E5DFD3] dark:text-stone-100 dark:border-[#2E2B27]">
+              المقترحات المعتمدة المشمولة في الدفعة ({selectedSubmissions.length} /{' '}
+              {candidateAccepted.length})
+            </h4>
+            <div className="mt-3 divide-y divide-[#E5DFD3] max-h-[420px] overflow-y-auto dark:divide-[#2E2B27]">
+              {candidateAccepted.map((sub) => {
+                const included = !excludedIds.has(sub.id)
+                const isNew = isNewEntrySubmission(sub)
+                const target = entryById.get(sub.entry_id)
+                const label = isNew
+                  ? `${sub.proposed_data?.word_ar ?? 'مفردة جديدة'} (إضافة جديدة)`
+                  : `${target?.word ?? sub.entry_id} (${formatAccessionCode(sub.entry_id, target?.numericId ?? null)})`
+
+                return (
+                  <label
+                    key={sub.id}
+                    className="py-3 flex items-start gap-3 cursor-pointer"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={included}
+                      onChange={() => toggleInclude(sub.id)}
+                      className="mt-1 h-4 w-4 accent-[#0F5C4E] shrink-0"
+                    />
+                    <div className="text-xs">
+                      <p className="font-semibold text-stone-900 dark:text-stone-100">{label}</p>
+                      <p className="mt-0.5 text-stone-500 font-mono tabular-nums dark:text-stone-400">
+                        اعتماد: {new Date(sub.updated_at).toLocaleString('ar-MA')}
+                      </p>
+                      {sub.editor_note && (
+                        <p className="mt-1 text-stone-600 dark:text-stone-400">
+                          مذكرة المحرر: {sub.editor_note}
+                        </p>
+                      )}
+                    </div>
+                  </label>
+                )
+              })}
+            </div>
+          </div>
+
+          {/* JSON Delta & PR Markdown Preview */}
+          <div className="lg:col-span-7 rounded-xl border border-[#E5DFD3] bg-white p-5 dark:border-[#2E2B27] dark:bg-[#1C1A18]">
+            <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-[#E5DFD3] dark:border-[#2E2B27]">
+              <div className="inline-flex items-center gap-1 rounded-lg bg-[#F3EFE6] p-1 dark:bg-[#141312]">
+                <button
+                  type="button"
+                  onClick={() => setPreviewTab('patch')}
+                  className={`min-h-[32px] rounded-md px-3 py-1 text-xs font-semibold cursor-pointer ${
+                    previewTab === 'patch'
+                      ? 'bg-white text-stone-900 shadow-2xs dark:bg-[#2A2622] dark:text-stone-100'
+                      : 'text-stone-600 dark:text-stone-400'
+                  }`}
+                >
+                  معاينة سجلات JSON الناتجة
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPreviewTab('pr')}
+                  className={`min-h-[32px] rounded-md px-3 py-1 text-xs font-semibold cursor-pointer ${
+                    previewTab === 'pr'
+                      ? 'bg-white text-stone-900 shadow-2xs dark:bg-[#2A2622] dark:text-stone-100'
+                      : 'text-stone-600 dark:text-stone-400'
+                  }`}
+                >
+                  وصف طلب الدمج (GitHub PR)
+                </button>
+              </div>
+
+              {previewTab === 'pr' && (
+                <button
+                  type="button"
+                  onClick={handleCopyPrMarkdown}
+                  className="inline-flex min-h-[32px] items-center gap-1.5 rounded-lg border border-[#D6CEBE] bg-[#FBF9F5] px-3 py-1 text-xs font-medium text-stone-800 hover:bg-[#EFECE4] cursor-pointer dark:border-[#3A3530] dark:bg-[#141312] dark:text-stone-200"
+                >
+                  {copiedPr ? (
+                    <>
+                      <Check className="h-3.5 w-3.5 text-emerald-700" />
+                      <span>تم النسخ</span>
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="h-3.5 w-3.5" />
+                      <span>نسخ وصف PR</span>
+                    </>
+                  )}
+                </button>
+              )}
+            </div>
+
+            {previewTab === 'patch' ? (
+              <pre
+                dir="ltr"
+                className="mt-4 max-h-[380px] overflow-auto rounded-lg border border-[#E5DFD3] bg-[#FBF9F5] p-4 font-mono text-xs leading-relaxed text-left text-stone-800 dark:border-[#2E2B27] dark:bg-[#141312] dark:text-stone-200"
+              >
+                {JSON.stringify(bundle.patchSummary, null, 2)}
+              </pre>
+            ) : (
+              <pre className="mt-4 max-h-[380px] overflow-auto whitespace-pre-wrap rounded-lg border border-[#E5DFD3] bg-[#FBF9F5] p-4 font-sans text-xs leading-relaxed text-stone-800 dark:border-[#2E2B27] dark:bg-[#141312] dark:text-stone-200">
+                {bundle.prMarkdown}
+              </pre>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}

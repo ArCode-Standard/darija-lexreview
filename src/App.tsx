@@ -1,148 +1,506 @@
-import { useEffect, useMemo, useState } from 'react'
-import { BookOpen, Search, ExternalLink, Send, ShieldCheck, Languages, X, Github, AlertTriangle, CheckCircle2 } from 'lucide-react'
-import { isSupabaseConfigured, supabase } from './lib/supabase'
-
-type Entry = { id: string; word: string; latin: string; meaning: string; french: string; category: string; example: string; translation: string; status: string }
-const demoEntries: Entry[] = [
-  { id: 'demo-001', word: 'بزاف', latin: 'bzzaf', meaning: 'كثير؛ بدرجة كبيرة', french: 'Beaucoup, très', category: 'الكمية والدرجة', example: 'عندي بزاف ديال الخدمة اليوم.', translation: "J’ai beaucoup de travail aujourd’hui.", status: 'توضيحي' },
-  { id: 'demo-002', word: 'واخا', latin: 'wakha', meaning: 'حسناً؛ رغم ذلك، حسب السياق', french: "D’accord ; même si", category: 'التواصل', example: 'واخا، غادي نجي معاك.', translation: "D’accord, je viendrai avec toi.", status: 'توضيحي' },
-  { id: 'demo-003', word: 'دابا', latin: 'daba', meaning: 'الآن؛ في الوقت الحالي', french: 'Maintenant', category: 'الزمن', example: 'غادي نبدا دابا.', translation: 'Je vais commencer maintenant.', status: 'توضيحي' },
-  { id: 'demo-004', word: 'شنو', latin: 'chno / shنو', meaning: 'ماذا؛ ما', french: 'Quoi ; que', category: 'الاستفهام', example: 'شنو بغيتي تقول؟', translation: 'Qu’est-ce que tu veux dire ?', status: 'توضيحي' },
-  { id: 'demo-005', word: 'مزيان', latin: 'mzyan', meaning: 'جيد؛ حسن؛ مناسب', french: 'Bien ; bon', category: 'الصفات', example: 'هاد الحل مزيان.', translation: 'Cette solution est bonne.', status: 'توضيحي' },
-]
-const fields = [
-  ['word_ar', 'الكتابة بالعربية'], ['arabizi', 'الكتابة بـ Arabizi'], ['meaning', 'المعنى المقترح'], ['french_translation', 'الترجمة الفرنسية'], ['msa_translation', 'المقابل بالفصحى'], ['usage_note', 'ملاحظة حول الاستعمال'], ['example_darija', 'مثال بالدارجة'], ['example_translation', 'ترجمة المثال'],
-] as const
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { AlertTriangle, CheckCircle2, RefreshCw } from 'lucide-react'
+import { supabase } from './lib/supabase'
+import type {
+  DataMode,
+  ExampleFilter,
+  LexicalEntry,
+  LocalDraft,
+  RawOfficialCorpus,
+  ReviewerProfile,
+  WorkbenchTab,
+} from './types/lexicon'
+import { DEMO_ENTRIES, DEMO_RAW_CORPUS, fetchOfficialCorpus } from './services/dataset'
+import { useLocalDrafts } from './hooks/useLocalDrafts'
+import { useSandboxModeration } from './hooks/useSandboxModeration'
+import { Navbar } from './components/Navbar'
+import { HeroSection } from './components/HeroSection'
+import { LexiconSidebar } from './components/Workbench/LexiconSidebar'
+import { EntryDetailSheet } from './components/Workbench/EntryDetailSheet'
+import { NewEntryProposalPanel } from './components/Workbench/NewEntryProposalPanel'
+import { CorpusOverview } from './components/Workbench/CorpusOverview'
+import { SubmissionsPanel } from './components/Workbench/SubmissionsPanel'
+import { EditorModerationPanel } from './components/Workbench/EditorModerationPanel'
+import { DatasetExporterPanel } from './components/Workbench/DatasetExporterPanel'
+import { MethodologySection } from './components/MethodologySection'
+import { AuthDialog } from './components/AuthDialog'
+import { Footer } from './components/Footer'
 
 export default function App() {
-  const [entries, setEntries] = useState<Entry[]>(demoEntries)
-  const [dataMode, setDataMode] = useState<'loading'|'live'|'demo'>('loading')
+  const [entries, setEntries] = useState<LexicalEntry[]>(DEMO_ENTRIES)
+  const [rawCorpus, setRawCorpus] = useState<RawOfficialCorpus>(DEMO_RAW_CORPUS)
+  const [categories, setCategories] = useState<string[]>(
+    Array.from(new Set(DEMO_ENTRIES.map((e) => e.category))),
+  )
+  const [totalExamplesCount, setTotalExamplesCount] = useState<number>(4)
+  const [dataMode, setDataMode] = useState<DataMode>('loading')
+
+  const [workbenchTab, setWorkbenchTab] = useState<WorkbenchTab>('explorer')
   const [query, setQuery] = useState('')
-  const [active, setActive] = useState<Entry>(demoEntries[0])
-  const [form, setForm] = useState<Record<string, string>>({})
-  const [evidence, setEvidence] = useState('')
-  const [note, setNote] = useState('')
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [message, setMessage] = useState('')
-  const [busy, setBusy] = useState(false)
-  const [showLogin, setShowLogin] = useState(false)
-  const [forgotPassword, setForgotPassword] = useState(false)
+  const [selectedCategory, setSelectedCategory] = useState('all')
+  const [exampleFilter, setExampleFilter] = useState<ExampleFilter>('all')
+  const [activeId, setActiveId] = useState<string>(DEMO_ENTRIES[0].id)
+
+  const [resumedNewDraft, setResumedNewDraft] = useState<LocalDraft | null>(null)
+  const [forceSandboxModeration, setForceSandboxModeration] = useState(false)
+  const [preferredExportSource, setPreferredExportSource] = useState<'live' | 'sandbox'>('sandbox')
+
+  const [authDialogOpen, setAuthDialogOpen] = useState(false)
   const [recoveryMode, setRecoveryMode] = useState(false)
-  const [newPassword, setNewPassword] = useState('')
-  const [confirmPassword, setConfirmPassword] = useState('')
+  const [userEmail, setUserEmail] = useState<string | null>(null)
+  const [reviewerProfile, setReviewerProfile] = useState<ReviewerProfile | null>(null)
+  const [submissionsRefreshCounter, setSubmissionsRefreshCounter] = useState(0)
+
+  const [darkMode, setDarkMode] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem('arcode_lexreview_theme') === 'dark'
+    } catch {
+      return false
+    }
+  })
+
+  const { drafts, draftsList, saveDraft, removeDraft } = useLocalDrafts()
+  const {
+    sandboxItems,
+    addSandboxSubmission,
+    moderateSandboxSubmission,
+    bulkApproveSandboxSubmissions,
+    resetSandboxQueue,
+  } = useSandboxModeration()
+
   useEffect(() => {
+    const root = document.documentElement
+    if (darkMode) {
+      root.classList.add('dark')
+    } else {
+      root.classList.remove('dark')
+    }
+    try {
+      localStorage.setItem('arcode_lexreview_theme', darkMode ? 'dark' : 'light')
+    } catch {
+      // Ignore storage error
+    }
+  }, [darkMode])
+
+  const syncUserSession = useCallback(async () => {
     if (!supabase) return
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+    setUserEmail(user?.email ?? null)
+    if (user) {
+      const { data } = await supabase
+        .from('reviewer_profiles')
+        .select('id, display_name, role')
+        .eq('id', user.id)
+        .maybeSingle()
+      const prof = (data as ReviewerProfile | null) ?? null
+      setReviewerProfile(prof)
+      if (prof?.role === 'editor' || prof?.role === 'admin') {
+        setPreferredExportSource('live')
+      }
+    } else {
+      setReviewerProfile(null)
+    }
+  }, [])
+
+  useEffect(() => {
+    syncUserSession()
+    if (!supabase) return
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event, session) => {
+      setUserEmail(session?.user?.email ?? null)
       if (event === 'PASSWORD_RECOVERY') {
         setRecoveryMode(true)
-        setForgotPassword(false)
-        setShowLogin(true)
-        setMessage('أدخل كلمة المرور الجديدة لتحديث حسابك.')
+        setAuthDialogOpen(true)
+      }
+      if (event === 'SIGNED_IN' || event === 'SIGNED_OUT') {
+        syncUserSession()
       }
     })
     return () => subscription.unsubscribe()
+  }, [syncUserSession])
+
+  const loadCorpus = useCallback(() => {
+    setDataMode('loading')
+    fetchOfficialCorpus()
+      .then((corpus) => {
+        setEntries(corpus.entries)
+        setRawCorpus(corpus.rawCorpus)
+        setCategories(corpus.categories)
+        setTotalExamplesCount(corpus.totalExamplesCount)
+        setActiveId(corpus.entries[0]?.id ?? '')
+        setDataMode('live')
+      })
+      .catch(() => {
+        setEntries(DEMO_ENTRIES)
+        setRawCorpus(DEMO_RAW_CORPUS)
+        setCategories(Array.from(new Set(DEMO_ENTRIES.map((e) => e.category))))
+        setTotalExamplesCount(4)
+        setActiveId(DEMO_ENTRIES[0].id)
+        setDataMode('demo')
+      })
   }, [])
 
   useEffect(() => {
-    fetch('https://raw.githubusercontent.com/ArCode-Standard/moroccan-darija-dataset/main/data/moroccan-darija.json')
-      .then(response => { if (!response.ok) throw new Error('Dataset unavailable'); return response.json() })
-      .then((payload: { entries?: Array<Record<string, unknown>> }) => {
-        if (!Array.isArray(payload.entries) || payload.entries.length === 0) throw new Error('Invalid dataset format')
-        const loaded = payload.entries.map((item): Entry => ({
-          id: String(item.id), word: String(item.darija_ar ?? ''), latin: String(item.darija_latin ?? ''),
-          meaning: String(item.fusha_ar ?? '—'), french: String(item.fr ?? '—'), category: String(item.category ?? 'غير مصنف'),
-          example: 'لا يوجد مثال سياقي محمّل لهذا المدخل.', translation: 'راجع ملف الأمثلة السياقية في مستودع البيانات.',
-          status: typeof item.review === 'object' && item.review !== null && 'status' in item.review ? String((item.review as {status: unknown}).status) : 'غير محدد'
-        }))
-        setEntries(loaded); setActive(loaded[0]); setDataMode('live')
-      })
-      .catch(() => setDataMode('demo'))
-  }, [])
-  const filtered = useMemo(() => entries.filter(e => [e.word,e.latin,e.meaning,e.category].join(' ').toLowerCase().includes(query.toLowerCase())), [entries, query])
-  const update = (key: string, value: string) => setForm(current => ({ ...current, [key]: value }))
+    loadCorpus()
+  }, [loadCorpus])
 
-  async function signIn() {
-    if (!supabase) return
-    setBusy(true); setMessage('')
-    const { error } = await supabase.auth.signInWithPassword({ email, password })
-    setBusy(false); setMessage(error ? error.message : 'تم تسجيل الدخول.')
-  }
-  async function sendPasswordReset() {
-    if (!supabase) return
-    if (!email.trim()) { setMessage('أدخل بريدك الإلكتروني أولاً.'); return }
-    setBusy(true); setMessage('')
-    const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
-      redirectTo: 'https://darija-lexreview.pages.dev/',
+  const filteredEntries = useMemo(() => {
+    const q = query.trim().toLowerCase()
+    return entries.filter((entry) => {
+      if (selectedCategory !== 'all' && entry.category !== selectedCategory) {
+        return false
+      }
+      if (exampleFilter === 'with_examples' && entry.examples.length === 0) {
+        return false
+      }
+      if (exampleFilter === 'needs_examples' && entry.examples.length > 0) {
+        return false
+      }
+      if (!q) return true
+      const haystack = [
+        entry.id,
+        entry.word,
+        entry.latin,
+        entry.meaning,
+        entry.french,
+        entry.category,
+      ]
+        .join(' ')
+        .toLowerCase()
+      return haystack.includes(q)
     })
-    setBusy(false)
-    setMessage(error
-      ? 'تعذر إرسال رابط الاستعادة: ' + error.message
-      : 'إذا كان البريد مسجلاً، فستصلك رسالة تحتوي على رابط إعادة تعيين كلمة المرور. تحقق من صندوق الوارد والرسائل غير المرغوب فيها.')
-  }
-  async function updatePassword() {
-    if (!supabase) return
-    if (newPassword.length < 8) { setMessage('يجب أن تتكون كلمة المرور من 8 أحرف على الأقل.'); return }
-    if (newPassword !== confirmPassword) { setMessage('كلمتا المرور غير متطابقتين.'); return }
-    setBusy(true); setMessage('')
-    const { error } = await supabase.auth.updateUser({ password: newPassword })
-    setBusy(false)
-    if (error) { setMessage('تعذر تحديث كلمة المرور: ' + error.message); return }
-    setPassword(''); setNewPassword(''); setConfirmPassword('')
-    setRecoveryMode(false); setForgotPassword(false)
-    setMessage('تم تحديث كلمة المرور. يمكنك الآن تسجيل الدخول بها.')
-    await supabase.auth.signOut()
-  }
-  async function submit() {
-    if (!supabase) { setMessage('اتصال Supabase غير مهيأ في نسخة التطبيق المنشورة. اضبط VITE_SUPABASE_URL وVITE_SUPABASE_ANON_KEY في بيئة البناء ثم أعد النشر.'); return }
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) { setMessage('سجّل الدخول قبل إرسال المقترح.'); setShowLogin(true); return }
-    if (!evidence.trim()) { setMessage('أضف رابط شاهد واحداً على الأقل أو اشرح سبب عدم توفر شاهد.'); return }
-    setBusy(true); setMessage('')
-    const { error } = await supabase.from('review_submissions').insert({
-      entry_id: active.id, proposed_data: form, evidence: [{ url: evidence.trim(), note: note.trim() }],
-      reviewer_note: note.trim() || null, status: 'pending',
-    })
-    setBusy(false)
-    setMessage(error ? error.message : 'تم إرسال المقترح للمراجعة. لم يتغير المعجم الرسمي.')
-    if (!error) { setForm({}); setEvidence(''); setNote('') }
+  }, [entries, query, selectedCategory, exampleFilter])
+
+  const activeEntry = useMemo(() => {
+    return (
+      entries.find((e) => e.id === activeId) ??
+      filteredEntries[0] ??
+      entries[0] ??
+      DEMO_ENTRIES[0]
+    )
+  }, [entries, filteredEntries, activeId])
+
+  const activeIndexInFiltered = useMemo(
+    () => filteredEntries.findIndex((e) => e.id === activeEntry.id),
+    [filteredEntries, activeEntry.id],
+  )
+
+  const pendingSandboxCount = useMemo(
+    () => sandboxItems.filter((i) => i.status === 'pending').length,
+    [sandboxItems],
+  )
+
+  function handleResetFilters() {
+    setQuery('')
+    setSelectedCategory('all')
+    setExampleFilter('all')
   }
 
-  return <div className="app-shell">
-    <header className="topbar"><a className="brand" href="#"><span className="brand-mark">A</span><span><b>ArCode</b><small>STANDARD · LANGUAGE INITIATIVE</small></span></a><nav><a href="#workspace">مساحة المراجعة</a><a href="#method">منهجية التحقق</a><a href="https://github.com/ArCode-Standard/moroccan-darija-dataset" target="_blank" rel="noreferrer">المعجم الرسمي <ExternalLink size={13}/></a></nav><button className="login-button" onClick={() => setShowLogin(v=>!v)}>دخول المراجعين</button></header>
-    <main>
-      <section className="hero"><div className="eyebrow"><span/> مبادرة لغوية مفتوحة من ArCode Standard</div><h1>نراجع الدارجة المغربية،<br/><em>كلمةً بكلمة.</em></h1><p>منصة تعاونية لتدقيق المفردات والمعاني والكتابة والسياقات، اعتماداً على شواهد قابلة للتحقق ومراجعة بشرية.</p><div className="hero-actions"><a className="primary" href="#workspace">ابدأ المراجعة <span>←</span></a><a className="secondary" href="#method">كيف نتحقق؟</a></div><div className="hero-foot"><span><ShieldCheck size={15}/> المراجعة البشرية أساس الاعتماد</span><span><BookOpen size={15}/> مصدر البيانات: GitHub</span></div></section>
-    {showLogin && <section className="login-panel">
-      <div><b>{recoveryMode ? 'تعيين كلمة مرور جديدة' : forgotPassword ? 'استعادة كلمة المرور' : 'دخول المراجعين'}</b><p>{recoveryMode ? 'أدخل كلمة المرور الجديدة لتأمين حسابك.' : forgotPassword ? 'أدخل بريدك الإلكتروني لإرسال رابط آمن لإعادة تعيين كلمة المرور.' : 'يلزم حساب Supabase لإرسال المساهمات.'}</p></div>
-      {!recoveryMode && <input placeholder="البريد الإلكتروني" type="email" value={email} onChange={e=>setEmail(e.target.value)}/>}
-      {recoveryMode ? <>
-        <input placeholder="كلمة المرور الجديدة (8 أحرف على الأقل)" type="password" autoComplete="new-password" value={newPassword} onChange={e=>setNewPassword(e.target.value)}/>
-        <input placeholder="تأكيد كلمة المرور الجديدة" type="password" autoComplete="new-password" value={confirmPassword} onChange={e=>setConfirmPassword(e.target.value)}/>
-        <button onClick={updatePassword} disabled={!isSupabaseConfigured || busy}>{busy?'جارٍ الحفظ...':'حفظ كلمة المرور الجديدة'}</button>
-      </> : <>
-        {!forgotPassword && <input placeholder="كلمة المرور" type="password" value={password} onChange={e=>setPassword(e.target.value)}/>}
-        {forgotPassword
-          ? <button onClick={sendPasswordReset} disabled={!isSupabaseConfigured || busy}>{busy?'جارٍ الإرسال...':'إرسال رابط الاستعادة'}</button>
-          : <button onClick={signIn} disabled={!isSupabaseConfigured || busy}>{busy?'جارٍ...':'تسجيل الدخول'}</button>}
-        {!forgotPassword && <button className="forgot-link" type="button" onClick={()=>{setForgotPassword(true);setMessage('')}}>نسيت كلمة المرور؟</button>}
-        {forgotPassword && <button className="forgot-link" type="button" onClick={()=>{setForgotPassword(false);setMessage('')}}>العودة إلى تسجيل الدخول</button>}
-      </>}
-      {!recoveryMode && <button className="quiet" onClick={()=>{setShowLogin(false);setForgotPassword(false)}}><X size={16}/></button>}
-      {message && <div className="login-feedback" role="status">{message}</div>}
-    </section>}
-    <section className="stats"><div><b>921</b><span>مدخل في إصدار المعجم المشار إليه</span></div><div><b>38</b><span>فئة معجمية</span></div><div><b>146</b><span>مثال سياقي منفصل</span></div><div><b>Human</b><span>الاعتماد النهائي بشري</span></div></section>
-    <section id="workspace" className="workspace"><div className="section-heading"><div><span className="kicker">WORKSPACE / 01</span><h2>مساحة المراجعة</h2><p>اختر مدخلاً، افحص تفاصيله، ثم أرسل اقتراحك مدعوماً بالشواهد.</p></div><div className="dataset-state"><span className="pulse"/> {dataMode === 'live' ? 'المعجم الرسمي متصل' : dataMode === 'loading' ? 'جارٍ تحميل المعجم' : 'وضع العرض التوضيحي'}</div></div>
-      {dataMode !== 'live' ? <div className="demo-alert"><AlertTriangle size={17}/><span><b>بيانات تجريبية للواجهة.</b> تعذر تحميل المعجم الرسمي؛ الكلمات المعروضة أمثلة توضيحية وليست قائمة مراجعة رسمية.</span></div> : <div className="live-alert"><CheckCircle2 size={17}/><span><b>تم تحميل المعجم الرسمي.</b> {entries.length} مدخلاً من مستودع ArCode Standard. المراجعات لا تعدّل المصدر مباشرة.</span></div>}
-      <div className="review-layout"><aside className="word-list"><div className="list-title"><b>قائمة الكلمات</b><span>{filtered.length} أمثلة</span></div><label className="searchbox"><Search size={17}/><input placeholder="ابحث عن كلمة أو معنى..." value={query} onChange={e=>setQuery(e.target.value)}/></label><div className="entries">{filtered.map(entry=><button key={entry.id} className={active.id===entry.id?'entry active':'entry'} onClick={()=>{setActive(entry);setForm({})}}><span className="entry-word">{entry.word}</span><span className="entry-meta"><span>{entry.latin}</span><span className="pending">{entry.status}</span></span><span className="entry-meaning">{entry.meaning}</span></button>)}</div></aside>
-      <article className="detail"><div className="detail-top"><div><span className="kicker">LEXICAL ENTRY · {active.id.toUpperCase()}</span><h3>{active.word}</h3><div className="latin">{active.latin}</div></div><span className="tag">{active.category}</span></div><div className="source-grid"><div><label>المعنى المسجل في المثال</label><p>{active.meaning}</p></div><div><label>المقابل الفرنسي</label><p>{active.french}</p></div><div className="example"><label>مثال سياقي</label><p>{active.example}</p><small>{active.translation}</small></div></div>
-      <div className="form-heading"><div><span className="kicker">CONTRIBUTION FORM</span><h4>اقترح مراجعة أو تصحيحاً</h4></div><span className="tag neutral">لا يُنشر تلقائياً</span></div>
-      <div className="fields">{fields.map(([key,label])=><label key={key}>{label}<input value={form[key]??''} onChange={e=>update(key,e.target.value)} placeholder="اتركه فارغاً إذا لم تقترح تعديلاً"/></label>)}</div>
-      <div className="evidence-box"><div className="evidence-title"><ShieldCheck size={17}/><b>الشاهد ومصدر التحقق</b></div><p>أرفق رابطاً يبيّن استعمال الكلمة في سياق مغربي. وجود الكلمة في نتيجة بحث وحده لا يثبت معناها أو شيوعها.</p><input dir="ltr" placeholder="https://..." value={evidence} onChange={e=>setEvidence(e.target.value)}/><textarea placeholder="اشرح السياق، موثوقية المصدر، أو سبب اقتراحك..." value={note} onChange={e=>setNote(e.target.value)}/><div className="search-links"><a target="_blank" rel="noreferrer" href={'https://www.google.com/search?q='+encodeURIComponent('"'+active.word+'" الدارجة المغربية')}>بحث Google <ExternalLink size={12}/></a><a target="_blank" rel="noreferrer" href={'https://www.youtube.com/results?search_query='+encodeURIComponent(active.word+' الدارجة المغربية')}>بحث YouTube <ExternalLink size={12}/></a></div></div>
-      <div className="submit-row"><button className="submit" onClick={submit} disabled={busy}><Send size={16}/>{busy?'جارٍ الإرسال...':'إرسال للمراجعة'}</button><span>تُحفظ المساهمات بحالة pending</span></div>{message&&<div className="message" role="status">{message}</div>}
-      </article></div>
-    </section>
-    <section id="method" className="method"><div className="section-heading"><div><span className="kicker">REVIEW STANDARD / 02</span><h2>كيف نتحقق من الكلمة؟</h2><p>نفصل بين العثور على الكلمة وبين إثبات معناها واستعمالها.</p></div></div><div className="method-grid"><div><span>01</span><h3>العثور</h3><p>جمع شواهد أولية من مصادر مختلفة، دون اعتبار نتائج البحث حكماً لغوياً.</p></div><div><span>02</span><h3>فهم السياق</h3><p>قراءة الجملة والسياق لتحديد المعنى المقصود وتعدد الدلالات المحتملة.</p></div><div><span>03</span><h3>التحقق المغربي</h3><p>تقييم ما إذا كان الاستعمال دارجاً مغربياً فعلاً، لا مجرد تطابق كتابي عابر.</p></div><div><span>04</span><h3>اعتماد بشري</h3><p>مراجع مخوّل يقيّم المقترح قبل نقله إلى مستودع البيانات الرسمي.</p></div></div></section>
-    <section className="bottom-note"><div><Languages size={21}/><div><b>المعجم الرسمي يظل مصدر الحقيقة</b><p>هذه المنصة لإدارة المراجعات والمقترحات، وليست بديلاً عن مستودع البيانات أو عن تدقيق حقوق المصادر.</p></div></div><a href="https://github.com/ArCode-Standard/darija-lexreview" target="_blank" rel="noreferrer"><Github size={16}/> مستودع التطبيق <ExternalLink size={13}/></a></section>
-    </main><footer><span>© 2026 ArCode Standard</span><span>نبني النظام البيئي العربي للتقنية</span><span>Darija LexReview · MVP</span></footer>
-  </div>
+  function handleStartReview() {
+    setWorkbenchTab('explorer')
+    const el = document.getElementById('workspace')
+    if (el) el.scrollIntoView({ behavior: 'smooth' })
+  }
+
+  function handleSelectCategoryFromOverview(category: string) {
+    setSelectedCategory(category)
+    setQuery('')
+    setExampleFilter('all')
+    setWorkbenchTab('explorer')
+    const match = entries.find((e) => e.category === category)
+    if (match) setActiveId(match.id)
+  }
+
+  function handleInspectExistingFromNewForm(entry: LexicalEntry) {
+    setActiveId(entry.id)
+    setWorkbenchTab('explorer')
+  }
+
+  function handleResumeDraft(entryId: string) {
+    const draft = drafts[entryId]
+    if (
+      draft &&
+      (entryId === 'NEW' ||
+        entryId.startsWith('NEW:') ||
+        draft.proposedData?.submission_kind === 'new_entry')
+    ) {
+      setResumedNewDraft(draft)
+      setWorkbenchTab('new_entry')
+      return
+    }
+    setActiveId(entryId)
+    setWorkbenchTab('explorer')
+  }
+
+  function handleOpenModerationSandbox() {
+    setForceSandboxModeration(true)
+    setWorkbenchTab('moderation')
+  }
+
+  function handleGoToExporter(source: 'live' | 'sandbox') {
+    setPreferredExportSource(source)
+    setWorkbenchTab('exporter')
+  }
+
+  const WORKBENCH_TABS: Array<{ id: WorkbenchTab; label: string }> = [
+    { id: 'explorer', label: 'فحص المفردات' },
+    { id: 'new_entry', label: 'اقتراح مفردة جديدة' },
+    { id: 'corpus', label: `فهرس الفئات (${categories.length})` },
+    {
+      id: 'submissions',
+      label: `مسوداتي وسجلي${draftsList.length > 0 ? ` (${draftsList.length})` : ''}`,
+    },
+    {
+      id: 'moderation',
+      label: `تحكيم المحررين${pendingSandboxCount > 0 ? ` (${pendingSandboxCount})` : ''}`,
+    },
+    { id: 'exporter', label: 'تصدير المعجم الرسمي' },
+  ]
+
+  return (
+    <div className="min-h-screen flex flex-col">
+      <Navbar
+        isAuthenticated={Boolean(userEmail)}
+        onOpenAuth={() => setAuthDialogOpen(true)}
+        onSelectWorkbenchTab={(tab) => {
+          setForceSandboxModeration(false)
+          setWorkbenchTab(tab)
+        }}
+      />
+
+      <main className="flex-1">
+        <HeroSection
+          entriesCount={entries.length}
+          categoriesCount={categories.length}
+          examplesCount={totalExamplesCount}
+          dataMode={dataMode}
+          onStartReview={handleStartReview}
+        />
+
+        {/* Lexicographical Workbench */}
+        <section
+          id="workspace"
+          className="mx-auto max-w-[1280px] px-5 py-8 sm:px-8 lg:py-12"
+        >
+          {/* Section Header + Mode Tabs */}
+          <div className="space-y-5 pb-6 border-b border-[#E5DFD3] dark:border-[#2E2B27]">
+            <div>
+              <p className="text-xs font-semibold text-[#0F5C4E] dark:text-[#4FD1C5]">
+                بيئة التحرير والتحكيم والتصدير المعياري
+              </p>
+              <h2 className="mt-1.5 font-display text-2xl sm:text-3xl font-bold text-stone-900 dark:text-stone-100">
+                مساحة المراجعة والحوكمة المعجمية
+              </h2>
+              <p className="mt-1.5 text-sm text-stone-600 dark:text-stone-400">
+                افحص المفردات القائمة، اقترح مداخل جديدة، حكّم المساهمات جنباً إلى جنب، وصدّر حزم التحديث المتوافقة مع مخطط المستودع الرسمي.
+              </p>
+            </div>
+
+            <div className="overflow-x-auto pb-1">
+              <div
+                role="tablist"
+                aria-label="أقسام مساحة العمل"
+                className="inline-flex items-center gap-1 rounded-lg border border-[#E5DFD3] bg-[#F3EFE6] p-1 dark:border-[#2E2B27] dark:bg-[#1C1A18]"
+              >
+                {WORKBENCH_TABS.map((tab) => (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    role="tab"
+                    aria-selected={workbenchTab === tab.id}
+                    onClick={() => {
+                      if (tab.id !== 'moderation') setForceSandboxModeration(false)
+                      setWorkbenchTab(tab.id)
+                    }}
+                    className={`min-h-[36px] rounded-md px-3.5 py-1.5 text-xs font-semibold transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
+                      workbenchTab === tab.id
+                        ? 'bg-white text-stone-900 shadow-2xs dark:bg-[#2A2622] dark:text-stone-100'
+                        : 'text-stone-600 hover:text-stone-900 dark:text-stone-400 dark:hover:text-stone-200'
+                    }`}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Dataset Operational Banner */}
+          <div className="mt-5 mb-6">
+            {dataMode === 'live' ? (
+              <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-emerald-200/80 bg-emerald-50/70 px-4 py-3 text-xs text-emerald-950 dark:border-emerald-900/50 dark:bg-emerald-950/30 dark:text-emerald-200">
+                <div className="flex items-center gap-2.5">
+                  <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-700 dark:text-emerald-400" />
+                  <span>
+                    <strong className="font-semibold">المعجم الرسمي متصل:</strong> تم تحميل{' '}
+                    <span className="font-mono tabular-nums">
+                      {entries.length.toLocaleString('en-US')}
+                    </span>{' '}
+                    مدخل معجمي و
+                    <span className="font-mono tabular-nums">
+                      {totalExamplesCount.toLocaleString('en-US')}
+                    </span>{' '}
+                    شاهد سياقي من مستودع ArCode Standard (الإصدار{' '}
+                    <span className="font-mono">
+                      {String(rawCorpus.lexiconMeta.version ?? '1.5.0')}
+                    </span>
+                    ).
+                  </span>
+                </div>
+              </div>
+            ) : dataMode === 'demo' ? (
+              <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-amber-300/80 bg-amber-50/80 px-4 py-3 text-xs text-amber-950 dark:border-amber-800/50 dark:bg-amber-950/30 dark:text-amber-200">
+                <div className="flex items-center gap-2.5">
+                  <AlertTriangle className="h-4 w-4 shrink-0 text-amber-700 dark:text-amber-400" />
+                  <span>
+                    <strong className="font-semibold">وضع البيانات التوضيحية:</strong> تعذر الاتصال بمستودع GitHub حالياً؛ المداخل المعروضة عينة محلية للتجربة.
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={loadCorpus}
+                  className="inline-flex min-h-[32px] items-center gap-1.5 rounded-md border border-amber-400/60 bg-white px-3 py-1 text-xs font-semibold text-amber-950 hover:bg-amber-100/50 cursor-pointer dark:border-amber-700 dark:bg-[#1C1A18] dark:text-amber-200"
+                >
+                  <RefreshCw className="h-3 w-3" />
+                  <span>إعادة المحاولة</span>
+                </button>
+              </div>
+            ) : null}
+          </div>
+
+          {/* Active Workbench View */}
+          {workbenchTab === 'explorer' && (
+            <div className="grid grid-cols-1 gap-6 lg:grid-cols-12 items-start">
+              <div className="lg:col-span-4">
+                <LexiconSidebar
+                  entries={entries}
+                  filteredEntries={filteredEntries}
+                  activeEntry={activeEntry}
+                  categories={categories}
+                  query={query}
+                  selectedCategory={selectedCategory}
+                  exampleFilter={exampleFilter}
+                  dataMode={dataMode}
+                  drafts={drafts}
+                  onQueryChange={setQuery}
+                  onCategoryChange={setSelectedCategory}
+                  onExampleFilterChange={setExampleFilter}
+                  onSelectEntry={(entry) => setActiveId(entry.id)}
+                  onResetFilters={handleResetFilters}
+                />
+              </div>
+
+              <div className="lg:col-span-8">
+                <EntryDetailSheet
+                  entry={activeEntry}
+                  currentIndex={activeIndexInFiltered}
+                  totalFiltered={filteredEntries.length}
+                  existingDraft={drafts[activeEntry.id]}
+                  onPrev={() => {
+                    if (activeIndexInFiltered > 0) {
+                      setActiveId(filteredEntries[activeIndexInFiltered - 1].id)
+                    }
+                  }}
+                  onNext={() => {
+                    if (
+                      activeIndexInFiltered >= 0 &&
+                      activeIndexInFiltered < filteredEntries.length - 1
+                    ) {
+                      setActiveId(filteredEntries[activeIndexInFiltered + 1].id)
+                    }
+                  }}
+                  onSaveDraft={saveDraft}
+                  onRemoveDraft={removeDraft}
+                  onAddSandboxSubmission={addSandboxSubmission}
+                  onOpenModerationSandbox={handleOpenModerationSandbox}
+                  onRequireLogin={() => setAuthDialogOpen(true)}
+                  onSubmissionSuccess={() => setSubmissionsRefreshCounter((c) => c + 1)}
+                />
+              </div>
+            </div>
+          )}
+
+          {workbenchTab === 'new_entry' && (
+            <NewEntryProposalPanel
+              entries={entries}
+              categories={categories}
+              activeDraft={resumedNewDraft}
+              onClearActiveDraft={() => setResumedNewDraft(null)}
+              onInspectExistingEntry={handleInspectExistingFromNewForm}
+              onSaveDraft={saveDraft}
+              onAddSandboxSubmission={addSandboxSubmission}
+              onRequireLogin={() => setAuthDialogOpen(true)}
+              onSubmissionSuccess={() => setSubmissionsRefreshCounter((c) => c + 1)}
+              onOpenModerationSandbox={handleOpenModerationSandbox}
+            />
+          )}
+
+          {workbenchTab === 'corpus' && (
+            <CorpusOverview
+              entries={entries}
+              onSelectCategory={handleSelectCategoryFromOverview}
+            />
+          )}
+
+          {workbenchTab === 'submissions' && (
+            <SubmissionsPanel
+              draftsList={draftsList}
+              userEmail={userEmail}
+              refreshTrigger={submissionsRefreshCounter}
+              onResumeDraft={handleResumeDraft}
+              onDeleteDraft={removeDraft}
+              onOpenAuth={() => setAuthDialogOpen(true)}
+            />
+          )}
+
+          {workbenchTab === 'moderation' && (
+            <EditorModerationPanel
+              entries={entries}
+              categories={categories}
+              userEmail={userEmail}
+              profile={reviewerProfile}
+              sandboxItems={sandboxItems}
+              forceSandboxMode={forceSandboxModeration}
+              onModerateSandbox={moderateSandboxSubmission}
+              onBulkApproveSandbox={bulkApproveSandboxSubmissions}
+              onResetSandbox={resetSandboxQueue}
+              onOpenAuth={() => setAuthDialogOpen(true)}
+              onGoToExporter={handleGoToExporter}
+            />
+          )}
+
+          {workbenchTab === 'exporter' && (
+            <DatasetExporterPanel
+              entries={entries}
+              rawCorpus={rawCorpus}
+              userEmail={userEmail}
+              profile={reviewerProfile}
+              sandboxItems={sandboxItems}
+              preferredSource={preferredExportSource}
+            />
+          )}
+        </section>
+
+        <MethodologySection />
+      </main>
+
+      <Footer
+        darkMode={darkMode}
+        onToggleDarkMode={() => setDarkMode((prev) => !prev)}
+      />
+
+      <AuthDialog
+        open={authDialogOpen}
+        onClose={() => setAuthDialogOpen(false)}
+        userEmail={userEmail}
+        profile={reviewerProfile}
+        recoveryMode={recoveryMode}
+        onClearRecovery={() => setRecoveryMode(false)}
+        onAuthChanged={syncUserSession}
+      />
+    </div>
+  )
 }
