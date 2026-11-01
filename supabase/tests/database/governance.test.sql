@@ -1,7 +1,7 @@
 begin;
 
 create extension if not exists pgtap with schema extensions;
-select plan(35);
+select plan(34);
 
 -- All fixtures are synthetic and live only in this disposable CI database.
 insert into auth.users (
@@ -174,7 +174,7 @@ reset role;
 
 -- Twenty inserts are accepted in the rolling hour; the twenty-first is rejected.
 set local role authenticated;
-select set_config('request.jwt.claim.sub','10000000-0000-4000-8000-000000000001',true);
+select set_config('request.jwt.claim.sub','10000000-0000-4000-8000-000000000002',true);
 select set_config('request.jwt.claim.role','authenticated',true);
 insert into public.review_submissions(entry_id, proposed_data, evidence)
 select 'ci-rate-' || g, '{"lemma":"اختبار"}'::jsonb, '[]'::jsonb
