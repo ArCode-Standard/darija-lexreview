@@ -470,11 +470,11 @@ export function buildOfficialExportBundle(
           const exProv: Record<string, unknown> = {
             source_type: 'contributor',
             source_name: 'Darija LexReview — مساهمة مراجعة',
-            rights_holder: 'ArCode Standard Contributors',
-            redistribution_permission: 'allowed',
-            training_permission: 'allowed',
-            commercial_permission: 'not_allowed',
-            license: 'CC BY-NC 4.0',
+            rights_holder: 'unknown',
+            redistribution_permission: 'unknown',
+            training_permission: 'unknown',
+            commercial_permission: 'unknown',
+            license: 'unknown',
             accessed_at: reviewedDate,
           }
           if (firstSafeUrl) exProv.source_url = firstSafeUrl
