@@ -267,11 +267,11 @@ export function buildOfficialExportBundle(
       const provenanceObj: Record<string, unknown> = {
         source_type: sourceType,
         source_name: (p.source_name ?? '').trim() || 'Darija LexReview — مساهمة مراجعة',
-        rights_holder: 'unknown',
-        redistribution_permission: 'unknown',
-        training_permission: 'unknown',
-        commercial_permission: 'unknown',
-        license: 'unknown',
+        rights_holder: String(p.rights_holder ?? 'unknown'),
+        redistribution_permission: String(p.redistribution_permission ?? 'unknown'),
+        training_permission: String(p.training_permission ?? 'unknown'),
+        commercial_permission: String(p.commercial_permission ?? 'unknown'),
+        license: String(p.license ?? 'unknown'),
         accessed_at: reviewedDate,
       }
       if (firstSafeUrl) {
@@ -333,11 +333,11 @@ export function buildOfficialExportBundle(
           const exProv: Record<string, unknown> = {
             source_type: sourceType,
             source_name: (p.source_name ?? '').trim() || 'Darija LexReview — مساهمة مراجعة',
-            rights_holder: 'unknown',
-            redistribution_permission: 'unknown',
-            training_permission: 'unknown',
-            commercial_permission: 'unknown',
-            license: 'unknown',
+            rights_holder: String(p.rights_holder ?? 'unknown'),
+            redistribution_permission: String(p.redistribution_permission ?? 'unknown'),
+            training_permission: String(p.training_permission ?? 'unknown'),
+            commercial_permission: String(p.commercial_permission ?? 'unknown'),
+            license: String(p.license ?? 'unknown'),
             accessed_at: reviewedDate,
           }
           if (firstSafeUrl) exProv.source_url = firstSafeUrl
@@ -422,11 +422,11 @@ export function buildOfficialExportBundle(
           ? { ...(existing.provenance as Record<string, unknown>) }
           : {
               source_type: 'original',
-              rights_holder: 'unknown',
-              redistribution_permission: 'unknown',
-              training_permission: 'unknown',
-              commercial_permission: 'unknown',
-              license: 'unknown',
+              rights_holder: String(p.rights_holder ?? 'unknown'),
+              redistribution_permission: String(p.redistribution_permission ?? 'unknown'),
+              training_permission: String(p.training_permission ?? 'unknown'),
+              commercial_permission: String(p.commercial_permission ?? 'unknown'),
+              license: String(p.license ?? 'unknown'),
             }
 
       if (firstSafeUrl && !existingProv.source_url) {
@@ -471,11 +471,11 @@ export function buildOfficialExportBundle(
           const exProv: Record<string, unknown> = {
             source_type: 'contributor',
             source_name: 'Darija LexReview — مساهمة مراجعة',
-            rights_holder: 'unknown',
-            redistribution_permission: 'unknown',
-            training_permission: 'unknown',
-            commercial_permission: 'unknown',
-            license: 'unknown',
+            rights_holder: String(p.rights_holder ?? 'unknown'),
+            redistribution_permission: String(p.redistribution_permission ?? 'unknown'),
+            training_permission: String(p.training_permission ?? 'unknown'),
+            commercial_permission: String(p.commercial_permission ?? 'unknown'),
+            license: String(p.license ?? 'unknown'),
             accessed_at: reviewedDate,
           }
           if (firstSafeUrl) exProv.source_url = firstSafeUrl
