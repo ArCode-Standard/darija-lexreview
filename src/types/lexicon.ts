@@ -75,6 +75,8 @@ export interface EvidenceItem {
   note: string
 }
 
+export type DataPermission = 'allowed' | 'not_allowed' | 'unknown' | 'not_applicable'
+
 export interface ProposedFields {
   submission_kind?: 'edit_entry' | 'new_entry'
   word_ar?: string
@@ -94,6 +96,11 @@ export interface ProposedFields {
   source_type?: SourceType
   source_name?: string
   rights_confirmed?: boolean
+  rights_holder?: string
+  license?: string
+  redistribution_permission?: DataPermission
+  training_permission?: DataPermission
+  commercial_permission?: DataPermission
 }
 
 export interface LocalDraft {
