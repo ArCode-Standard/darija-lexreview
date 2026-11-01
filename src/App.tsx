@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react'
 import { AlertTriangle, CheckCircle2, RefreshCw } from 'lucide-react'
 import { supabase } from './lib/supabase'
 import type {
@@ -21,14 +21,30 @@ import { Navbar } from './components/Navbar'
 import { HeroSection } from './components/HeroSection'
 import { LocalDraftSyncBanner } from './components/LocalDraftSyncBanner'
 import { LexiconSidebar } from './components/Workbench/LexiconSidebar'
-import { EntryDetailSheet } from './components/Workbench/EntryDetailSheet'
-import { NewEntryProposalPanel } from './components/Workbench/NewEntryProposalPanel'
-import { CorpusOverview } from './components/Workbench/CorpusOverview'
-import { SubmissionsPanel } from './components/Workbench/SubmissionsPanel'
-import { EditorModerationPanel } from './components/Workbench/EditorModerationPanel'
-import { DatasetExporterPanel } from './components/Workbench/DatasetExporterPanel'
-import { MethodologySection } from './components/MethodologySection'
-import { AuthDialog } from './components/AuthDialog'
+const EntryDetailSheet = lazy(() =>
+  import('./components/Workbench/EntryDetailSheet').then((module) => ({ default: module.EntryDetailSheet })),
+)
+const NewEntryProposalPanel = lazy(() =>
+  import('./components/Workbench/NewEntryProposalPanel').then((module) => ({ default: module.NewEntryProposalPanel })),
+)
+const CorpusOverview = lazy(() =>
+  import('./components/Workbench/CorpusOverview').then((module) => ({ default: module.CorpusOverview })),
+)
+const SubmissionsPanel = lazy(() =>
+  import('./components/Workbench/SubmissionsPanel').then((module) => ({ default: module.SubmissionsPanel })),
+)
+const EditorModerationPanel = lazy(() =>
+  import('./components/Workbench/EditorModerationPanel').then((module) => ({ default: module.EditorModerationPanel })),
+)
+const DatasetExporterPanel = lazy(() =>
+  import('./components/Workbench/DatasetExporterPanel').then((module) => ({ default: module.DatasetExporterPanel })),
+)
+const MethodologySection = lazy(() =>
+  import('./components/MethodologySection').then((module) => ({ default: module.MethodologySection })),
+)
+const AuthDialog = lazy(() =>
+  import('./components/AuthDialog').then((module) => ({ default: module.AuthDialog })),
+)
 import { Footer } from './components/Footer'
 
 export default function App() {
@@ -340,6 +356,7 @@ export default function App() {
         }}
       />
 
+      <Suspense fallback={<div className="mx-auto max-w-[1280px] px-5 py-8 text-center text-sm text-stone-500" role="status">جارٍ تحميل القسم…</div>}>
       <main className="flex-1">
         <HeroSection
           entriesCount={entries.length}
@@ -582,12 +599,14 @@ export default function App() {
 
         <MethodologySection />
       </main>
+      </Suspense>
 
       <Footer
         darkMode={darkMode}
         onToggleDarkMode={() => setDarkMode((prev) => !prev)}
       />
 
+      <Suspense fallback={null}>
       <AuthDialog
         open={authDialogOpen}
         onClose={() => setAuthDialogOpen(false)}
@@ -605,6 +624,7 @@ export default function App() {
         onSubmitSandboxPromotion={submitSandboxPromotionRequest}
         onJumpToAdminGovernance={handleJumpToAdminGovernance}
       />
+      </Suspense>
     </div>
   )
 }
