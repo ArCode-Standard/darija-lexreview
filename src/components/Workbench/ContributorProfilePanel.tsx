@@ -22,6 +22,7 @@ export function ContributorProfilePanel({ profile, userEmail, onProfileSaved }: 
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [activityError, setActivityError] = useState<string | null>(null)
 
   useEffect(() => {
     setName(profile?.display_name ?? '')
@@ -40,8 +41,13 @@ export function ContributorProfilePanel({ profile, userEmail, onProfileSaved }: 
         supabase.from('community_attestations').select('id', { count: 'exact', head: true }).eq('reviewer_id', profile.id),
       ])
       if (!active) return
-      if (!submissionsResult.error) setSubmissions((submissionsResult.data ?? []) as SubmissionRecord[])
-      if (!attestationsResult.error) setAttestationsCount(attestationsResult.count ?? 0)
+      if (submissionsResult.error || attestationsResult.error) {
+        setActivityError('تعذر تحميل سجل النشاط بالكامل. أعد تحميل الصفحة أو تحقق من صلاحيات الحساب.')
+      } else {
+        setActivityError(null)
+        setSubmissions((submissionsResult.data ?? []) as SubmissionRecord[])
+        setAttestationsCount(attestationsResult.count ?? 0)
+      }
       setLoading(false)
     }
     void loadActivity()
@@ -95,12 +101,12 @@ export function ContributorProfilePanel({ profile, userEmail, onProfileSaved }: 
         </div>
 
         <aside className="space-y-4">
-          <div className="rounded-2xl border border-stone-200 bg-white p-5 dark:border-stone-800 dark:bg-[#1C1A18]"><div className="flex items-center gap-2 text-sm font-semibold"><Activity className="h-4 w-4 text-[#0F5C4E] dark:text-[#4FD1C5]" />ملخص النشاط</div><div className="mt-4 grid grid-cols-2 gap-3">{[['المساهمات', counts.total], ['مقبولة / مدمجة', counts.accepted], ['قيد المراجعة', counts.pending], ['تحتاج تعديلاً', counts.needsChanges], ['تدقيقات المجتمع', attestationsCount]].map(([label, value]) => <div key={label} className="rounded-xl bg-[#F6F4EF] p-3 dark:bg-[#141312]"><p className="text-[11px] text-stone-500">{label}</p><p className="mt-1 text-2xl font-semibold tabular-nums text-stone-900 dark:text-stone-100">{loading ? '—' : value}</p></div>)}</div></div>
+          <div className="rounded-2xl border border-stone-200 bg-white p-5 dark:border-stone-800 dark:bg-[#1C1A18]"><div className="flex items-center gap-2 text-sm font-semibold"><Activity className="h-4 w-4 text-[#0F5C4E] dark:text-[#4FD1C5]" />ملخص النشاط</div><div className="mt-4 grid grid-cols-2 gap-3">{[['آخر 100 مساهمة', counts.total], ['مقبولة / مدمجة', counts.accepted], ['قيد المراجعة', counts.pending], ['تحتاج تعديلاً', counts.needsChanges], ['تدقيقات المجتمع', attestationsCount]].map(([label, value]) => <div key={label} className="rounded-xl bg-[#F6F4EF] p-3 dark:bg-[#141312]"><p className="text-[11px] text-stone-500">{label}</p><p className="mt-1 text-2xl font-semibold tabular-nums text-stone-900 dark:text-stone-100">{loading ? '—' : value}</p></div>)}</div></div>{activityError && <p role="alert" className="rounded-xl border border-red-200 bg-red-50 p-3 text-xs text-red-700 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-300">{activityError}</p>}
           <div className="rounded-2xl border border-stone-200 bg-white p-5 dark:border-stone-800 dark:bg-[#1C1A18]"><div className="flex items-center gap-2 text-sm font-semibold"><BookOpen className="h-4 w-4 text-[#0F5C4E] dark:text-[#4FD1C5]" />مبادئ المساهمة</div><ul className="mt-3 space-y-2 text-xs leading-6 text-stone-600 dark:text-stone-300"><li>قدّم شواهد قابلة للتحقق كلما أمكن.</li><li>ميّز بين الاستعمال المحلي والاستعمال واسع الانتشار.</li><li>لا تعتبر إرسال الاقتراح اعتماداً نهائياً له.</li></ul></div>
         </aside>
       </div>
 
-      <div className="overflow-hidden rounded-2xl border border-stone-200 bg-white dark:border-stone-800 dark:bg-[#1C1A18]"><div className="border-b border-stone-100 px-5 py-4 dark:border-stone-800"><h3 className="font-semibold">سجل مساهماتي</h3><p className="mt-1 text-xs text-stone-500">آخر 100 اقتراح أرسلتها إلى المنصة.</p></div>{loading ? <p className="p-6 text-sm text-stone-500">جارٍ تحميل النشاط…</p> : submissions.length === 0 ? <p className="p-6 text-sm text-stone-500">لا توجد مساهمات مسجلة بعد.</p> : <div className="divide-y divide-stone-100 dark:divide-stone-800">{submissions.map((item) => <div key={item.id} className="flex flex-wrap items-center justify-between gap-3 px-5 py-4"><div className="min-w-0"><p className="text-sm font-semibold text-stone-800 dark:text-stone-100">{String(item.proposed_data?.word_ar || item.entry_id)}</p><p className="mt-1 text-xs text-stone-500">{new Date(item.created_at).toLocaleDateString('ar-MA')} · {item.entry_id}</p></div><span className="rounded-full bg-[#F3EFE6] px-3 py-1 text-[11px] font-semibold text-stone-700 dark:bg-[#2A2622] dark:text-stone-200">{({pending:'قيد المراجعة',accepted:'مقبول',merged:'مدمج',rejected:'مرفوض',needs_changes:'يحتاج تعديلاً',withdrawn:'مسحوب',superseded:'استُبدل'} as Record<string,string>)[item.status] ?? item.status}</span></div>)}</div>}</div>
+      <div className="overflow-hidden rounded-2xl border border-stone-200 bg-white dark:border-stone-800 dark:bg-[#1C1A18]"><div className="border-b border-stone-100 px-5 py-4 dark:border-stone-800"><h3 className="font-semibold">سجل مساهماتي</h3><p className="mt-1 text-xs text-stone-500">آخر 100 اقتراح أرسلتها إلى المنصة.</p></div>{loading ? <p className="p-6 text-sm text-stone-500">جارٍ تحميل النشاط…</p> : activityError ? <p role="alert" className="p-6 text-sm text-red-700 dark:text-red-300">تعذر عرض السجل لأن تحميل البيانات لم يكتمل.</p> : submissions.length === 0 ? <p className="p-6 text-sm text-stone-500">لا توجد مساهمات مسجلة بعد.</p> : <div className="divide-y divide-stone-100 dark:divide-stone-800">{submissions.map((item) => <div key={item.id} className="flex flex-wrap items-center justify-between gap-3 px-5 py-4"><div className="min-w-0"><p className="text-sm font-semibold text-stone-800 dark:text-stone-100">{String(item.proposed_data?.word_ar || item.entry_id)}</p><p className="mt-1 text-xs text-stone-500">{new Date(item.created_at).toLocaleDateString('ar-MA')} · {item.entry_id}</p></div><span className="rounded-full bg-[#F3EFE6] px-3 py-1 text-[11px] font-semibold text-stone-700 dark:bg-[#2A2622] dark:text-stone-200">{({pending:'قيد المراجعة',accepted:'مقبول',merged:'مدمج',rejected:'مرفوض',needs_changes:'يحتاج تعديلاً',withdrawn:'مسحوب',superseded:'استُبدل'} as Record<string,string>)[item.status] ?? item.status}</span></div>)}</div>}</div>
     </section>
   )
 }
