@@ -1,7 +1,7 @@
 begin;
 
 create extension if not exists pgtap with schema extensions;
-select plan(18);
+select plan(24);
 
 -- All fixtures are synthetic and live only in this disposable CI database.
 insert into auth.users (
@@ -42,6 +42,73 @@ select public.review_role_promotion_request(
   '20000000-0000-4000-8000-000000000002',
   'approved',
   null
+);
+reset role;
+
+-- SECURITY DEFINER RPCs must have a pinned empty search_path and no anon EXECUTE.
+select ok(
+  (select prosecdef and 'search_path=""' = any(proconfig)
+   from pg_proc where oid = 'public.list_staff_display_names()'::regprocedure),
+  'staff directory definer pins an empty search_path'
+);
+select ok(
+  (select prosecdef and 'search_path=""' = any(proconfig)
+   from pg_proc where oid = 'public.review_role_promotion_request(uuid,text,text)'::regprocedure),
+  'promotion review definer pins an empty search_path'
+);
+select ok(
+  not has_function_privilege('anon','public.list_staff_display_names()','EXECUTE'),
+  'anonymous users cannot execute staff directory RPC'
+);
+select ok(
+  not has_function_privilege('anon','public.review_role_promotion_request(uuid,text,text)','EXECUTE'),
+  'anonymous users cannot execute promotion review RPC'
+);
+
+-- A regular contributor may create a promotion request but cannot adjudicate it.
+set local role authenticated;
+select set_config('request.jwt.claim.sub','10000000-0000-4000-8000-000000000001',true);
+select set_config('request.jwt.claim.role','authenticated',true);
+insert into public.role_promotion_requests (
+  id, requester_id, requester_name, experience_summary
+) values (
+  '20000000-0000-4000-8000-000000000001',
+  '10000000-0000-4000-8000-000000000001',
+  'CI Contributor',
+  'Synthetic contributor request used to verify administrative authorization.'
+);
+select throws_ok(
+  $ select public.review_role_promotion_request(
+    '20000000-0000-4000-8000-000000000001', 'approved', null
+  ) $,
+  '42501',
+  'Only authenticated admins can review role promotion requests',
+  'ordinary contributor cannot adjudicate a promotion request'
+);
+reset role;
+
+-- An already approved request cannot be replayed or changed by a second call.
+set local role authenticated;
+select set_config('request.jwt.claim.sub','10000000-0000-4000-8000-000000000003',true);
+select set_config('request.jwt.claim.role','authenticated',true);
+select throws_ok(
+  $ select public.review_role_promotion_request(
+    '20000000-0000-4000-8000-000000000002', 'rejected', 'replay attempt'
+  ) $,
+  '55000',
+  'Only pending promotion requests can be reviewed',
+  'an already adjudicated promotion request cannot be replayed'
+);
+reset role;
+
+-- Non-editor authenticated users receive no staff directory rows.
+set local role authenticated;
+select set_config('request.jwt.claim.sub','10000000-0000-4000-8000-000000000001',true);
+select set_config('request.jwt.claim.role','authenticated',true);
+select is(
+  (select count(*)::integer from public.list_staff_display_names()),
+  0,
+  'non-editor receives no staff directory records'
 );
 reset role;
 
