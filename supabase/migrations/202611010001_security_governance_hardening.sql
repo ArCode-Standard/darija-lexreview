@@ -121,6 +121,8 @@ for each row execute function public.record_review_submission_event();
 
 -- Replace broad editor update access with decision-only columns.
 revoke update on public.review_submissions from authenticated;
+revoke update (status, editor_id, editor_note, proposed_data, evidence, reviewer_note)
+  on public.review_submissions from authenticated;
 grant update (status, editor_note) on public.review_submissions to authenticated;
 
 drop policy if exists "editors update submissions" on public.review_submissions;
