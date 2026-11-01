@@ -200,6 +200,7 @@ export function buildOfficialExportBundle(
     }
   }
 
+  let conflictsCount = 0
   const acceptedEditCounts = new Map<number, number>()
   for (const candidate of sortedSubs) {
     if (candidate.status !== 'accepted' || isNewEntrySubmission(candidate)) continue
@@ -215,7 +216,6 @@ export function buildOfficialExportBundle(
   const addedEntries: Array<Record<string, unknown>> = []
   const addedExamples: Array<Record<string, unknown>> = []
   const appliedSubmissionIds: string[] = []
-  let conflictsCount = 0
 
   for (const sub of sortedSubs) {
     if (sub.status !== 'accepted') continue
