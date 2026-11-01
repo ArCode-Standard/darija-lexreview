@@ -4,8 +4,8 @@
 create table if not exists public.review_decision_events (
   id bigint generated always as identity primary key,
   submission_id uuid not null references public.review_submissions(id) on delete restrict,
-  actor_id uuid not null references auth.users(id) on delete restrict,
-  event_type text not null check (event_type in ('submitted', 'decision')),
+  actor_id uuid references auth.users(id) on delete set null,
+  event_type text not null check (event_type in ('baseline', 'submitted', 'decision')),
   previous_status text,
   new_status text not null check (new_status in ('pending','accepted','rejected','needs_changes')),
   editor_note text,
@@ -15,6 +15,17 @@ create table if not exists public.review_decision_events (
 
 create index if not exists review_decision_events_submission_idx
   on public.review_decision_events(submission_id, occurred_at desc);
+
+-- Capture the current state of pre-existing rows without inventing historical decisions.
+insert into public.review_decision_events (
+  submission_id, actor_id, event_type, previous_status,
+  new_status, editor_note, submission_snapshot
+)
+select s.id, null, 'baseline', null, s.status, s.editor_note, to_jsonb(s)
+from public.review_submissions s
+where not exists (
+  select 1 from public.review_decision_events e where e.submission_id = s.id
+);
 
 alter table public.review_decision_events enable row level security;
 revoke all on public.review_decision_events from public, anon, authenticated;
