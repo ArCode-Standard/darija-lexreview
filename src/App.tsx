@@ -288,12 +288,13 @@ export default function App() {
       if (exampleFilter === 'needs_examples' && entry.examples.length > 0) {
         return false
       }
-      if (exampleFilter === 'priority_enrichment' && !isPriorityEnrichmentEntry(entry)) {
-        return false
-      }
+      if (exampleFilter === 'priority_enrichment' && !isPriorityEnrichmentEntry(entry)) return false
+      if (selectedEntryType !== 'all' && (entry.entryType ?? 'unknown') !== selectedEntryType) return false
+      if (selectedRegister !== 'all' && (entry.register ?? 'unknown') !== selectedRegister) return false
+      if (selectedRegion !== 'all' && !(entry.region ?? []).includes(selectedRegion)) return false
       return matchesDarijaQuery(entry, query)
     })
-  }, [entries, query, selectedCategory, exampleFilter])
+  }, [entries, query, selectedCategory, exampleFilter, selectedEntryType, selectedRegister, selectedRegion])
 
   const activeEntry = useMemo(() => {
     return (
@@ -364,6 +365,9 @@ export default function App() {
     setQuery('')
     setSelectedCategory('all')
     setExampleFilter('all')
+    setSelectedEntryType('all')
+    setSelectedRegister('all')
+    setSelectedRegion('all')
   }
 
   function handleStartRapidReview() {
@@ -465,6 +469,7 @@ export default function App() {
       id: 'submissions',
       label: `مساهماتي${draftsList.length > 0 ? ` (${draftsList.length})` : ''}`,
     },
+    ...(userEmail ? [{ id: 'profile' as WorkbenchTab, label: 'ملفي الشخصي' }] : []),
     ...(canAccessEditorialTools
       ? ([
           {
@@ -861,11 +866,18 @@ export default function App() {
                       query={query}
                       selectedCategory={selectedCategory}
                       exampleFilter={exampleFilter}
+                      selectedEntryType={selectedEntryType}
+                      selectedRegister={selectedRegister}
+                      selectedRegion={selectedRegion}
+                      regions={Array.from(new Set(entries.flatMap((entry) => entry.region ?? []))).sort()}
                       dataMode={dataMode}
                       drafts={drafts}
                       onQueryChange={setQuery}
                       onCategoryChange={setSelectedCategory}
                       onExampleFilterChange={setExampleFilter}
+                      onEntryTypeChange={setSelectedEntryType}
+                      onRegisterChange={setSelectedRegister}
+                      onRegionChange={setSelectedRegion}
                       onSelectEntry={(entry) => setActiveId(entry.id)}
                       onResetFilters={handleResetFilters}
                     />
