@@ -1,20 +1,54 @@
 name: CI
+
 on:
   push:
     branches: [main]
   pull_request:
     branches: [main]
+  workflow_dispatch:
+
 permissions:
   contents: read
+
+concurrency:
+  group: lexreview-ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  verify:
+  app:
+    name: Application checks
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - run: npm install
-      - run: npm run lint
-      - run: npm test
-      - run: npm run build
+      - name: Install dependencies
+        run: npm install
+      - name: TypeScript checks
+        run: npm run lint
+      - name: Unit tests
+        run: npm test
+      - name: Production build
+        run: npm run build
+
+  database:
+    name: Supabase database and RLS tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+      - name: Start isolated Supabase stack
+        run: supabase start -x studio,imgproxy
+        env:
+          SUPABASE_TELEMETRY_DISABLED: "1"
+      - name: Rebuild database from migrations
+        run: supabase db reset --local
+      - name: Run pgTAP database tests
+        run: supabase test db
+      - name: Stop isolated Supabase stack
+        if: always()
+        run: supabase stop --no-backup
