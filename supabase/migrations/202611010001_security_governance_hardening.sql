@@ -39,7 +39,7 @@ using ((select private.is_lexreview_editor()));
 -- No client role receives INSERT/UPDATE/DELETE on the audit table.
 -- SECURITY DEFINER trigger functions are the only writers.
 
-create or replace function public.record_review_submission_event()
+create or replace function private.record_review_submission_event()
 returns trigger
 language plpgsql
 security definer
@@ -116,13 +116,13 @@ begin
 end;
 $$;
 
-revoke all on function public.record_review_submission_event() from public, anon, authenticated;
+revoke all on function private.record_review_submission_event() from public, anon, authenticated;
 
 drop trigger if exists review_submission_event_insert on public.review_submissions;
 drop trigger if exists review_submission_event_update on public.review_submissions;
 create trigger review_submission_event_insert
 after insert on public.review_submissions
-for each row execute function public.record_review_submission_event();
+for each row execute function private.record_review_submission_event();
 
 -- BEFORE trigger is required to reject unauthorized changes before persistence.
 drop trigger if exists review_submissions_integrity_trg on public.review_submissions;
