@@ -228,7 +228,10 @@ export default function App() {
         setAuthDialogOpen(true)
       }
       if (event === 'SIGNED_IN' || event === 'SIGNED_OUT' || event === 'USER_UPDATED') {
-        syncUserSession()
+        // Leave the Supabase auth callback before making further auth/API calls.
+        queueMicrotask(() => {
+          void syncUserSession()
+        })
       }
     })
     return () => subscription.unsubscribe()

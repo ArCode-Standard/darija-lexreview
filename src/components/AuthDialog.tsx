@@ -172,99 +172,6 @@ export function AuthDialog({
     }
   }, [open, userEmail, profile?.id, loadMyPromotionContext])
 
-  // Listen for OAuth popup postMessage completion (iframe-safe OAuth flow)
-  useEffect(() => {
-    if (!open || !supabase) return
-
-    const handlePopupMessage = async (event: MessageEvent) => {
-      if (event.origin !== window.location.origin) return
-      if (event.data?.type !== 'OAUTH_AUTH_SUCCESS') return
-
-      const rawHash = typeof event.data.hash === 'string' ? event.data.hash : ''
-      const rawSearch = typeof event.data.search === 'string' ? event.data.search : ''
-      const hashParams = new URLSearchParams(rawHash)
-      const searchParams = new URLSearchParams(rawSearch)
-
-      const oauthError =
-        hashParams.get('error_description') ||
-        searchParams.get('error_description') ||
-        hashParams.get('error') ||
-        searchParams.get('error')
-
-      if (oauthError) {
-        setBusy(false)
-        setFeedback({
-          type: 'error',
-          text: humanizeSystemError(oauthError, 'تعذر إتمام الدخول عبر GitHub حالياً.'),
-        })
-        return
-      }
-
-      setBusy(true)
-      const accessToken = hashParams.get('access_token')
-      const refreshToken = hashParams.get('refresh_token')
-      const authCode = searchParams.get('code')
-
-      try {
-        if (accessToken && refreshToken && supabase) {
-          const { error } = await supabase.auth.setSession({
-            access_token: accessToken,
-            refresh_token: refreshToken,
-          })
-          if (error) throw error
-        } else if (authCode && supabase) {
-          const { error } = await supabase.auth.exchangeCodeForSession(authCode)
-          if (error) throw error
-        }
-
-        if (supabase) {
-          const {
-            data: { user },
-          } = await supabase.auth.getUser()
-          if (user) {
-            const meta = user.user_metadata ?? {}
-            const ghHandle =
-              typeof meta.user_name === 'string'
-                ? meta.user_name
-                : typeof meta.preferred_username === 'string'
-                  ? meta.preferred_username
-                  : null
-            const fullName =
-              typeof meta.full_name === 'string'
-                ? meta.full_name
-                : typeof meta.name === 'string'
-                  ? meta.name
-                  : ghHandle
-
-            // Safe reviewer bootstrap (RLS enforces role = 'reviewer')
-            await supabase.from('reviewer_profiles').insert({
-              id: user.id,
-              display_name: fullName,
-              github_handle: ghHandle,
-              role: 'reviewer',
-            })
-          }
-        }
-
-        setBusy(false)
-        setFeedback({
-          type: 'success',
-          text: 'تم توثيق الهوية وتسجيل الدخول عبر GitHub بنجاح.',
-        })
-        onAuthChanged()
-      } catch (err) {
-        setBusy(false)
-        setFeedback({
-          type: 'error',
-          text: humanizeSystemError(err, 'تعذر تثبيت الجلسة بعد مصادقة GitHub.'),
-        })
-      }
-    }
-
-    window.addEventListener('message', handlePopupMessage)
-    return () => window.removeEventListener('message', handlePopupMessage)
-  }, [open, onAuthChanged])
-
   if (!open) return null
 
   const roleLabel =
@@ -281,54 +188,33 @@ export function AuthDialog({
   const latestPromotionRequest = myLiveRequests[0] ?? mySandboxRequest ?? null
 
   async function handleGitHubOAuth() {
-    if (!supabase) return
+    if (!supabase || busy) return
     setBusy(true)
     setFeedback(null)
 
-    const redirectTo = `${window.location.origin}/auth/callback`
-    const { data, error } = await supabase.auth.signInWithOAuth({
-      provider: 'github',
-      options: {
-        redirectTo,
-        skipBrowserRedirect: true,
-        scopes: 'read:user user:email',
-      },
-    })
+    try {
+      // Use Supabase's standard top-level OAuth redirect. The client is configured
+      // with detectSessionInUrl + PKCE, so it exchanges the callback code on return.
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'github',
+        options: {
+          redirectTo: `${window.location.origin}/`,
+          scopes: 'read:user user:email',
+        },
+      })
 
-    if (error || !data?.url) {
+      if (error) throw error
+      // A successful OAuth call navigates away; keep the button locked meanwhile.
+    } catch (err) {
       setBusy(false)
       setFeedback({
         type: 'error',
         text: humanizeSystemError(
-          error,
-          'تعذر بدء مصادقة GitHub حالياً. يمكنك المتابعة عبر البريد الإلكتروني.',
+          err,
+          'تعذر بدء تسجيل الدخول عبر GitHub. تحقق من إعدادات OAuth في Supabase ثم أعد المحاولة.',
         ),
       })
-      return
     }
-
-    // Open the OAuth provider's authorization URL directly in a centered popup
-    const width = 600
-    const height = 720
-    const left = Math.max(0, Math.round(window.screenX + (window.outerWidth - width) / 2))
-    const top = Math.max(0, Math.round(window.screenY + (window.outerHeight - height) / 2))
-
-    const popup = window.open(
-      data.url,
-      'darija_lexreview_github_oauth',
-      `width=${width},height=${height},left=${left},top=${top},resizable=yes,scrollbars=yes`,
-    )
-
-    if (!popup) {
-      setBusy(false)
-      setFeedback({
-        type: 'error',
-        text: 'منع المتصفح فتح نافذة مصادقة GitHub المنبثقة. يرجى السماح بالنوافذ المنبثقة لهذا الموقع ثم المحاولة مجدداً.',
-      })
-      return
-    }
-
-    setBusy(false)
   }
 
   async function handleSignIn(e: React.FormEvent) {
