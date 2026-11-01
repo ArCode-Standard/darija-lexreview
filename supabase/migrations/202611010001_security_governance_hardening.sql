@@ -37,11 +37,6 @@ as $$
 declare
   actor uuid := (select auth.uid());
 begin
-  if actor is null then
-    raise exception 'Authenticated actor required for review submission changes'
-      using errcode = '42501';
-  end if;
-
   if tg_op = 'INSERT' then
     actor := coalesce(actor, new.reviewer_id);
     insert into public.review_decision_events (
@@ -54,6 +49,10 @@ begin
   end if;
 
   if tg_op = 'UPDATE' then
+    if actor is null then
+      raise exception 'Authenticated actor required for review decisions'
+        using errcode = '42501';
+    end if;
     -- Submitted content and authorship are immutable after creation.
     if new.id is distinct from old.id
       or new.entry_id is distinct from old.entry_id
