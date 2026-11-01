@@ -95,4 +95,11 @@ $$;
 revoke all on function private.enforce_submission_rate_and_bounds()
   from public, anon, authenticated, service_role;
 
+-- The rate/bounds guard must run on every authenticated submission insert.
+drop trigger if exists review_submissions_rate_and_bounds_trg
+  on public.review_submissions;
+create trigger review_submissions_rate_and_bounds_trg
+before insert on public.review_submissions
+for each row execute function private.enforce_submission_rate_and_bounds();
+
 commit;
