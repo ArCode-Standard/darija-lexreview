@@ -1,7 +1,7 @@
 begin;
 
 create extension if not exists pgtap with schema extensions;
-select plan(17);
+select plan(18);
 
 -- All fixtures are synthetic and live only in this disposable CI database.
 insert into auth.users (
