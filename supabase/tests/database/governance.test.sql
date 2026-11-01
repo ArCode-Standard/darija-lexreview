@@ -11,7 +11,8 @@ insert into auth.users (
 ) values
   ('10000000-0000-4000-8000-000000000001','00000000-0000-0000-0000-000000000000','authenticated','authenticated','contributor@example.invalid','',now(),'{"provider":"email","providers":["email"]}','{"name":"CI Contributor"}',now(),now()),
   ('10000000-0000-4000-8000-000000000002','00000000-0000-0000-0000-000000000000','authenticated','authenticated','editor@example.invalid','',now(),'{"provider":"email","providers":["email"]}','{"name":"CI Editor"}',now(),now()),
-  ('10000000-0000-4000-8000-000000000003','00000000-0000-0000-0000-000000000000','authenticated','authenticated','admin@example.invalid','',now(),'{"provider":"email","providers":["email"]}','{"name":"CI Admin"}',now(),now());
+  ('10000000-0000-4000-8000-000000000003','00000000-0000-0000-0000-000000000000','authenticated','authenticated','admin@example.invalid','',now(),'{"provider":"email","providers":["email"]}','{"name":"CI Admin"}',now(),now()),
+  ('10000000-0000-4000-8000-000000000004','00000000-0000-0000-0000-000000000000','authenticated','authenticated','rate-limit@example.invalid','',now(),'{"provider":"email","providers":["email"]}','{"name":"CI Rate Limit"}',now(),now());
 
 -- Bootstrap the first CI admin using the same one-time privileged provisioning
 -- boundary documented for production. The auth trigger initially creates a reviewer
@@ -172,9 +173,11 @@ select throws_ok(
 );
 reset role;
 
+-- Use a dedicated synthetic actor so this rate-limit test cannot exhaust
+-- the editor fixture needed by later lifecycle tests.
 -- Twenty inserts are accepted in the rolling hour; the twenty-first is rejected.
 set local role authenticated;
-select set_config('request.jwt.claim.sub','10000000-0000-4000-8000-000000000002',true);
+select set_config('request.jwt.claim.sub','10000000-0000-4000-8000-000000000004',true);
 select set_config('request.jwt.claim.role','authenticated',true);
 insert into public.review_submissions(entry_id, proposed_data, evidence)
 select 'ci-rate-' || g, '{"lemma":"اختبار"}'::jsonb, '[]'::jsonb
