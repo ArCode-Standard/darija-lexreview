@@ -292,7 +292,7 @@ export interface ExampleAttestationSummary {
   regions: string[]
 }
 
-export type DataMode = 'loading' | 'live' | 'cached' | 'demo'
+export type DataMode = 'loading' | 'live' | 'cached' | 'demo' | 'error'
 export type WorkbenchTab =
   | 'rapid_review'
   | 'explorer'

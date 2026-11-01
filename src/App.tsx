@@ -53,6 +53,7 @@ export default function App() {
   const [totalExamplesCount, setTotalExamplesCount] = useState<number>(4)
   const [dataMode, setDataMode] = useState<DataMode>('loading')
   const [cachedCorpusAt, setCachedCorpusAt] = useState<string | null>(null)
+  const [corpusError, setCorpusError] = useState<string | null>(null)
 
   const [workbenchTab, setWorkbenchTab] = useState<WorkbenchTab>(initialUrlState.tab)
   const [explorerSubView, setExplorerSubView] = useState<'entries' | 'categories'>(
@@ -239,6 +240,7 @@ export default function App() {
 
   const loadCorpus = useCallback(() => {
     setDataMode('loading')
+    setCorpusError(null)
     loadCorpusWithOfflineFallback()
       .then((res) => {
         setEntries(res.corpus.entries)
@@ -253,16 +255,17 @@ export default function App() {
         )
         setDataMode(res.mode)
       })
-      .catch(() => {
-        setEntries(DEMO_ENTRIES)
-        setRawCorpus(DEMO_RAW_CORPUS)
-        setCategories(Array.from(new Set(DEMO_ENTRIES.map((e) => e.category))))
-        setTotalExamplesCount(4)
+      .catch((error: unknown) => {
+        setEntries([])
+        setCategories([])
+        setTotalExamplesCount(0)
         setCachedCorpusAt(null)
-        setActiveId((prev) =>
-          DEMO_ENTRIES.some((e) => e.id === prev) ? prev : DEMO_ENTRIES[0].id,
+        setCorpusError(
+          error instanceof Error
+            ? error.message
+            : 'تعذر تحميل المتن الرسمي والنسخة المحلية المحفوظة.',
         )
-        setDataMode('demo')
+        setDataMode('error')
       })
   }, [])
 
@@ -470,6 +473,81 @@ export default function App() {
         ] as Array<{ id: WorkbenchTab; label: string }>)
       : []),
   ]
+
+  if (dataMode === 'loading') {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-[#F8F6F1] px-5 text-stone-800 dark:bg-[#141312] dark:text-stone-100" dir="rtl">
+        <div className="text-center" role="status" aria-live="polite">
+          <Database className="mx-auto mb-4 h-8 w-8 text-[#0F5C4E] dark:text-[#4FD1C5]" />
+          <h1 className="text-lg font-bold">جارٍ تحميل المتن المعجمي الرسمي</h1>
+          <p className="mt-2 text-sm text-stone-500">يتم التحقق من المستودع والنسخة المحلية المحفوظة.</p>
+        </div>
+      </main>
+    )
+  }
+
+  if (dataMode === 'error') {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-[#F8F6F1] px-5 py-12 text-stone-800 dark:bg-[#141312] dark:text-stone-100" dir="rtl">
+        <section className="w-full max-w-xl rounded-2xl border border-amber-300/70 bg-white p-7 shadow-sm dark:border-amber-900/60 dark:bg-[#1C1A18]" aria-labelledby="corpus-error-title">
+          <AlertTriangle className="mb-4 h-8 w-8 text-amber-600 dark:text-amber-400" />
+          <h1 id="corpus-error-title" className="text-xl font-bold">المتن الرسمي غير متاح حالياً</h1>
+          <p className="mt-3 text-sm leading-7 text-stone-600 dark:text-stone-300">
+            لم نتمكن من تحميل المتن الرسمي أو العثور على نسخة محلية محفوظة صالحة. لن نعرض بيانات تجريبية على أنها بيانات معجمية رسمية، كما أوقفنا واجهة المراجعة إلى حين توفر مصدر موثوق.
+          </p>
+          {corpusError && <p className="mt-3 rounded-lg bg-stone-100 px-3 py-2 text-xs text-stone-600 dark:bg-[#141312] dark:text-stone-400">{corpusError}</p>}
+          <div className="mt-6 flex flex-wrap gap-3">
+            <button type="button" onClick={loadCorpus} className="inline-flex min-h-10 items-center gap-2 rounded-lg bg-[#0F5C4E] px-4 py-2 text-sm font-semibold text-white hover:bg-[#0B493E]">
+              <RefreshCw className="h-4 w-4" /> إعادة المحاولة
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setEntries(DEMO_ENTRIES)
+                setRawCorpus(DEMO_RAW_CORPUS)
+                setCategories(Array.from(new Set(DEMO_ENTRIES.map((entry) => entry.category))))
+                setTotalExamplesCount(4)
+                setActiveId(DEMO_ENTRIES[0]?.id ?? '')
+                setDataMode('demo')
+              }}
+              className="min-h-10 rounded-lg border border-stone-300 px-4 py-2 text-sm font-semibold text-stone-700 hover:bg-stone-50 dark:border-stone-700 dark:text-stone-200 dark:hover:bg-stone-800"
+            >
+              معاينة عينة توضيحية فقط
+            </button>
+          </div>
+          <p className="mt-4 text-xs text-stone-500">المعاينة التوضيحية منفصلة عن المتن الرسمي ولا تتيح الإرسال أو التحكيم أو التصدير.</p>
+        </section>
+      </main>
+    )
+  }
+
+  if (dataMode === 'demo') {
+    return (
+      <main className="min-h-screen bg-[#F8F6F1] px-5 py-12 text-stone-800 dark:bg-[#141312] dark:text-stone-100" dir="rtl">
+        <section className="mx-auto max-w-3xl">
+          <div className="rounded-xl border border-amber-300 bg-amber-50 p-5 dark:border-amber-900/60 dark:bg-amber-950/20">
+            <p className="text-xs font-bold text-amber-800 dark:text-amber-300">وضع معاينة توضيحي — بيانات غير رسمية</p>
+            <h1 className="mt-2 text-xl font-bold">عينة واجهة Darija LexReview</h1>
+            <p className="mt-2 text-sm leading-7 text-amber-950 dark:text-amber-100">هذه المداخل أمثلة اصطناعية لشرح شكل البيانات فقط. لا تمثل corpus معتمداً ولا يجوز استخدامها في المراجعة أو النشر.</p>
+          </div>
+          <div className="mt-5 overflow-hidden rounded-xl border border-stone-200 bg-white dark:border-stone-800 dark:bg-[#1C1A18]">
+            {entries.map((entry) => (
+              <div key={entry.id} className="border-b border-stone-100 p-4 last:border-0 dark:border-stone-800">
+                <div className="flex items-baseline justify-between gap-3">
+                  <strong className="text-lg">{entry.word}</strong>
+                  <span className="text-xs text-stone-500">{entry.latin}</span>
+                </div>
+                <p className="mt-1 text-sm text-stone-600 dark:text-stone-300">{entry.meaning}</p>
+              </div>
+            ))}
+          </div>
+          <button type="button" onClick={loadCorpus} className="mt-5 inline-flex min-h-10 items-center gap-2 rounded-lg bg-[#0F5C4E] px-4 py-2 text-sm font-semibold text-white hover:bg-[#0B493E]">
+            <RefreshCw className="h-4 w-4" /> العودة لمحاولة تحميل المتن الرسمي
+          </button>
+        </section>
+      </main>
+    )
+  }
 
   return (
     <div className="min-h-screen flex flex-col">

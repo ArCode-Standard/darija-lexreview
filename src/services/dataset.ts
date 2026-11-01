@@ -222,11 +222,14 @@ export interface LoadedCorpus {
 export async function fetchOfficialCorpus(): Promise<LoadedCorpus> {
   const [lexRes, exRes] = await Promise.all([
     fetch(LEXICON_URL),
-    fetch(EXAMPLES_URL).catch(() => null),
+    fetch(EXAMPLES_URL),
   ])
 
   if (!lexRes.ok) {
     throw new Error('تعذر تحميل ملف المعجم الرسمي من GitHub')
+  }
+  if (!exRes.ok) {
+    throw new Error('تعذر تحميل ملف الشواهد السياقية الرسمي من GitHub')
   }
 
   const lexPayload = (await lexRes.json()) as {
@@ -235,8 +238,24 @@ export async function fetchOfficialCorpus(): Promise<LoadedCorpus> {
     entries?: Array<Record<string, unknown>>
   }
 
-  if (!Array.isArray(lexPayload.entries) || lexPayload.entries.length === 0) {
-    throw new Error('بنية ملف المعجم غير صالحة')
+  if (
+    !lexPayload.meta ||
+    typeof lexPayload.meta.version !== 'string' ||
+    !lexPayload.meta.version.trim() ||
+    !Array.isArray(lexPayload.entries) ||
+    lexPayload.entries.length === 0
+  ) {
+    throw new Error('بنية ملف المعجم أو بيانات الإصدار غير صالحة')
+  }
+
+  const entryIds = new Set<string>()
+  for (const entry of lexPayload.entries) {
+    const id = String(entry.id ?? '').trim()
+    const word = String(entry.darija_ar ?? '').trim()
+    if (!id || !word || entryIds.has(id)) {
+      throw new Error('يحتوي ملف المعجم على مدخل ناقص أو معرّف مكرر')
+    }
+    entryIds.add(id)
   }
 
   const examplesByEntry = new Map<string, ContextualExample[]>()
@@ -247,18 +266,25 @@ export async function fetchOfficialCorpus(): Promise<LoadedCorpus> {
     examples_count: 0,
   }
 
-  if (exRes && exRes.ok) {
-    try {
-      const exPayload = (await exRes.json()) as {
-        meta?: Record<string, unknown>
-        examples?: Array<Record<string, unknown>>
-      }
-      if (exPayload.meta && typeof exPayload.meta === 'object') {
-        examplesMeta = exPayload.meta
-      }
-      if (Array.isArray(exPayload.examples)) {
-        rawExamples = exPayload.examples
-        for (const item of exPayload.examples) {
+  {
+    const exPayload = (await exRes.json()) as {
+      meta?: Record<string, unknown>
+      examples?: Array<Record<string, unknown>>
+    }
+    if (
+      !exPayload.meta ||
+      typeof exPayload.meta.lexicon_version !== 'string' ||
+      exPayload.meta.lexicon_version !== lexPayload.meta.version ||
+      !Array.isArray(exPayload.examples)
+    ) {
+      throw new Error('إصدار ملف الشواهد لا يطابق إصدار المعجم أو أن بنيته غير صالحة')
+    }
+    examplesMeta = exPayload.meta
+    rawExamples = exPayload.examples
+    for (const item of exPayload.examples) {
+          if (!entryIds.has(String(item.entry_id ?? ''))) {
+            throw new Error('يتضمن ملف الشواهد إحالة إلى مدخل غير موجود في المعجم')
+          }
           const entryId = String(item.entry_id ?? '')
           if (!entryId) continue
           const latinRaw = item.example_darija_latin
@@ -286,10 +312,6 @@ export async function fetchOfficialCorpus(): Promise<LoadedCorpus> {
           const bucket = examplesByEntry.get(entryId) ?? []
           bucket.push(parsedEx)
           examplesByEntry.set(entryId, bucket)
-        }
-      }
-    } catch {
-      // Non-fatal if context-examples fails parsing
     }
   }
 
