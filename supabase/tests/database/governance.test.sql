@@ -13,10 +13,14 @@ insert into auth.users (
   ('10000000-0000-4000-8000-000000000002','00000000-0000-0000-0000-000000000000','authenticated','authenticated','editor@example.invalid','',now(),'{"provider":"email","providers":["email"]}','{"name":"CI Editor"}',now(),now()),
   ('10000000-0000-4000-8000-000000000003','00000000-0000-0000-0000-000000000000','authenticated','authenticated','admin@example.invalid','',now(),'{"provider":"email","providers":["email"]}','{"name":"CI Admin"}',now(),now());
 
+-- CI fixtures need pre-provisioned staff roles. This privileged setup mirrors
+-- the documented one-time admin bootstrap; it is not an application execution path.
+set local session_replication_role = replica;
 update public.reviewer_profiles set role = 'editor'
 where id = '10000000-0000-4000-8000-000000000002';
 update public.reviewer_profiles set role = 'admin'
 where id = '10000000-0000-4000-8000-000000000003';
+set local session_replication_role = origin;
 
 select ok(
   (select relrowsecurity from pg_class where oid = 'public.review_submissions'::regclass),
