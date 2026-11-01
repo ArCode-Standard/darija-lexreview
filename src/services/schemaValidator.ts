@@ -64,16 +64,27 @@ function formatAjvErrors(errors: ErrorObject[] | null | undefined): string[] {
   })
 }
 
+const AjvCtor =
+  typeof Ajv === 'function' ? Ajv : (Ajv as unknown as { default: typeof Ajv }).default
+const Ajv2020Ctor =
+  typeof Ajv2020 === 'function'
+    ? Ajv2020
+    : (Ajv2020 as unknown as { default: typeof Ajv2020 }).default
+const applyFormats =
+  typeof addFormats === 'function'
+    ? addFormats
+    : (addFormats as unknown as { default: typeof addFormats }).default
+
 function runAjvAgainstSchema(
   schema: Record<string, unknown>,
   payload: unknown,
 ): string[] {
   const schemaUri = String(schema.$schema ?? '')
   const ajvInstance = schemaUri.includes('2020-12')
-    ? new Ajv2020({ allErrors: true, strict: false })
-    : new Ajv({ allErrors: true, strict: false })
+    ? new Ajv2020Ctor({ allErrors: true, strict: false })
+    : new AjvCtor({ allErrors: true, strict: false })
 
-  addFormats(ajvInstance)
+  applyFormats(ajvInstance)
 
   const sanitizedSchema = { ...schema }
   if (

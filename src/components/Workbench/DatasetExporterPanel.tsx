@@ -528,6 +528,17 @@ export function DatasetExporterPanel({
                       : 'تعذر الوصول إلى المخطط الرسمي — التنزيل معطّل'}
                   </span>
                 </div>
+              ) : schemaReport?.schemaSource === 'unavailable' ? (
+                <div className="space-y-1.5">
+                  <div className="flex items-center gap-2 font-bold">
+                    <AlertCircle className="h-4 w-4 shrink-0" />
+                    <span>تعذر الوصول إلى المخطط الرسمي — التنزيل معطّل تلقائياً (إغلاق آمن):</span>
+                  </div>
+                  <p className="ps-6 leading-relaxed">
+                    {schemaReport.lexiconErrors[0] ??
+                      'يلزم الاتصال بالمخططين الرسميين (schema.json وcontext-schema.json) للتحقق من الحزمة قبل السماح بالتنزيل.'}
+                  </p>
+                </div>
               ) : schemaReport ? (
                 <div className="space-y-2">
                   <div className="flex items-center gap-2 font-bold">
