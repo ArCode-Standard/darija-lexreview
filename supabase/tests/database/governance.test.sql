@@ -172,13 +172,13 @@ select public.record_release_manifest(
   '{}'::uuid[]
 );
 select throws_ok(
-  $ select public.record_release_manifest(
+  $$ select public.record_release_manifest(
     'ci-2026.11.1',
     repeat('c',64),
     repeat('d',64),
     2, 0, 0, 0, 0,
     '{}'::uuid[]
-  ) $,
+  ) $$,
   '23505',
   'Release version ci-2026.11.1 already exists; release manifests are immutable. Publish a new version instead.',
   're-registering an existing release version is rejected'
@@ -186,13 +186,13 @@ select throws_ok(
 reset role;
 
 select throws_ok(
-  $ update public.release_manifests set notes = 'tampered' where version = 'ci-2026.11.1' $,
+  $$ update public.release_manifests set notes = 'tampered' where version = 'ci-2026.11.1' $$,
   '55000',
   'Official release manifests are immutable; create a new version instead.',
   'release manifest updates are rejected by the database trigger'
 );
 select throws_ok(
-  $ delete from public.release_manifests where version = 'ci-2026.11.1' $,
+  $$ delete from public.release_manifests where version = 'ci-2026.11.1' $$,
   '55000',
   'Official release manifests are immutable; create a new version instead.',
   'release manifest deletion is rejected by the database trigger'
