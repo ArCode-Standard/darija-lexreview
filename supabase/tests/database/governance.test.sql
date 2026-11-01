@@ -180,8 +180,8 @@ insert into public.review_submissions(entry_id, proposed_data, evidence)
 select 'ci-rate-' || g, '{"lemma":"اختبار"}'::jsonb, '[]'::jsonb
 from generate_series(1,20) as g;
 select throws_ok(
-  $ insert into public.review_submissions(entry_id, proposed_data, evidence)
-     values ('ci-rate-21','{"lemma":"اختبار"}','[]') $,
+  $test$ insert into public.review_submissions(entry_id, proposed_data, evidence)
+     values ('ci-rate-21','{"lemma":"اختبار"}','[]') $test$,
   '42501',
   'Rate limit exceeded: maximum 20 submissions per hour',
   'twenty-first submission in one hour is rejected'
