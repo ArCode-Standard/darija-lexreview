@@ -66,6 +66,17 @@ select is(
 );
 reset role;
 
+set local role authenticated;
+select set_config('request.jwt.claim.sub','10000000-0000-4000-8000-000000000003',true);
+select set_config('request.jwt.claim.role','authenticated',true);
+select is(
+  (select count(*)::integer from public.reviewer_profiles
+   where id = '10000000-0000-4000-8000-000000000001'),
+  1,
+  'admin can read contributor profile for governance'
+);
+reset role;
+
 -- Editor can make a decision on another user's submission; audit event is created.
 set local role authenticated;
 select set_config('request.jwt.claim.sub','10000000-0000-4000-8000-000000000002',true);
@@ -89,11 +100,11 @@ select set_config('request.jwt.claim.sub','10000000-0000-4000-8000-000000000002'
 select set_config('request.jwt.claim.role','authenticated',true);
 insert into public.review_submissions(entry_id, proposed_data, evidence, reviewer_note)
 values ('ci-entry-self','{"lemma":"دار"}','[]','self-review fixture');
-select throws_ok(
-  $$update public.review_submissions set status='accepted' where entry_id='ci-entry-self'$$,
-  '42501',
-  null,
-  'self-review is rejected by the database'
+update public.review_submissions set status='accepted' where entry_id='ci-entry-self';
+select is(
+  (select status from public.review_submissions where entry_id='ci-entry-self'),
+  'pending',
+  'self-review update is blocked by RLS and leaves submission pending'
 );
 reset role;
 
