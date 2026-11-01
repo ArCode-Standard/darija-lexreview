@@ -251,8 +251,9 @@ export function buildOfficialExportBundle(
           severity: 'error',
           target: 'conflict',
           itemRef: `${wordAr} (LEX-${String(existingId).padStart(4, '0')})`,
-          message: `المفردة الجديدة «${wordAr}» تطابق مدخلاً موجوداً في نفس الفئة (#${existingId}). تأكد من كونها معنىً مغايراً.`,
+          message: `المفردة الجديدة «${wordAr}» تطابق مدخلاً موجوداً في نفس الفئة (#${existingId}). أُوقف التصدير لهذا المقترح حتى حسم التعارض.`,
         })
+        continue
       }
 
       maxEntryId += 1
@@ -535,7 +536,7 @@ export function buildOfficialExportBundle(
     version: cleanVersion,
     entries_count: entriesClone.length,
     categories_count: recomputedCategories.length,
-    license: String(rawCorpus.lexiconMeta.license ?? 'CC BY-NC 4.0'),
+    license: String(rawCorpus.lexiconMeta.license ?? 'unknown'),
   }
 
   const updatedExamplesMeta: Record<string, unknown> = {
