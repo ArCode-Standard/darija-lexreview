@@ -555,6 +555,29 @@ export function buildOfficialExportBundle(
 
   const modifiedEntries = Array.from(modifiedEntriesMap.values())
 
+  // Do not release newly contributed or modified records with unverified reuse rights.
+  const rightsReviewRecords: Array<{ target: 'lexicon' | 'examples'; ref: string; record: Record<string, unknown> }> = [
+    ...addedEntries.map((record) => ({ target: 'lexicon' as const, ref: `LEX-${String(record.id)}`, record })),
+    ...modifiedEntries.map((record) => ({ target: 'lexicon' as const, ref: `LEX-${String(record.id)}`, record })),
+    ...addedExamples.map((record) => ({ target: 'examples' as const, ref: String(record.id ?? 'ctx-?'), record })),
+  ]
+  for (const item of rightsReviewRecords) {
+    const provenance = item.record.provenance && typeof item.record.provenance === 'object'
+      ? item.record.provenance as Record<string, unknown>
+      : {}
+    for (const field of ['rights_holder', 'license', 'redistribution_permission', 'training_permission', 'commercial_permission']) {
+      const value = String(provenance[field] ?? '').trim().toLowerCase()
+      if (!value || value === 'unknown') {
+        issues.push({
+          severity: 'error',
+          target: item.target,
+          itemRef: item.ref,
+          message: `لا يمكن تصدير هذا السجل قبل توثيق provenance.${field} والتحقق منه بشرياً.`,
+        })
+      }
+    }
+  }
+
   const prMarkdown = generatePullRequestMarkdown({
     targetVersion: cleanVersion,
     modifiedCount: modifiedEntries.length,
