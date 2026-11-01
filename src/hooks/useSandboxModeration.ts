@@ -454,6 +454,53 @@ export function useSandboxModeration() {
     [],
   )
 
+  const markSandboxSubmissionsMerged = useCallback(
+    (params: {
+      ids: string[]
+      releaseVersion: string
+      editorId?: string
+      editorDisplayName?: string
+    }) => {
+      const idSet = new Set(params.ids)
+      const now = new Date().toISOString()
+      const cleanVersion = params.releaseVersion.trim() || '1.5.1'
+
+      setSandboxItems((prev) => {
+        const newDecisionEvents: ReviewDecisionEvent[] = prev
+          .filter((item) => idSet.has(item.id) && item.status === 'accepted')
+          .map((item, idx) => ({
+            id: `ev-merge-${Date.now()}-${idx}`,
+            submission_id: item.id,
+            actor_id: params.editorId ?? item.editor_id ?? 'ed-session',
+            actor_display_name:
+              params.editorDisplayName ??
+              item.editor_display_name ??
+              'المحرر الحالي',
+            event_type: 'decision',
+            previous_status: 'accepted',
+            new_status: 'merged',
+            editor_note: `تم الدمج والأرشفة ضمن حزمة الإصدار v${cleanVersion.replace(/^v/i, '')}`,
+            occurred_at: now,
+          }))
+        if (newDecisionEvents.length > 0) {
+          setSandboxEvents((evPrev) => [...evPrev, ...newDecisionEvents])
+        }
+        return prev.map((item) =>
+          idSet.has(item.id) && item.status === 'accepted'
+            ? {
+                ...item,
+                status: 'merged',
+                exported_in_version: cleanVersion.replace(/^v/i, ''),
+                exported_at: now,
+                updated_at: now,
+              }
+            : item,
+        )
+      })
+    },
+    [],
+  )
+
   const resetSandboxQueue = useCallback(() => {
     setSandboxItems(INITIAL_SANDBOX_SUBMISSIONS)
     setSandboxEvents(buildSeedEvents(INITIAL_SANDBOX_SUBMISSIONS))
@@ -465,6 +512,7 @@ export function useSandboxModeration() {
     addSandboxSubmission,
     moderateSandboxSubmission,
     bulkApproveSandboxSubmissions,
+    markSandboxSubmissionsMerged,
     resetSandboxQueue,
   }
 }

@@ -90,6 +90,15 @@ export function BulkApprovalModal({
         ? 'NEW'
         : formatAccessionCode(sub.entry_id, canonical?.numericId ?? null)
 
+      if (sub.status === 'merged') {
+        blocked.push({
+          sub,
+          title,
+          reason: 'هذا المقترح مدمج ومؤرشف مسبقاً في إصدار رسمي.',
+        })
+        continue
+      }
+
       if (sub.status === 'accepted') {
         blocked.push({
           sub,
@@ -135,7 +144,7 @@ export function BulkApprovalModal({
             sub,
             title,
             reason:
-              'ينقصه أحد الحقول الخمسة الإلزامية في schema.json (الدارجة، Arabizi، الفئة، الفصحى، الفرنسية).',
+              'ينقصه أحد الحقول الخمسة الإلزامية في المعجم (الدارجة، Arabizi، الفئة، الفصحى، الفرنسية).',
           })
           continue
         }
@@ -161,7 +170,7 @@ export function BulkApprovalModal({
 
       if (p.example_darija?.trim() && !p.example_arabizi?.trim()) {
         warnings.push(
-          `المقترح (${title}) يتضمن شاهداً بالدارجة دون كتابته بـ Arabizi؛ سيُحدَّث المدخل دون إدراج الشاهد في context-examples.json.`,
+          `المقترح (${title}) يتضمن شاهداً بالدارجة دون كتابته بـ Arabizi؛ سيُحدَّث المدخل دون تصدير الشاهد السياقي.`,
         )
       }
 
@@ -358,7 +367,7 @@ export function BulkApprovalModal({
               </span>
             </div>
             <p className="mt-0.5 text-[11px] text-stone-500 dark:text-stone-400">
-              يُحفظ هذا التسبيب في حقل مذكرة المحرر (editor_note) لجميع مقترحات الدفعة توثيقاً لمستند القبول.
+              يُحفظ هذا التسبيب في سجل مذكرة المحرر لجميع مقترحات الدفعة توثيقاً لمستند القبول.
             </p>
             <textarea
               id="bulk-justification-input"

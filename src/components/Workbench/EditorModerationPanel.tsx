@@ -14,6 +14,7 @@ import {
 } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import type {
+  EntryAttestationSummary,
   LexicalEntry,
   PromotionRequestStatus,
   ProposedFields,
@@ -27,6 +28,8 @@ import type {
 import { formatAccessionCode, formatStatusLabel } from '../../services/dataset'
 import { isNewEntrySubmission } from '../../services/exporter'
 import { findSimilarCorpusEntries, sanitizeExternalUrl } from '../../utils/validation'
+import { checkSubmissionCorpusDrift } from '../../utils/corpusPinning'
+import { humanizeSystemError } from '../../utils/humanizeError'
 import { ModerationAnalyticsDashboard } from './ModerationAnalyticsDashboard'
 import { BulkApprovalModal } from './BulkApprovalModal'
 import { RoleGovernancePanel } from './RoleGovernancePanel'
@@ -35,12 +38,14 @@ import { DecisionAuditTimeline } from './DecisionAuditTimeline'
 interface EditorModerationPanelProps {
   entries: LexicalEntry[]
   categories: string[]
+  corpusVersion: string
   userEmail: string | null
   profile: ReviewerProfile | null
   sandboxItems: SubmissionRecord[]
   sandboxEvents: ReviewDecisionEvent[]
   sandboxProfiles: ReviewerProfile[]
   sandboxPromotionRequests: RolePromotionRequest[]
+  attestationSummaries: Record<string, EntryAttestationSummary>
   forceSandboxMode?: boolean
   forceGovernanceSection?: boolean
   onClearForceGovernanceSection?: () => void
@@ -94,12 +99,14 @@ const DIFF_FIELDS: Array<{
 export function EditorModerationPanel({
   entries,
   categories,
+  corpusVersion,
   userEmail,
   profile,
   sandboxItems,
   sandboxEvents,
   sandboxProfiles,
   sandboxPromotionRequests,
+  attestationSummaries,
   forceSandboxMode,
   forceGovernanceSection,
   onClearForceGovernanceSection,
@@ -144,6 +151,7 @@ export function EditorModerationPanel({
 
   const [statusFilter, setStatusFilter] = useState<'all' | SubmissionStatus>('pending')
   const [kindFilter, setKindFilter] = useState<'all' | 'edit' | 'new'>('all')
+  const [crowdSignalFilter, setCrowdSignalFilter] = useState<'all' | 'flagged' | 'verified'>('all')
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedId, setSelectedId] = useState<string>('')
 
@@ -189,7 +197,7 @@ export function EditorModerationPanel({
 
     setLoadingLive(false)
     if (subsRes.error) {
-      setLiveError(subsRes.error.message)
+      setLiveError(humanizeSystemError(subsRes.error, 'تعذر جلب طابور التحكيم الحي حالياً.'))
       return
     }
     if (Array.isArray(staffRows)) {
@@ -228,6 +236,11 @@ export function EditorModerationPanel({
       const isNew = isNewEntrySubmission(sub)
       if (kindFilter === 'new' && !isNew) return false
       if (kindFilter === 'edit' && isNew) return false
+
+      const att = attestationSummaries[sub.entry_id]
+      if (crowdSignalFilter === 'flagged' && (att?.flaggedCount ?? 0) === 0) return false
+      if (crowdSignalFilter === 'verified' && (att?.accurateCount ?? 0) === 0) return false
+
       if (!q) return true
 
       const targetEntry = entryById.get(sub.entry_id)
@@ -244,7 +257,7 @@ export function EditorModerationPanel({
         .toLowerCase()
       return haystack.includes(q)
     })
-  }, [activePool, statusFilter, kindFilter, searchQuery, entryById])
+  }, [activePool, statusFilter, kindFilter, crowdSignalFilter, attestationSummaries, searchQuery, entryById])
 
   const activeSubmission = useMemo(() => {
     return (
@@ -290,7 +303,7 @@ export function EditorModerationPanel({
         !p.french_translation?.trim()
       ) {
         warnings.push(
-          'نقص إلزامي: أحد الحقول الخمسة المطلوبة في schema.json فارغ؛ فعّل «تهذيب الحقول» لاستكماله قبل الاعتماد.',
+          'نقص إلزامي: أحد الحقول الخمسة المطلوبة في المعجم فارغ؛ فعّل «تهذيب الحقول» لاستكماله قبل الاعتماد.',
         )
       }
     } else {
@@ -302,14 +315,14 @@ export function EditorModerationPanel({
       )
       if (otherAcceptedSameEntry.length > 0) {
         warnings.push(
-          `تعارض تصدير: يوجد مقترح آخر معتمد مسبقاً لنفس المدخل (#${activeSubmission.entry_id}). المقترحات المتعارضة على المدخل نفسه تُوقف من التصدير حتى تسويتها.`,
+          `تعارض تصدير: يوجد مقترح آخر معتمد مسبقاً لنفس المدخل (${formatAccessionCode(activeSubmission.entry_id, null)}). المقترحات المتعارضة على المدخل نفسه تُوقف من التصدير حتى تسويتها.`,
         )
       }
     }
 
     if (p.example_darija?.trim() && !p.example_arabizi?.trim()) {
       warnings.push(
-        'تنبيه شاهد سياقي: حقل الجملة بالدارجة مملوء دون كتابته بـ Arabizi؛ أضف الكتابة اللاتينية للشاهد حتى يُصدَّر إلى ملف context-examples.json.',
+        'تنبيه شاهد سياقي: حقل الجملة بالدارجة مملوء دون كتابته بـ Arabizi؛ أضف الكتابة اللاتينية للشاهد ليُدرج ضمن ملف الشواهد.',
       )
     }
 
@@ -317,12 +330,12 @@ export function EditorModerationPanel({
   }, [activeSubmission, editableProposed, entries, activePool])
 
   const acceptedCountInSource = useMemo(
-    () => activePool.filter((s) => s.status === 'accepted').length,
+    () => activePool.filter((s) => s.status === 'accepted' && !s.exported_in_version).length,
     [activePool],
   )
 
   async function handleDecision(nextStatus: SubmissionStatus) {
-    if (!activeSubmission) return
+    if (!activeSubmission || activeSubmission.status === 'merged') return
 
     const isRevokingAccepted =
       activeSubmission.status === 'accepted' &&
@@ -430,13 +443,16 @@ export function EditorModerationPanel({
     setSavingDecision(false)
 
     if (error) {
-      setActionMessage({ type: 'error', text: `فشل حفظ القرار في Supabase: ${error.message}` })
+      setActionMessage({
+        type: 'error',
+        text: humanizeSystemError(error, 'تعذر حفظ القرار التحريري حالياً.'),
+      })
       return
     }
     if (!data || data.length === 0) {
       setActionMessage({
         type: 'error',
-        text: 'لم يُسمح بتحديث السجل بموجب سياسات الأمان (RLS). تحقق من امتلاكك دور editor وعدم كون المقترح مرسلاً من حسابك.',
+        text: 'لم يُسمح بتحديث السجل. تحقق من امتلاكك صلاحية محرر معتمد وعدم كون المقترح مرسلاً من حسابك الشخصي.',
       })
       return
     }
@@ -455,7 +471,7 @@ export function EditorModerationPanel({
     setActionMessage({
       type: 'success',
       text: isRevokingAccepted
-        ? `تم سحب الاعتماد وتحويل المقترح إلى «${formatStatusLabel(nextStatus)}» وتوثيق التعليل في review_decision_events.`
+        ? `تم سحب الاعتماد وتحويل المقترح إلى «${formatStatusLabel(nextStatus)}» وتوثيق التعليل في سجل التدقيق.`
         : `تم تسجيل القرار التحريري «${formatStatusLabel(nextStatus)}» في سجل القرارات المستقل.`,
     })
   }
@@ -464,7 +480,7 @@ export function EditorModerationPanel({
     () =>
       filteredQueue
         .filter((item) => {
-          if (item.status === 'accepted') return false
+          if (item.status === 'accepted' || item.status === 'merged') return false
           if (queueSource === 'live') {
             if (item.status !== 'pending' && item.status !== 'needs_changes') return false
             if (profile?.id && item.reviewer_id === profile.id) return false
@@ -555,12 +571,12 @@ export function EditorModerationPanel({
     setBulkBusy(false)
 
     if (error) {
-      setBulkError(`تعذر تنفيذ الاعتماد الجماعي: ${error.message}`)
+      setBulkError(humanizeSystemError(error, 'تعذر تنفيذ الاعتماد الجماعي حالياً.'))
       return
     }
 
     if (!data || data.length === 0) {
-      setBulkError('لم يُسمح بتحديث السجلات بموجب سياسات أمان الصفوف (RLS).')
+      setBulkError('لم يُسمح بتحديث السجلات المحددة وفق ضوابط الصلاحيات التحريرية.')
       return
     }
 
@@ -577,13 +593,18 @@ export function EditorModerationPanel({
     setBulkModalOpen(false)
     setActionMessage({
       type: 'success',
-      text: `تم توقيع واعتماد ${updatedMap.size} مقترحات جماعياً في قاعدة البيانات الحية.`,
+      text: `تم توقيع واعتماد ${updatedMap.size} مقترحات جماعياً في السجل الحي.`,
     })
   }
 
   const targetCanonicalEntry = activeSubmission
     ? entryById.get(activeSubmission.entry_id)
     : undefined
+
+  const corpusDriftReport = useMemo(() => {
+    if (!activeSubmission) return { drifted: false, reason: null }
+    return checkSubmissionCorpusDrift(activeSubmission, targetCanonicalEntry, corpusVersion)
+  }, [activeSubmission, targetCanonicalEntry, corpusVersion])
 
   return (
     <div className="space-y-6">
@@ -651,10 +672,10 @@ export function EditorModerationPanel({
                 <p className="font-semibold">
                   {userEmail
                     ? `حسابك الحالي (${userEmail}) يحمل صلاحية «مراجع مساهم» فقط.`
-                    : 'يلزم تسجيل الدخول بحساب محرر مخوّل (editor أو admin) لإدارة السجل الحي.'}
+                    : 'يلزم تسجيل الدخول بحساب محرر معتمد لإدارة السجل الحي.'}
                 </p>
                 <p className="mt-1 leading-relaxed">
-                  تفرض سياسات أمان الصفوف (RLS) في قاعدة البيانات اقتصار التحكيم الحي على حسابات المحررين. لتجربة دورة الاعتماد والتصدير فوراً دون المساس بقاعدة البيانات، استخدم «طابور المحاكاة المحلي».
+                  يقتصر التحكيم الحي على حسابات المحررين المعتمدين والمشرفين. لتجربة دورة الاعتماد والتصدير فوراً دون المساس بالسجل الرسمي، استخدم «طابور المحاكاة المحلي».
                 </p>
               </div>
             </div>
@@ -682,7 +703,7 @@ export function EditorModerationPanel({
         {queueSource === 'sandbox' && (
           <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-[#D6CEBE] bg-[#FBF9F5] px-4 py-2.5 text-xs text-stone-700 dark:border-[#3A3530] dark:bg-[#141312] dark:text-stone-300">
             <span>
-              <strong>وضع المحاكاة التحريرية المعزول:</strong> جميع القرارات هنا محفوظة في متصفحك فقط ولا تختلط بسجل Supabase الحي.
+              <strong>وضع المحاكاة التحريرية المعزول:</strong> جميع القرارات هنا محفوظة في متصفحك فقط ولا تختلط بالسجل الرسمي.
             </span>
             <button
               type="button"
@@ -794,6 +815,7 @@ export function EditorModerationPanel({
                   ['pending', 'معلق'],
                   ['needs_changes', 'للتعديل'],
                   ['accepted', 'معتمد'],
+                  ['merged', 'مدمج'],
                   ['rejected', 'مرفوض'],
                   ['all', 'الكل'],
                 ] as const
@@ -825,14 +847,27 @@ export function EditorModerationPanel({
                 <option value="new">مفردة جديدة</option>
               </select>
 
-              <input
-                type="search"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="بحث سريع..."
-                className="min-h-[36px] rounded-lg border border-[#D6CEBE] bg-[#FBF9F5] px-2.5 py-1.5 text-xs text-stone-900 dark:border-[#3A3530] dark:bg-[#141312] dark:text-stone-100"
-              />
+              <select
+                aria-label="إشارات المراجعة البشرية السريعة"
+                value={crowdSignalFilter}
+                onChange={(e) =>
+                  setCrowdSignalFilter(e.target.value as 'all' | 'flagged' | 'verified')
+                }
+                className="min-h-[36px] rounded-lg border border-[#D6CEBE] bg-[#FBF9F5] px-2.5 py-1.5 text-xs text-stone-800 dark:border-[#3A3530] dark:bg-[#141312] dark:text-stone-200"
+              >
+                <option value="all">كل إشارات المجتمع</option>
+                <option value="flagged">عليها اعتراض بشري (لا)</option>
+                <option value="verified">مؤكدة بشرياً (نعم)</option>
+              </select>
             </div>
+
+            <input
+              type="search"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="بحث سريع في الطابور..."
+              className="w-full min-h-[36px] rounded-lg border border-[#D6CEBE] bg-[#FBF9F5] px-2.5 py-1.5 text-xs text-stone-900 dark:border-[#3A3530] dark:bg-[#141312] dark:text-stone-100"
+            />
 
             {liveError && queueSource === 'live' && (
               <p className="text-xs text-red-700 dark:text-red-400">{liveError}</p>
@@ -901,7 +936,7 @@ export function EditorModerationPanel({
                     ? item.proposed_data?.word_ar || 'مفردة جديدة'
                     : canonical?.word || `مدخل #${item.entry_id}`
                   const isSelected = activeSubmission?.id === item.id
-                  const isAlreadyAccepted = item.status === 'accepted'
+                  const isAlreadyLocked = item.status === 'accepted' || item.status === 'merged'
                   const isCheckedForBatch = selectedBatchIds.has(item.id)
 
                   return (
@@ -915,14 +950,16 @@ export function EditorModerationPanel({
                     >
                       <input
                         type="checkbox"
-                        disabled={isAlreadyAccepted}
+                        disabled={isAlreadyLocked}
                         checked={isCheckedForBatch}
                         onChange={() => toggleBatchItem(item.id)}
                         aria-label={`تحديد المقترح ${displayTitle} ضمن الدفعة`}
                         title={
-                          isAlreadyAccepted
-                            ? 'هذا المقترح معتمد مسبقاً'
-                            : 'تحديد للاعتماد الجماعي'
+                          item.status === 'merged'
+                            ? 'هذا المقترح مدمج مسبقاً في إصدار رسمي'
+                            : isAlreadyLocked
+                              ? 'هذا المقترح معتمد مسبقاً'
+                              : 'تحديد للاعتماد الجماعي'
                         }
                         className="mt-1 h-4 w-4 accent-[#0F5C4E] shrink-0 disabled:opacity-30 cursor-pointer disabled:cursor-not-allowed"
                       />
@@ -950,6 +987,15 @@ export function EditorModerationPanel({
                           <span className="font-mono tabular-nums">
                             {new Date(item.created_at).toLocaleDateString('ar-MA')}
                           </span>
+                          {attestationSummaries[item.entry_id] && (
+                            <>
+                              <span aria-hidden="true">·</span>
+                              <span className="font-mono tabular-nums text-stone-700 dark:text-stone-300">
+                                {attestationSummaries[item.entry_id].accurateCount} نعم /{' '}
+                                {attestationSummaries[item.entry_id].flaggedCount} لا
+                              </span>
+                            </>
+                          )}
                         </div>
                       </button>
                     </div>
@@ -1004,7 +1050,7 @@ export function EditorModerationPanel({
                     </h4>
                   </div>
 
-                  {queueSource === 'sandbox' ? (
+                  {queueSource === 'sandbox' && activeSubmission.status !== 'merged' ? (
                     <button
                       type="button"
                       onClick={() => setEditMode((v) => !v)}
@@ -1019,10 +1065,56 @@ export function EditorModerationPanel({
                     </button>
                   ) : (
                     <span className="text-[11px] text-stone-500 dark:text-stone-400">
-                      محتوى المقترح ثابت بعد الإرسال (اطلب تعديلاً عند الحاجة)
+                      {activeSubmission.status === 'merged'
+                        ? `مدمج ومؤرشف رسمياً${activeSubmission.exported_in_version ? ` (v${activeSubmission.exported_in_version})` : ''}`
+                        : 'محتوى المقترح ثابت بعد الإرسال (اطلب تعديلاً عند الحاجة)'}
                     </span>
                   )}
                 </div>
+
+                {/* Crowd Human Validation Signals + Weighted Trust Score on Target Entry */}
+                {!isNewEntrySubmission(activeSubmission) &&
+                  attestationSummaries[activeSubmission.entry_id] && (
+                    <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-[#E5DFD3] bg-[#FBF9F5] px-3.5 py-2.5 text-xs text-stone-700 dark:border-[#2E2B27] dark:bg-[#141312] dark:text-stone-300">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="font-semibold text-stone-900 dark:text-stone-100">
+                          إشارات المراجعة البشرية الموزونة:
+                        </span>
+                        <span className="font-mono tabular-nums text-[#0F5C4E] dark:text-[#4FD1C5]">
+                          {attestationSummaries[activeSubmission.entry_id].accurateCount} نعم (وزن الثقة:{' '}
+                          {(
+                            attestationSummaries[activeSubmission.entry_id].weightedAccurateScore ??
+                            attestationSummaries[activeSubmission.entry_id].accurateCount
+                          ).toFixed(1)}
+                          )
+                        </span>
+                        <span aria-hidden="true">·</span>
+                        <span className="font-mono tabular-nums text-amber-800 dark:text-amber-300">
+                          {attestationSummaries[activeSubmission.entry_id].flaggedCount} طلبوا تصحيحها
+                        </span>
+                        {attestationSummaries[activeSubmission.entry_id].regions.length > 0 && (
+                          <>
+                            <span aria-hidden="true">·</span>
+                            <span>
+                              المناطق الموثقة:{' '}
+                              {attestationSummaries[activeSubmission.entry_id].regions.join('، ')}
+                            </span>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                {/* Corpus Version Pinning & Drift Detection Warning */}
+                {corpusDriftReport.drifted && corpusDriftReport.reason && (
+                  <div className="flex items-start gap-2.5 rounded-lg border border-amber-300 bg-amber-50/90 p-3.5 text-xs leading-relaxed text-amber-950 dark:border-amber-800/60 dark:bg-amber-950/30 dark:text-amber-200">
+                    <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5 text-amber-700 dark:text-amber-400" />
+                    <div>
+                      <p className="font-bold">تنبيه تغيّر إصدار المدخل الأساسي (Version Drift)</p>
+                      <p className="mt-0.5">{corpusDriftReport.reason}</p>
+                    </div>
+                  </div>
+                )}
 
                 {/* Supersedes Lineage Notice */}
                 {activeSubmission.supersedes_id && (
@@ -1030,8 +1122,7 @@ export function EditorModerationPanel({
                     <div className="flex items-center gap-2">
                       <GitBranch className="h-4 w-4 shrink-0 text-[#0F5C4E] dark:text-[#4FD1C5]" />
                       <span>
-                        هذا المقترح <strong>نسخة منقحة</strong> تحل محل المقترح السابق{' '}
-                        <code className="font-mono">#{activeSubmission.supersedes_id.slice(0, 8)}</code>
+                        هذا المقترح <strong>نسخة منقحة</strong> تحل محل مقترح سابق لنفس المساهم.
                       </span>
                     </div>
                     {activePool.some((s) => s.id === activeSubmission.supersedes_id) && (
@@ -1236,62 +1327,83 @@ export function EditorModerationPanel({
 
                 {/* Editor Note & Adjudication Decision Buttons */}
                 <div className="pt-4 border-t border-[#E5DFD3] space-y-4 dark:border-[#2E2B27]">
-                  <label className="block">
-                    <span className="block text-xs font-semibold text-stone-800 dark:text-stone-200">
-                      {activeSubmission.status === 'accepted'
-                        ? 'مذكرة تعليل سحب الاعتماد (إلزامية بحد أدنى 10 أحرف لفك تعارض أو تصحيح حقوق)'
-                        : 'مذكرة المحرر التحكيمية (إلزامية عند الرفض أو طلب التعديل)'}
-                    </span>
-                    <textarea
-                      rows={2}
-                      value={editorNote}
-                      onChange={(e) => setEditorNote(e.target.value)}
-                      placeholder="سجّل قرار التدقيق، ملاحظات الضبط المعتمدة، أو سبب إعادة المقترح للمراجع..."
-                      className="mt-1.5 w-full rounded-lg border border-[#D6CEBE] bg-[#FBF9F5] p-3 text-xs leading-relaxed text-stone-900 focus:border-[#0F5C4E] focus:bg-white focus:outline-none dark:border-[#3A3530] dark:bg-[#141312] dark:text-stone-100"
-                    />
-                  </label>
+                  {activeSubmission.status === 'merged' ? (
+                    <div className="rounded-lg border border-emerald-200 bg-emerald-50/80 p-4 text-xs leading-relaxed text-emerald-950 dark:border-emerald-900/50 dark:bg-emerald-950/30 dark:text-emerald-200">
+                      <p className="font-bold">
+                        مقترح مدمج ومؤرشف في الإصدار الرسمي{' '}
+                        {activeSubmission.exported_in_version
+                          ? `(v${activeSubmission.exported_in_version})`
+                          : ''}
+                      </p>
+                      <p className="mt-1">
+                        تم تصدير هذا المقترح وإدراجه في حزمة المعجم الرسمية، لذا أُغلق باب تعديل حالته حفاظاً على تطابق السجل التاريخي مع المستودع الرسمي.
+                      </p>
+                      {activeSubmission.editor_note && (
+                        <p className="mt-2 pt-2 border-t border-emerald-200/70 dark:border-emerald-800/50">
+                          <strong>مذكرة الاعتماد المسجلة:</strong> {activeSubmission.editor_note}
+                        </p>
+                      )}
+                    </div>
+                  ) : (
+                    <>
+                      <label className="block">
+                        <span className="block text-xs font-semibold text-stone-800 dark:text-stone-200">
+                          {activeSubmission.status === 'accepted'
+                            ? 'مذكرة تعليل سحب الاعتماد (إلزامية بحد أدنى 10 أحرف لفك تعارض أو تصحيح حقوق)'
+                            : 'مذكرة المحرر التحكيمية (إلزامية عند الرفض أو طلب التعديل)'}
+                        </span>
+                        <textarea
+                          rows={2}
+                          value={editorNote}
+                          onChange={(e) => setEditorNote(e.target.value)}
+                          placeholder="سجّل قرار التدقيق، ملاحظات الضبط المعتمدة، أو سبب إعادة المقترح للمراجع..."
+                          className="mt-1.5 w-full rounded-lg border border-[#D6CEBE] bg-[#FBF9F5] p-3 text-xs leading-relaxed text-stone-900 focus:border-[#0F5C4E] focus:bg-white focus:outline-none dark:border-[#3A3530] dark:bg-[#141312] dark:text-stone-100"
+                        />
+                      </label>
 
-                  <div className="flex flex-wrap items-center gap-3">
-                    {activeSubmission.status !== 'accepted' && (
-                      <button
-                        type="button"
-                        disabled={savingDecision}
-                        onClick={() => handleDecision('accepted')}
-                        className="inline-flex min-h-[42px] items-center gap-2 rounded-lg bg-[#0F5C4E] px-5 py-2.5 text-xs font-semibold text-white hover:bg-[#0B463B] disabled:opacity-50 whitespace-nowrap shrink-0 cursor-pointer dark:bg-[#147A67]"
-                      >
-                        <CheckCircle2 className="h-4 w-4" />
-                        <span>اعتماد المقترح للدمج</span>
-                      </button>
-                    )}
+                      <div className="flex flex-wrap items-center gap-3">
+                        {activeSubmission.status !== 'accepted' && (
+                          <button
+                            type="button"
+                            disabled={savingDecision}
+                            onClick={() => handleDecision('accepted')}
+                            className="inline-flex min-h-[42px] items-center gap-2 rounded-lg bg-[#0F5C4E] px-5 py-2.5 text-xs font-semibold text-white hover:bg-[#0B463B] disabled:opacity-50 whitespace-nowrap shrink-0 cursor-pointer dark:bg-[#147A67]"
+                          >
+                            <CheckCircle2 className="h-4 w-4" />
+                            <span>اعتماد المقترح للدمج</span>
+                          </button>
+                        )}
 
-                    <button
-                      type="button"
-                      disabled={savingDecision}
-                      onClick={() => handleDecision('needs_changes')}
-                      className="inline-flex min-h-[42px] items-center gap-2 rounded-lg border border-amber-400 bg-amber-50 px-4 py-2.5 text-xs font-semibold text-amber-950 hover:bg-amber-100 disabled:opacity-50 whitespace-nowrap shrink-0 cursor-pointer dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-200"
-                    >
-                      <AlertTriangle className="h-4 w-4" />
-                      <span>
-                        {activeSubmission.status === 'accepted'
-                          ? 'سحب الاعتماد وطلب تعديل'
-                          : 'طلب تعديلات إضافية'}
-                      </span>
-                    </button>
+                        <button
+                          type="button"
+                          disabled={savingDecision}
+                          onClick={() => handleDecision('needs_changes')}
+                          className="inline-flex min-h-[42px] items-center gap-2 rounded-lg border border-amber-400 bg-amber-50 px-4 py-2.5 text-xs font-semibold text-amber-950 hover:bg-amber-100 disabled:opacity-50 whitespace-nowrap shrink-0 cursor-pointer dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-200"
+                        >
+                          <AlertTriangle className="h-4 w-4" />
+                          <span>
+                            {activeSubmission.status === 'accepted'
+                              ? 'سحب الاعتماد وطلب تعديل'
+                              : 'طلب تعديلات إضافية'}
+                          </span>
+                        </button>
 
-                    <button
-                      type="button"
-                      disabled={savingDecision}
-                      onClick={() => handleDecision('rejected')}
-                      className="inline-flex min-h-[42px] items-center gap-2 rounded-lg border border-red-300 bg-red-50 px-4 py-2.5 text-xs font-semibold text-red-900 hover:bg-red-100 disabled:opacity-50 whitespace-nowrap shrink-0 cursor-pointer dark:border-red-800 dark:bg-red-950/40 dark:text-red-200"
-                    >
-                      <XCircle className="h-4 w-4" />
-                      <span>
-                        {activeSubmission.status === 'accepted'
-                          ? 'سحب الاعتماد ورفض المقترح'
-                          : 'رفض المقترح'}
-                      </span>
-                    </button>
-                  </div>
+                        <button
+                          type="button"
+                          disabled={savingDecision}
+                          onClick={() => handleDecision('rejected')}
+                          className="inline-flex min-h-[42px] items-center gap-2 rounded-lg border border-red-300 bg-red-50 px-4 py-2.5 text-xs font-semibold text-red-900 hover:bg-red-100 disabled:opacity-50 whitespace-nowrap shrink-0 cursor-pointer dark:border-red-800 dark:bg-red-950/40 dark:text-red-200"
+                        >
+                          <XCircle className="h-4 w-4" />
+                          <span>
+                            {activeSubmission.status === 'accepted'
+                              ? 'سحب الاعتماد ورفض المقترح'
+                              : 'رفض المقترح'}
+                          </span>
+                        </button>
+                      </div>
+                    </>
+                  )}
 
                   {actionMessage && (
                     <div

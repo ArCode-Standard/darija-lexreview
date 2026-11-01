@@ -3,6 +3,7 @@ import { History, RefreshCw } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import type { ReviewDecisionEvent, SubmissionStatus } from '../../types/lexicon'
 import { formatStatusLabel } from '../../services/dataset'
+import { humanizeSystemError } from '../../utils/humanizeError'
 
 interface DecisionAuditTimelineProps {
   submissionId: string
@@ -21,6 +22,9 @@ function formatEventTitle(ev: ReviewDecisionEvent): string {
   }
   const fromLabel = ev.previous_status ? formatStatusLabel(ev.previous_status) : 'غير محدد'
   const toLabel = formatStatusLabel(ev.new_status)
+  if (ev.new_status === 'merged') {
+    return `أرشفة ودمج في الإصدار الرسمي: ${fromLabel} ← ${toLabel}`
+  }
   if (ev.previous_status === 'accepted' && ev.new_status !== 'accepted') {
     return `سحب الاعتماد وإعادة الفتح: ${fromLabel} ← ${toLabel}`
   }
@@ -55,7 +59,7 @@ export function DecisionAuditTimeline({
 
     setLoading(false)
     if (error) {
-      setErrorMsg(error.message)
+      setErrorMsg(humanizeSystemError(error, 'تعذر عرض سجل القرارات التفصيلي حالياً.'))
       return
     }
     setLiveEvents(
@@ -97,7 +101,7 @@ export function DecisionAuditTimeline({
         <div className="flex items-center gap-2">
           <History className="h-4 w-4 text-[#0F5C4E] dark:text-[#4FD1C5]" aria-hidden="true" />
           <h5 className="text-xs font-semibold text-stone-800 dark:text-stone-200">
-            سجل التدقيق غير القابل للتعديل (review_decision_events)
+            سجل التدقيق الزمني غير القابل للتعديل
           </h5>
         </div>
 
@@ -120,7 +124,7 @@ export function DecisionAuditTimeline({
         </p>
       ) : errorMsg && queueSource === 'live' ? (
         <p className="text-xs text-stone-500 dark:text-stone-400">
-          تعذر عرض سجل القرارات التفصيلي ({errorMsg}).
+          {errorMsg}
         </p>
       ) : events.length === 0 ? (
         <p className="text-xs text-stone-500 dark:text-stone-400">

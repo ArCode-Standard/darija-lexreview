@@ -20,6 +20,7 @@ import type {
 } from '../types/lexicon'
 import { MOROCCAN_REGIONS, sanitizeExternalUrl } from '../utils/validation'
 import { auditDraftForSync, syncLocalDraftsToAccount } from '../utils/draftSync'
+import { humanizeSystemError } from '../utils/humanizeError'
 
 interface AuthDialogProps {
   open: boolean
@@ -30,6 +31,9 @@ interface AuthDialogProps {
   recoveryMode: boolean
   draftsList: LocalDraft[]
   entries: LexicalEntry[]
+  corpusVersion: string
+  canAccessEditorialTools: boolean
+  totalAttestationsCount: number
   sandboxPromotionRequests: RolePromotionRequest[]
   onClearRecovery: () => void
   onAuthChanged: () => void
@@ -57,6 +61,9 @@ export function AuthDialog({
   recoveryMode,
   draftsList,
   entries,
+  corpusVersion,
+  canAccessEditorialTools,
+  totalAttestationsCount,
   sandboxPromotionRequests,
   onClearRecovery,
   onAuthChanged,
@@ -98,7 +105,8 @@ export function AuthDialog({
   const [myContributionsCount, setMyContributionsCount] = useState<{
     total: number
     accepted: number
-  }>({ total: 0, accepted: 0 })
+    merged: number
+  }>({ total: 0, accepted: 0, merged: 0 })
   const [promoExperience, setPromoExperience] = useState('')
   const [promoSampleLink, setPromoSampleLink] = useState('')
   const [livePromoUnavailable, setLivePromoUnavailable] = useState(false)
@@ -142,8 +150,11 @@ export function AuthDialog({
 
     if (!subsRes.error && subsRes.data) {
       const total = subsRes.data.length
-      const accepted = subsRes.data.filter((s) => s.status === 'accepted').length
-      setMyContributionsCount({ total, accepted })
+      const accepted = subsRes.data.filter(
+        (s) => s.status === 'accepted' || s.status === 'merged',
+      ).length
+      const merged = subsRes.data.filter((s) => s.status === 'merged').length
+      setMyContributionsCount({ total, accepted, merged })
     }
 
     if (promoRes.error) {
@@ -184,7 +195,7 @@ export function AuthDialog({
         setBusy(false)
         setFeedback({
           type: 'error',
-          text: `تعذر إتمام الدخول عبر GitHub: ${oauthError}`,
+          text: humanizeSystemError(oauthError, 'تعذر إتمام الدخول عبر GitHub حالياً.'),
         })
         return
       }
@@ -243,10 +254,9 @@ export function AuthDialog({
         onAuthChanged()
       } catch (err) {
         setBusy(false)
-        const msg = err instanceof Error ? err.message : 'فشل التحقق من جلسة OAuth'
         setFeedback({
           type: 'error',
-          text: `تعذر تثبيت الجلسة بعد مصادقة GitHub: ${msg}`,
+          text: humanizeSystemError(err, 'تعذر تثبيت الجلسة بعد مصادقة GitHub.'),
         })
       }
     }
@@ -259,10 +269,10 @@ export function AuthDialog({
 
   const roleLabel =
     profile?.role === 'admin'
-      ? 'مشرف عام (admin)'
+      ? 'مشرف عام'
       : profile?.role === 'editor'
-        ? 'محرر معتمد (editor)'
-        : 'مراجع مساهم (reviewer)'
+        ? 'محرر معتمد'
+        : 'مراجع مساهم'
 
   const mySandboxRequest = profile?.id
     ? sandboxPromotionRequests.find((r) => r.requester_id === profile.id)
@@ -289,7 +299,10 @@ export function AuthDialog({
       setBusy(false)
       setFeedback({
         type: 'error',
-        text: `تعذر بدء مصادقة GitHub: ${error?.message ?? 'تأكد من تفعيل مزود GitHub في إعدادات Supabase Auth.'}`,
+        text: humanizeSystemError(
+          error,
+          'تعذر بدء مصادقة GitHub حالياً. يمكنك المتابعة عبر البريد الإلكتروني.',
+        ),
       })
       return
     }
@@ -333,7 +346,10 @@ export function AuthDialog({
     })
     setBusy(false)
     if (error) {
-      setFeedback({ type: 'error', text: `تعذر تسجيل الدخول: ${error.message}` })
+      setFeedback({
+        type: 'error',
+        text: humanizeSystemError(error, 'تعذر تسجيل الدخول. تحقق من البريد الإلكتروني وكلمة المرور.'),
+      })
       return
     }
     setPassword('')
@@ -358,7 +374,10 @@ export function AuthDialog({
     })
     setBusy(false)
     if (error) {
-      setFeedback({ type: 'error', text: `تعذر إرسال رمز الدخول: ${error.message}` })
+      setFeedback({
+        type: 'error',
+        text: humanizeSystemError(error, 'تعذر إرسال رمز الدخول إلى بريدك حالياً.'),
+      })
       return
     }
     setOtpSent(true)
@@ -384,7 +403,10 @@ export function AuthDialog({
     })
     setBusy(false)
     if (error) {
-      setFeedback({ type: 'error', text: `رمز التحقق غير صحيح أو منتهي الصلاحية: ${error.message}` })
+      setFeedback({
+        type: 'error',
+        text: humanizeSystemError(error, 'رمز التحقق غير صحيح أو منتهي الصلاحية.'),
+      })
       return
     }
     setOtpCode('')
@@ -445,7 +467,10 @@ export function AuthDialog({
 
     if (error) {
       setBusy(false)
-      setFeedback({ type: 'error', text: `تعذر إنشاء الحساب: ${error.message}` })
+      setFeedback({
+        type: 'error',
+        text: humanizeSystemError(error, 'تعذر إنشاء الحساب حالياً. يرجى المحاولة مجدداً.'),
+      })
       return
     }
 
@@ -466,7 +491,7 @@ export function AuthDialog({
       setSignupConfirmPassword('')
       setFeedback({
         type: 'success',
-        text: 'تم إنشاء حسابك وتفعيله بصلاحية «مراجع مساهم» (reviewer).',
+        text: 'تم إنشاء حسابك وتفعيله بصلاحية «مراجع مساهم».',
       })
       onAuthChanged()
       return
@@ -495,7 +520,10 @@ export function AuthDialog({
     })
     setBusy(false)
     if (error) {
-      setFeedback({ type: 'error', text: `تعذر إعادة إرسال التفعيل: ${error.message}` })
+      setFeedback({
+        type: 'error',
+        text: humanizeSystemError(error, 'تعذر إعادة إرسال رسالة التأكيد حالياً.'),
+      })
     } else {
       setFeedback({
         type: 'success',
@@ -520,7 +548,10 @@ export function AuthDialog({
     })
     setBusy(false)
     if (error) {
-      setFeedback({ type: 'error', text: `تعذر إرسال رابط الاستعادة: ${error.message}` })
+      setFeedback({
+        type: 'error',
+        text: humanizeSystemError(error, 'تعذر إرسال رابط الاستعادة حالياً.'),
+      })
     } else {
       setFeedback({
         type: 'success',
@@ -545,7 +576,10 @@ export function AuthDialog({
     const { error } = await supabase.auth.updateUser({ password: newPassword })
     setBusy(false)
     if (error) {
-      setFeedback({ type: 'error', text: `تعذر تحديث كلمة المرور: ${error.message}` })
+      setFeedback({
+        type: 'error',
+        text: humanizeSystemError(error, 'تعذر تحديث كلمة المرور حالياً.'),
+      })
       return
     }
     setNewPassword('')
@@ -592,7 +626,7 @@ export function AuthDialog({
       if (fallback.error) {
         setFeedback({
           type: 'error',
-          text: `تعذر حفظ الملف الشخصي: ${fallback.error.message}`,
+          text: humanizeSystemError(fallback.error, 'تعذر حفظ الملف الشخصي حالياً.'),
         })
         return
       }
@@ -659,12 +693,11 @@ export function AuthDialog({
         await loadMyPromotionContext()
         setFeedback({
           type: 'success',
-          text: 'أُرسل طلب الترقية إلى «محرر معتمد» بنجاح، وسيظهر للمشرف العام (admin) لمراجعته.',
+          text: 'أُرسل طلب الترقية إلى «محرر معتمد» بنجاح، وسيراجعه المشرف العام للمنصة.',
         })
         return
       }
 
-      // If table not migrated yet on remote DB, record in sandbox governance so workflow remains testable
       setLivePromoUnavailable(true)
     }
 
@@ -679,14 +712,14 @@ export function AuthDialog({
     setPromoSampleLink('')
     setFeedback({
       type: 'success',
-      text: 'سُجّل طلب الترقية في طابور حوكمة المحاكاة (لحين تفعيل جدول role_promotion_requests في Supabase). يمكنك معاينته في لوحة حوكمة الصلاحيات.',
+      text: 'تم استلام طلب الترقية وحفظه للمراجعة التحريرية.',
     })
   }
 
   async function handleInlineSyncDrafts() {
     setSyncingDrafts(true)
     setFeedback(null)
-    const res = await syncLocalDraftsToAccount(draftsList, entries)
+    const res = await syncLocalDraftsToAccount(draftsList, entries, corpusVersion)
     setSyncingDrafts(false)
 
     if (res.error && res.syncedEntryIds.length === 0) {
@@ -753,7 +786,7 @@ export function AuthDialog({
                   : forgotPassword
                     ? 'سنرسل رابطاً آمناً لإعادة تعيين كلمة المرور إلى بريدك.'
                     : signedOutTab === 'signup'
-                      ? 'يبدأ كل حساب جديد تلقائياً بصلاحية «مراجع مساهم» محمية بسياسات أمان الصفوف (RLS).'
+                      ? 'يبدأ كل حساب جديد بصلاحية «مراجع مساهم» لحفظ المساهمات وتوثيقها باسمك.'
                       : 'سجّل الدخول عبر GitHub أو البريد الإلكتروني لإرسال المقترحات وحفظ سجل مساهماتك.'}
             </p>
           </div>
@@ -774,7 +807,7 @@ export function AuthDialog({
             <div className="mb-4 flex items-start gap-2.5 rounded-lg border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900 dark:border-amber-800/60 dark:bg-amber-950/40 dark:text-amber-200">
               <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
               <span>
-                اتصال Supabase غير مهيأ حالياً. ما يزال بإمكانك حفظ مسوداتك محلياً وتصديرها بصيغة JSON.
+                خدمة الحسابات السحابية غير متاحة حالياً. ما يزال بإمكانك حفظ مسوداتك محلياً وتنزيلها في أي وقت.
               </span>
             </div>
           )}
@@ -846,7 +879,7 @@ export function AuthDialog({
                   }`}
                 >
                   {profile?.role === 'admin'
-                    ? 'إدارة الصلاحيات (Admin)'
+                    ? 'إدارة الصلاحيات'
                     : profile?.role === 'editor'
                       ? 'صلاحية المحرر المعتمد'
                       : 'طلب صلاحية محرر'}
@@ -902,12 +935,34 @@ export function AuthDialog({
                       </dd>
                     </div>
                     <div className="py-2.5 flex items-center justify-between gap-2 text-xs">
-                      <dt className="text-stone-500 dark:text-stone-400">الصلاحية التحريرية (RBAC)</dt>
+                      <dt className="text-stone-500 dark:text-stone-400">الصلاحية التحريرية</dt>
                       <dd className="font-semibold text-[#0F5C4E] dark:text-[#4FD1C5]">
                         {roleLabel}
                       </dd>
                     </div>
                   </dl>
+
+                  {/* Contributor Impact Summary inside Profile */}
+                  <div className="grid grid-cols-3 gap-2 rounded-lg border border-[#E5DFD3] bg-[#FBF9F5] p-3 text-center text-xs dark:border-[#2E2B27] dark:bg-[#141312]">
+                    <div>
+                      <p className="font-mono text-base font-bold tabular-nums text-stone-900 dark:text-stone-100">
+                        {totalAttestationsCount.toLocaleString('en-US')}
+                      </p>
+                      <p className="text-[11px] text-stone-500 dark:text-stone-400">مراجعة سريعة</p>
+                    </div>
+                    <div className="border-x border-[#E5DFD3] dark:border-[#2E2B27]">
+                      <p className="font-mono text-base font-bold tabular-nums text-[#0F5C4E] dark:text-[#4FD1C5]">
+                        {myContributionsCount.accepted.toLocaleString('en-US')}
+                      </p>
+                      <p className="text-[11px] text-stone-500 dark:text-stone-400">مقترح معتمد</p>
+                    </div>
+                    <div>
+                      <p className="font-mono text-base font-bold tabular-nums text-stone-900 dark:text-stone-100">
+                        {myContributionsCount.merged.toLocaleString('en-US')}
+                      </p>
+                      <p className="text-[11px] text-stone-500 dark:text-stone-400">مدمج رسمياً</p>
+                    </div>
+                  </div>
 
                   <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                     <div>
@@ -995,11 +1050,10 @@ export function AuthDialog({
                     <ShieldCheck className="h-5 w-5 shrink-0 text-[#0F5C4E] dark:text-[#4FD1C5]" />
                     <div className="text-xs leading-relaxed text-stone-700 dark:text-stone-300">
                       <p className="font-bold text-stone-900 dark:text-stone-100">
-                        أنت تملك أعلى صلاحية إشرافية (admin)
+                        أنت تملك صلاحية المشرف العام
                       </p>
                       <p className="mt-1">
-                        يمكنك مراجعة طلبات الترقية المعلقة وترقية المراجعين الموثوقين إلى صلاحية{' '}
-                        <span className="font-mono font-semibold">editor</span> مباشرة من لوحة حوكمة الصلاحيات دون الحاجة لكتابة أوامر SQL.
+                        يمكنك مراجعة طلبات الترقية المعلقة وترقية المراجعين الموثوقين إلى صلاحية «محرر معتمد» مباشرة من لوحة إدارة الصلاحيات.
                       </p>
                     </div>
                   </div>
@@ -1019,7 +1073,7 @@ export function AuthDialog({
                 <div className="space-y-3 rounded-lg border border-[#E5DFD3] bg-white p-4 text-xs leading-relaxed text-stone-700 dark:border-[#2E2B27] dark:bg-[#141312] dark:text-stone-300">
                   <div className="flex items-center gap-2 font-bold text-[#0F5C4E] dark:text-[#4FD1C5]">
                     <ShieldCheck className="h-4 w-4" />
-                    <span>حسابك معتمد بصلاحية محرر معجمي (editor)</span>
+                    <span>حسابك معتمد بصلاحية محرر معجمي</span>
                   </div>
                   <p>
                     يحق لك تحكيم المقترحات الواردة في طابور المراجعة الحي، وتوقيع الدفعات الجماعية، وتصدير حزم التحديث الرسمية للمعجم.
@@ -1031,10 +1085,10 @@ export function AuthDialog({
                   <div className="rounded-lg border border-[#E5DFD3] bg-white p-3.5 text-xs dark:border-[#2E2B27] dark:bg-[#141312]">
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <span className="text-stone-600 dark:text-stone-400">
-                        سجل مساهماتك المسجلة في الحساب:
+                        سجل أثرك المعجمي المسجل:
                       </span>
                       <span className="font-mono font-semibold tabular-nums text-stone-900 dark:text-stone-100">
-                        {myContributionsCount.total} مقترحات ({myContributionsCount.accepted} معتمد)
+                        {myContributionsCount.total} مقترحات · {myContributionsCount.accepted} معتمد · {totalAttestationsCount} مراجعة سريعة
                       </span>
                     </div>
                   </div>
@@ -1049,7 +1103,7 @@ export function AuthDialog({
                         تاريخ الإرسال:{' '}
                         {new Date(latestPromotionRequest.created_at).toLocaleString('ar-MA')}
                       </p>
-                      {latestPromotionRequest.is_sandbox && (
+                      {latestPromotionRequest.is_sandbox && canAccessEditorialTools && (
                         <button
                           type="button"
                           onClick={() => {
@@ -1461,7 +1515,7 @@ export function AuthDialog({
                     />
                     <span>
                       أقرّ بالالتزام بميثاق ArCode للتوثيق المعجمي (إرفاق شواهد حقيقية خالية من البيانات الشخصية)، وأتفهم أن الحساب يُنشأ بصلاحية{' '}
-                      <strong className="font-semibold">مراجع مساهم (reviewer)</strong> قابلة للترقية لاحقاً إلى محرر.
+                      <strong className="font-semibold">مراجع مساهم</strong> قابلة للترقية لاحقاً إلى محرر معتمد.
                     </span>
                   </label>
 

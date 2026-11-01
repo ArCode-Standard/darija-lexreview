@@ -371,6 +371,8 @@ export async function fetchOfficialCorpus(): Promise<LoadedCorpus> {
 
 export function formatStatusLabel(status: string): string {
   switch (status.toLowerCase()) {
+    case 'merged':
+      return 'مدمج في الإصدار الرسمي'
     case 'approved':
     case 'accepted':
     case 'verified':

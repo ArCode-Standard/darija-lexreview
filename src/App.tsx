@@ -14,12 +14,15 @@ import type {
 import { DEMO_ENTRIES, DEMO_RAW_CORPUS, fetchOfficialCorpus } from './services/dataset'
 import { isNewEntrySubmission } from './services/exporter'
 import { isPriorityEnrichmentEntry, matchesDarijaQuery } from './utils/phoneticSearch'
+import { extractCorpusVersion } from './utils/corpusPinning'
 import { useLocalDrafts } from './hooks/useLocalDrafts'
 import { useSandboxModeration } from './hooks/useSandboxModeration'
 import { useRoleGovernance } from './hooks/useRoleGovernance'
+import { useCommunityAttestations } from './hooks/useCommunityAttestations'
 import { Navbar } from './components/Navbar'
 import { HeroSection } from './components/HeroSection'
 import { LocalDraftSyncBanner } from './components/LocalDraftSyncBanner'
+import { RapidReviewPanel } from './components/Workbench/RapidReviewPanel'
 import { LexiconSidebar } from './components/Workbench/LexiconSidebar'
 import { EntryDetailSheet } from './components/Workbench/EntryDetailSheet'
 import { NewEntryProposalPanel } from './components/Workbench/NewEntryProposalPanel'
@@ -40,7 +43,11 @@ export default function App() {
   const [totalExamplesCount, setTotalExamplesCount] = useState<number>(4)
   const [dataMode, setDataMode] = useState<DataMode>('loading')
 
-  const [workbenchTab, setWorkbenchTab] = useState<WorkbenchTab>('explorer')
+  const [workbenchTab, setWorkbenchTab] = useState<WorkbenchTab>('rapid_review')
+  const [explorerSubView, setExplorerSubView] = useState<'entries' | 'categories'>('entries')
+  const [focusMode, setFocusMode] = useState(false)
+  const [editorialPreviewMode, setEditorialPreviewMode] = useState(false)
+
   const [query, setQuery] = useState('')
   const [selectedCategory, setSelectedCategory] = useState('all')
   const [exampleFilter, setExampleFilter] = useState<ExampleFilter>('all')
@@ -67,6 +74,12 @@ export default function App() {
     }
   })
 
+  const corpusVersion = useMemo(() => extractCorpusVersion(rawCorpus), [rawCorpus])
+  const isStaffRole =
+    reviewerProfile?.role === 'editor' || reviewerProfile?.role === 'admin'
+  const canAccessEditorialTools = isStaffRole || editorialPreviewMode
+  const isRapidFocusActive = workbenchTab === 'rapid_review' && focusMode
+
   const { drafts, draftsList, saveDraft, removeDraft, removeMultipleDrafts } = useLocalDrafts()
   const {
     sandboxItems,
@@ -74,6 +87,7 @@ export default function App() {
     addSandboxSubmission,
     moderateSandboxSubmission,
     bulkApproveSandboxSubmissions,
+    markSandboxSubmissionsMerged,
     resetSandboxQueue,
   } = useSandboxModeration()
   const {
@@ -84,6 +98,22 @@ export default function App() {
     updateSandboxMemberRole,
     resetSandboxGovernance,
   } = useRoleGovernance()
+  const {
+    userVerdictsByEntryId,
+    summariesByEntryId,
+    skippedIds,
+    canUndo,
+    completedTodayCount,
+    totalAttestationsCount,
+    calibrationStats,
+    sessionPrefs,
+    updateSessionPrefs,
+    recordAttestation,
+    recordCalibrationOutcome,
+    skipEntry,
+    undoLastStep,
+    resetSessionSkips,
+  } = useCommunityAttestations(userEmail, corpusVersion)
 
   useEffect(() => {
     const root = document.documentElement
@@ -241,13 +271,27 @@ export default function App() {
     [sandboxItems],
   )
 
+  useEffect(() => {
+    if (!canAccessEditorialTools && (workbenchTab === 'moderation' || workbenchTab === 'exporter')) {
+      setWorkbenchTab('rapid_review')
+    }
+  }, [canAccessEditorialTools, workbenchTab])
+
   function handleResetFilters() {
     setQuery('')
     setSelectedCategory('all')
     setExampleFilter('all')
   }
 
-  function handleStartReview() {
+  function handleStartRapidReview() {
+    setWorkbenchTab('rapid_review')
+    const el = document.getElementById('workspace')
+    if (el) el.scrollIntoView({ behavior: 'smooth' })
+  }
+
+  function handleStartDetailedReview() {
+    setFocusMode(false)
+    setExplorerSubView('entries')
     setWorkbenchTab('explorer')
     const el = document.getElementById('workspace')
     if (el) el.scrollIntoView({ behavior: 'smooth' })
@@ -257,17 +301,21 @@ export default function App() {
     setSelectedCategory(category)
     setQuery('')
     setExampleFilter('all')
+    setExplorerSubView('entries')
     setWorkbenchTab('explorer')
     const match = entries.find((e) => e.category === category)
     if (match) setActiveId(match.id)
   }
 
   function handleInspectExistingFromNewForm(entry: LexicalEntry) {
+    setFocusMode(false)
     setActiveId(entry.id)
+    setExplorerSubView('entries')
     setWorkbenchTab('explorer')
   }
 
   function handleResumeDraft(entryId: string) {
+    setFocusMode(false)
     setRevisionTarget(null)
     const draft = drafts[entryId]
     if (
@@ -281,15 +329,18 @@ export default function App() {
       return
     }
     setActiveId(entryId)
+    setExplorerSubView('entries')
     setWorkbenchTab('explorer')
   }
 
   function handleStartRevision(submission: SubmissionRecord) {
+    setFocusMode(false)
     setRevisionTarget(submission)
     if (isNewEntrySubmission(submission)) {
       setWorkbenchTab('new_entry')
     } else {
       setActiveId(submission.entry_id)
+      setExplorerSubView('entries')
       setWorkbenchTab('explorer')
     }
     const el = document.getElementById('workspace')
@@ -297,11 +348,15 @@ export default function App() {
   }
 
   function handleOpenModerationSandbox() {
+    setFocusMode(false)
+    if (!isStaffRole) setEditorialPreviewMode(true)
     setForceSandboxModeration(true)
     setWorkbenchTab('moderation')
   }
 
   function handleJumpToAdminGovernance(source: 'live' | 'sandbox') {
+    setFocusMode(false)
+    if (!isStaffRole) setEditorialPreviewMode(true)
     setForceSandboxModeration(source === 'sandbox')
     setForceGovernanceSection(true)
     setWorkbenchTab('moderation')
@@ -310,198 +365,354 @@ export default function App() {
   }
 
   function handleGoToExporter(source: 'live' | 'sandbox') {
+    setFocusMode(false)
+    if (!isStaffRole) setEditorialPreviewMode(true)
     setPreferredExportSource(source)
     setWorkbenchTab('exporter')
   }
 
   const WORKBENCH_TABS: Array<{ id: WorkbenchTab; label: string }> = [
-    { id: 'explorer', label: 'فحص المفردات' },
-    { id: 'new_entry', label: 'اقتراح مفردة جديدة' },
-    { id: 'corpus', label: `فهرس الفئات (${categories.length})` },
+    {
+      id: 'rapid_review',
+      label: `المراجعة السريعة${completedTodayCount > 0 ? ` · ${completedTodayCount}` : ''}`,
+    },
+    { id: 'explorer', label: 'تصفح المعجم' },
+    { id: 'new_entry', label: 'إضافة مفردة' },
     {
       id: 'submissions',
-      label: `مسوداتي وسجلي${draftsList.length > 0 ? ` (${draftsList.length})` : ''}`,
+      label: `مساهماتي${draftsList.length > 0 ? ` (${draftsList.length})` : ''}`,
     },
-    {
-      id: 'moderation',
-      label: `تحكيم المحررين${pendingSandboxCount > 0 ? ` (${pendingSandboxCount})` : ''}`,
-    },
-    { id: 'exporter', label: 'تصدير المعجم الرسمي' },
+    ...(canAccessEditorialTools
+      ? ([
+          {
+            id: 'moderation',
+            label: `تحكيم المحررين${
+              !isStaffRole && pendingSandboxCount > 0 ? ` (${pendingSandboxCount})` : ''
+            }`,
+          },
+          { id: 'exporter', label: 'تصدير المعجم' },
+        ] as Array<{ id: WorkbenchTab; label: string }>)
+      : []),
   ]
 
   return (
     <div className="min-h-screen flex flex-col">
       <Navbar
         isAuthenticated={Boolean(userEmail)}
+        canAccessEditorialTools={canAccessEditorialTools}
+        isFocusMode={isRapidFocusActive}
+        onExitFocusMode={() => setFocusMode(false)}
         onOpenAuth={() => setAuthDialogOpen(true)}
         onSelectWorkbenchTab={(tab) => {
+          setFocusMode(false)
+          if (tab === 'corpus') {
+            setExplorerSubView('categories')
+            setWorkbenchTab('explorer')
+            return
+          }
+          if (tab === 'explorer') {
+            setExplorerSubView('entries')
+          }
           setForceSandboxModeration(false)
           setWorkbenchTab(tab)
         }}
       />
 
       <main className="flex-1">
-        <HeroSection
-          entriesCount={entries.length}
-          categoriesCount={categories.length}
-          examplesCount={totalExamplesCount}
-          dataMode={dataMode}
-          onStartReview={handleStartReview}
-        />
+        {!isRapidFocusActive && (
+          <HeroSection
+            entriesCount={entries.length}
+            categoriesCount={categories.length}
+            examplesCount={totalExamplesCount}
+            dataMode={dataMode}
+            onStartRapidReview={handleStartRapidReview}
+            onStartDetailedReview={handleStartDetailedReview}
+          />
+        )}
 
         {/* Lexicographical Workbench */}
         <section
           id="workspace"
-          className="mx-auto max-w-[1280px] px-5 py-8 sm:px-8 lg:py-12"
+          className={`mx-auto max-w-[1280px] px-4 sm:px-8 ${
+            isRapidFocusActive ? 'py-4 sm:py-6' : 'py-8 lg:py-12'
+          }`}
         >
-          {/* Section Header + Mode Tabs */}
-          <div className="space-y-5 pb-6 border-b border-[#E5DFD3] dark:border-[#2E2B27]">
-            <div>
-              <p className="text-xs font-semibold text-[#0F5C4E] dark:text-[#4FD1C5]">
-                بيئة التحرير والتحكيم والتصدير المعياري
-              </p>
-              <h2 className="mt-1.5 font-display text-2xl sm:text-3xl font-bold text-stone-900 dark:text-stone-100">
-                مساحة المراجعة والحوكمة المعجمية
-              </h2>
-              <p className="mt-1.5 text-sm text-stone-600 dark:text-stone-400">
-                افحص المفردات القائمة، اقترح مداخل جديدة، حكّم المساهمات جنباً إلى جنب، وصدّر حزم التحديث المتوافقة مع مخطط المستودع الرسمي.
-              </p>
-            </div>
+          {/* Section Header + Mode Tabs (Collapsed in Focus Mode) */}
+          {!isRapidFocusActive && (
+            <>
+              <div className="space-y-5 pb-6 border-b border-[#E5DFD3] dark:border-[#2E2B27]">
+                <div className="flex flex-wrap items-end justify-between gap-4">
+                  <div>
+                    <p className="text-xs font-semibold text-[#0F5C4E] dark:text-[#4FD1C5]">
+                      {canAccessEditorialTools
+                        ? 'بيئة التوثيق والتحكيم والتصدير المعياري'
+                        : 'مساحة المساهمة والتدقيق المعجمي المفتوح'}
+                    </p>
+                    <h2 className="mt-1.5 font-display text-2xl sm:text-3xl font-bold text-stone-900 dark:text-stone-100">
+                      {canAccessEditorialTools
+                        ? 'مساحة المراجعة والحوكمة المعجمية'
+                        : 'ساهم في تدقيق وإثراء معجم الدارجة المغربية'}
+                    </h2>
+                    <p className="mt-1.5 text-sm text-stone-600 dark:text-stone-400">
+                      {canAccessEditorialTools
+                        ? 'افحص المفردات القائمة، اقترح مداخل جديدة، حكّم المساهمات، وصدّر حزم التحديث الرسمية.'
+                        : 'وثّق المفردات المتداولة ببطاقات سريعة، تصفّح المعجم وفئاته الدلالية، أو اقترح مفردات وشواهد جديدة.'}
+                    </p>
+                  </div>
 
-            <div className="overflow-x-auto pb-1">
-              <div
-                role="tablist"
-                aria-label="أقسام مساحة العمل"
-                className="inline-flex items-center gap-1 rounded-lg border border-[#E5DFD3] bg-[#F3EFE6] p-1 dark:border-[#2E2B27] dark:bg-[#1C1A18]"
-              >
-                {WORKBENCH_TABS.map((tab) => (
-                  <button
-                    key={tab.id}
-                    type="button"
-                    role="tab"
-                    aria-selected={workbenchTab === tab.id}
-                    onClick={() => {
-                      if (tab.id !== 'moderation') setForceSandboxModeration(false)
-                      setWorkbenchTab(tab.id)
-                    }}
-                    className={`min-h-[36px] rounded-md px-3.5 py-1.5 text-xs font-semibold transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
-                      workbenchTab === tab.id
-                        ? 'bg-white text-stone-900 shadow-2xs dark:bg-[#2A2622] dark:text-stone-100'
-                        : 'text-stone-600 hover:text-stone-900 dark:text-stone-400 dark:hover:text-stone-200'
-                    }`}
+                  {!isStaffRole && editorialPreviewMode && (
+                    <div className="flex items-center gap-2 rounded-lg border border-amber-300/80 bg-amber-50/80 px-3 py-1.5 text-xs text-amber-950 dark:border-amber-800/60 dark:bg-amber-950/30 dark:text-amber-200">
+                      <span>وضع معاينة أدوات المحررين مفعّل</span>
+                      <span aria-hidden="true">·</span>
+                      <button
+                        type="button"
+                        onClick={() => setEditorialPreviewMode(false)}
+                        className="font-semibold underline cursor-pointer"
+                      >
+                        إخفاء
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                <div className="overflow-x-auto pb-1">
+                  <div
+                    role="tablist"
+                    aria-label="أقسام مساحة العمل"
+                    className="inline-flex items-center gap-1 rounded-lg border border-[#E5DFD3] bg-[#F3EFE6] p-1 dark:border-[#2E2B27] dark:bg-[#1C1A18]"
                   >
-                    {tab.label}
-                  </button>
-                ))}
+                    {WORKBENCH_TABS.map((tab) => (
+                      <button
+                        key={tab.id}
+                        type="button"
+                        role="tab"
+                        aria-selected={workbenchTab === tab.id}
+                        onClick={() => {
+                          if (tab.id !== 'moderation') setForceSandboxModeration(false)
+                          setWorkbenchTab(tab.id)
+                        }}
+                        className={`min-h-[38px] rounded-md px-4 py-1.5 text-xs font-semibold transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
+                          workbenchTab === tab.id
+                            ? 'bg-white text-stone-900 shadow-2xs dark:bg-[#2A2622] dark:text-stone-100'
+                            : 'text-stone-600 hover:text-stone-900 dark:text-stone-400 dark:hover:text-stone-200'
+                        }`}
+                      >
+                        {tab.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
               </div>
-            </div>
-          </div>
 
-          {/* Dataset Operational Banner */}
-          <div className="mt-5 mb-6">
-            {dataMode === 'live' ? (
-              <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-emerald-200/80 bg-emerald-50/70 px-4 py-3 text-xs text-emerald-950 dark:border-emerald-900/50 dark:bg-emerald-950/30 dark:text-emerald-200">
-                <div className="flex items-center gap-2.5">
-                  <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-700 dark:text-emerald-400" />
-                  <span>
-                    <strong className="font-semibold">المعجم الرسمي متصل:</strong> تم تحميل{' '}
-                    <span className="font-mono tabular-nums">
-                      {entries.length.toLocaleString('en-US')}
-                    </span>{' '}
-                    مدخل معجمي و
-                    <span className="font-mono tabular-nums">
-                      {totalExamplesCount.toLocaleString('en-US')}
-                    </span>{' '}
-                    شاهد سياقي من مستودع ArCode Standard (الإصدار{' '}
-                    <span className="font-mono">
-                      {String(rawCorpus.lexiconMeta.version ?? '1.5.0')}
-                    </span>
-                    ).
-                  </span>
-                </div>
+              {/* Dataset Operational Banner */}
+              <div className="mt-5 mb-6">
+                {dataMode === 'live' ? (
+                  <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-emerald-200/80 bg-emerald-50/70 px-4 py-3 text-xs text-emerald-950 dark:border-emerald-900/50 dark:bg-emerald-950/30 dark:text-emerald-200">
+                    <div className="flex items-center gap-2.5">
+                      <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-700 dark:text-emerald-400" />
+                      <span>
+                        <strong className="font-semibold">المعجم الرسمي متصل:</strong>{' '}
+                        <span className="font-mono tabular-nums">
+                          {entries.length.toLocaleString('en-US')}
+                        </span>{' '}
+                        مدخل معجمي و
+                        <span className="font-mono tabular-nums">
+                          {totalExamplesCount.toLocaleString('en-US')}
+                        </span>{' '}
+                        شاهد سياقي (الإصدار{' '}
+                        <span className="font-mono">v{corpusVersion}</span>).
+                      </span>
+                    </div>
+                  </div>
+                ) : dataMode === 'demo' ? (
+                  <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-amber-300/80 bg-amber-50/80 px-4 py-3 text-xs text-amber-950 dark:border-amber-800/50 dark:bg-amber-950/30 dark:text-amber-200">
+                    <div className="flex items-center gap-2.5">
+                      <AlertTriangle className="h-4 w-4 shrink-0 text-amber-700 dark:text-amber-400" />
+                      <span>
+                        <strong className="font-semibold">وضع البيانات التوضيحية:</strong> تعذر الاتصال بمستودع البيانات حالياً؛ المداخل المعروضة عينة محلية للتجربة.
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={loadCorpus}
+                      className="inline-flex min-h-[32px] items-center gap-1.5 rounded-md border border-amber-400/60 bg-white px-3 py-1 text-xs font-semibold text-amber-950 hover:bg-amber-100/50 cursor-pointer dark:border-amber-700 dark:bg-[#1C1A18] dark:text-amber-200"
+                    >
+                      <RefreshCw className="h-3 w-3" />
+                      <span>إعادة المحاولة</span>
+                    </button>
+                  </div>
+                ) : null}
               </div>
-            ) : dataMode === 'demo' ? (
-              <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-amber-300/80 bg-amber-50/80 px-4 py-3 text-xs text-amber-950 dark:border-amber-800/50 dark:bg-amber-950/30 dark:text-amber-200">
-                <div className="flex items-center gap-2.5">
-                  <AlertTriangle className="h-4 w-4 shrink-0 text-amber-700 dark:text-amber-400" />
-                  <span>
-                    <strong className="font-semibold">وضع البيانات التوضيحية:</strong> تعذر الاتصال بمستودع GitHub حالياً؛ المداخل المعروضة عينة محلية للتجربة.
-                  </span>
-                </div>
-                <button
-                  type="button"
-                  onClick={loadCorpus}
-                  className="inline-flex min-h-[32px] items-center gap-1.5 rounded-md border border-amber-400/60 bg-white px-3 py-1 text-xs font-semibold text-amber-950 hover:bg-amber-100/50 cursor-pointer dark:border-amber-700 dark:bg-[#1C1A18] dark:text-amber-200"
-                >
-                  <RefreshCw className="h-3 w-3" />
-                  <span>إعادة المحاولة</span>
-                </button>
-              </div>
-            ) : null}
-          </div>
+            </>
+          )}
 
           {/* Smart Post-Login / Post-Signup Local Drafts Sync Alert */}
-          <LocalDraftSyncBanner
-            isAuthenticated={Boolean(userEmail)}
-            userEmail={userEmail}
-            draftsList={draftsList}
-            entries={entries}
-            onRemoveSyncedDrafts={removeMultipleDrafts}
-            onResumeDraft={handleResumeDraft}
-            onSyncedSuccess={() => setSubmissionsRefreshCounter((c) => c + 1)}
-          />
+          {!isRapidFocusActive && (
+            <LocalDraftSyncBanner
+              isAuthenticated={Boolean(userEmail)}
+              userEmail={userEmail}
+              draftsList={draftsList}
+              entries={entries}
+              corpusVersion={corpusVersion}
+              onRemoveSyncedDrafts={removeMultipleDrafts}
+              onResumeDraft={handleResumeDraft}
+              onSyncedSuccess={() => setSubmissionsRefreshCounter((c) => c + 1)}
+            />
+          )}
 
           {/* Active Workbench View */}
-          {workbenchTab === 'explorer' && (
-            <div className="grid grid-cols-1 gap-6 lg:grid-cols-12 items-start">
-              <div className="lg:col-span-4">
-                <LexiconSidebar
-                  entries={entries}
-                  filteredEntries={filteredEntries}
-                  activeEntry={activeEntry}
-                  categories={categories}
-                  query={query}
-                  selectedCategory={selectedCategory}
-                  exampleFilter={exampleFilter}
-                  dataMode={dataMode}
-                  drafts={drafts}
-                  onQueryChange={setQuery}
-                  onCategoryChange={setSelectedCategory}
-                  onExampleFilterChange={setExampleFilter}
-                  onSelectEntry={(entry) => setActiveId(entry.id)}
-                  onResetFilters={handleResetFilters}
-                />
+          {workbenchTab === 'rapid_review' && (
+            <RapidReviewPanel
+              entries={entries}
+              categories={categories}
+              corpusVersion={corpusVersion}
+              canAccessEditorialTools={canAccessEditorialTools}
+              isFocusMode={isRapidFocusActive}
+              onToggleFocusMode={() => setFocusMode((prev) => !prev)}
+              calibrationStats={calibrationStats}
+              onRecordCalibrationOutcome={recordCalibrationOutcome}
+              userEmail={userEmail}
+              userVerdictsByEntryId={userVerdictsByEntryId}
+              summariesByEntryId={summariesByEntryId}
+              skippedIds={skippedIds}
+              canUndo={canUndo}
+              completedTodayCount={completedTodayCount}
+              sessionPrefs={sessionPrefs}
+              onUpdateSessionPrefs={updateSessionPrefs}
+              onRecordAttestation={recordAttestation}
+              onSkipEntry={skipEntry}
+              onUndoLastStep={undoLastStep}
+              onResetSessionSkips={resetSessionSkips}
+              onAddSandboxSubmission={addSandboxSubmission}
+              onSaveDraft={saveDraft}
+              onOpenDetailedEntry={(entry) => {
+                setFocusMode(false)
+                setActiveId(entry.id)
+                setExplorerSubView('entries')
+                setWorkbenchTab('explorer')
+              }}
+              onOpenModerationSandbox={handleOpenModerationSandbox}
+              onRequireLogin={() => setAuthDialogOpen(true)}
+              onSubmissionSuccess={() => setSubmissionsRefreshCounter((c) => c + 1)}
+            />
+          )}
+
+          {(workbenchTab === 'explorer' || workbenchTab === 'corpus') && (
+            <div className="space-y-5">
+              {/* Integrated Sub-View Switcher: Entries Inspector vs Semantic Categories */}
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div
+                  role="group"
+                  aria-label="طريقة استعراض المعجم"
+                  className="inline-flex items-center gap-1 rounded-lg border border-[#E5DFD3] bg-[#F3EFE6] p-1 dark:border-[#2E2B27] dark:bg-[#1C1A18]"
+                >
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setExplorerSubView('entries')
+                      if (workbenchTab === 'corpus') setWorkbenchTab('explorer')
+                    }}
+                    className={`min-h-[34px] rounded-md px-3.5 py-1.5 text-xs font-semibold transition-colors whitespace-nowrap cursor-pointer ${
+                      explorerSubView === 'entries' && workbenchTab !== 'corpus'
+                        ? 'bg-white text-stone-900 shadow-2xs dark:bg-[#2A2622] dark:text-stone-100'
+                        : 'text-stone-600 hover:text-stone-900 dark:text-stone-400'
+                    }`}
+                  >
+                    فحص بطاقات المفردات ({entries.length.toLocaleString('en-US')})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setExplorerSubView('categories')
+                      if (workbenchTab === 'corpus') setWorkbenchTab('explorer')
+                    }}
+                    className={`min-h-[34px] rounded-md px-3.5 py-1.5 text-xs font-semibold transition-colors whitespace-nowrap cursor-pointer ${
+                      explorerSubView === 'categories' || workbenchTab === 'corpus'
+                        ? 'bg-white text-stone-900 shadow-2xs dark:bg-[#2A2622] dark:text-stone-100'
+                        : 'text-stone-600 hover:text-stone-900 dark:text-stone-400'
+                    }`}
+                  >
+                    توزيع الفئات الدلالية ({categories.length.toLocaleString('en-US')})
+                  </button>
+                </div>
+
+                {selectedCategory !== 'all' && explorerSubView === 'entries' && (
+                  <div className="flex items-center gap-2 text-xs text-stone-600 dark:text-stone-400">
+                    <span>
+                      الفئة النشطة: <strong className="text-stone-900 dark:text-stone-100">{selectedCategory}</strong>
+                    </span>
+                    <span aria-hidden="true">·</span>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedCategory('all')}
+                      className="font-semibold text-[#0F5C4E] hover:underline cursor-pointer dark:text-[#4FD1C5]"
+                    >
+                      عرض كل الفئات
+                    </button>
+                  </div>
+                )}
               </div>
 
-              <div className="lg:col-span-8">
-                <EntryDetailSheet
-                  entry={activeEntry}
-                  currentIndex={activeIndexInFiltered}
-                  totalFiltered={filteredEntries.length}
-                  existingDraft={drafts[activeEntry.id]}
-                  revisionTarget={revisionTarget}
-                  onClearRevisionTarget={() => setRevisionTarget(null)}
-                  onPrev={() => {
-                    if (activeIndexInFiltered > 0) {
-                      setActiveId(filteredEntries[activeIndexInFiltered - 1].id)
-                    }
-                  }}
-                  onNext={() => {
-                    if (
-                      activeIndexInFiltered >= 0 &&
-                      activeIndexInFiltered < filteredEntries.length - 1
-                    ) {
-                      setActiveId(filteredEntries[activeIndexInFiltered + 1].id)
-                    }
-                  }}
-                  onSaveDraft={saveDraft}
-                  onRemoveDraft={removeDraft}
-                  onAddSandboxSubmission={addSandboxSubmission}
-                  onOpenModerationSandbox={handleOpenModerationSandbox}
-                  onRequireLogin={() => setAuthDialogOpen(true)}
-                  onSubmissionSuccess={() => setSubmissionsRefreshCounter((c) => c + 1)}
+              {explorerSubView === 'categories' || workbenchTab === 'corpus' ? (
+                <CorpusOverview
+                  entries={entries}
+                  onSelectCategory={handleSelectCategoryFromOverview}
                 />
-              </div>
+              ) : (
+                <div className="grid grid-cols-1 gap-6 lg:grid-cols-12 items-start">
+                  <div className="lg:col-span-4">
+                    <LexiconSidebar
+                      entries={entries}
+                      filteredEntries={filteredEntries}
+                      activeEntry={activeEntry}
+                      categories={categories}
+                      query={query}
+                      selectedCategory={selectedCategory}
+                      exampleFilter={exampleFilter}
+                      dataMode={dataMode}
+                      drafts={drafts}
+                      onQueryChange={setQuery}
+                      onCategoryChange={setSelectedCategory}
+                      onExampleFilterChange={setExampleFilter}
+                      onSelectEntry={(entry) => setActiveId(entry.id)}
+                      onResetFilters={handleResetFilters}
+                    />
+                  </div>
+
+                  <div className="lg:col-span-8">
+                    <EntryDetailSheet
+                      entry={activeEntry}
+                      allEntries={entries}
+                      corpusVersion={corpusVersion}
+                      canAccessEditorialTools={canAccessEditorialTools}
+                      currentIndex={activeIndexInFiltered}
+                      totalFiltered={filteredEntries.length}
+                      existingDraft={drafts[activeEntry.id]}
+                      revisionTarget={revisionTarget}
+                      onClearRevisionTarget={() => setRevisionTarget(null)}
+                      onPrev={() => {
+                        if (activeIndexInFiltered > 0) {
+                          setActiveId(filteredEntries[activeIndexInFiltered - 1].id)
+                        }
+                      }}
+                      onNext={() => {
+                        if (
+                          activeIndexInFiltered >= 0 &&
+                          activeIndexInFiltered < filteredEntries.length - 1
+                        ) {
+                          setActiveId(filteredEntries[activeIndexInFiltered + 1].id)
+                        }
+                      }}
+                      onSaveDraft={saveDraft}
+                      onRemoveDraft={removeDraft}
+                      onAddSandboxSubmission={addSandboxSubmission}
+                      onOpenModerationSandbox={handleOpenModerationSandbox}
+                      onRequireLogin={() => setAuthDialogOpen(true)}
+                      onSubmissionSuccess={() => setSubmissionsRefreshCounter((c) => c + 1)}
+                    />
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
@@ -509,6 +720,8 @@ export default function App() {
             <NewEntryProposalPanel
               entries={entries}
               categories={categories}
+              corpusVersion={corpusVersion}
+              canAccessEditorialTools={canAccessEditorialTools}
               activeDraft={resumedNewDraft}
               onClearActiveDraft={() => setResumedNewDraft(null)}
               revisionTarget={revisionTarget && isNewEntrySubmission(revisionTarget) ? revisionTarget : null}
@@ -522,17 +735,13 @@ export default function App() {
             />
           )}
 
-          {workbenchTab === 'corpus' && (
-            <CorpusOverview
-              entries={entries}
-              onSelectCategory={handleSelectCategoryFromOverview}
-            />
-          )}
-
           {workbenchTab === 'submissions' && (
             <SubmissionsPanel
               draftsList={draftsList}
               entries={entries}
+              corpusVersion={corpusVersion}
+              canAccessEditorialTools={canAccessEditorialTools}
+              totalAttestationsCount={totalAttestationsCount}
               sandboxItems={sandboxItems}
               userEmail={userEmail}
               refreshTrigger={submissionsRefreshCounter}
@@ -544,16 +753,18 @@ export default function App() {
             />
           )}
 
-          {workbenchTab === 'moderation' && (
+          {workbenchTab === 'moderation' && canAccessEditorialTools && (
             <EditorModerationPanel
               entries={entries}
               categories={categories}
+              corpusVersion={corpusVersion}
               userEmail={userEmail}
               profile={reviewerProfile}
               sandboxItems={sandboxItems}
               sandboxEvents={sandboxEvents}
               sandboxProfiles={sandboxProfiles}
               sandboxPromotionRequests={sandboxPromotionRequests}
+              attestationSummaries={summariesByEntryId}
               forceSandboxMode={forceSandboxModeration}
               forceGovernanceSection={forceGovernanceSection}
               onClearForceGovernanceSection={() => setForceGovernanceSection(false)}
@@ -568,7 +779,7 @@ export default function App() {
             />
           )}
 
-          {workbenchTab === 'exporter' && (
+          {workbenchTab === 'exporter' && canAccessEditorialTools && (
             <DatasetExporterPanel
               entries={entries}
               rawCorpus={rawCorpus}
@@ -576,17 +787,23 @@ export default function App() {
               profile={reviewerProfile}
               sandboxItems={sandboxItems}
               preferredSource={preferredExportSource}
+              onMarkSandboxMerged={markSandboxSubmissionsMerged}
             />
           )}
         </section>
 
-        <MethodologySection />
+        {!isRapidFocusActive && <MethodologySection />}
       </main>
 
-      <Footer
-        darkMode={darkMode}
-        onToggleDarkMode={() => setDarkMode((prev) => !prev)}
-      />
+      {!isRapidFocusActive && (
+        <Footer
+          darkMode={darkMode}
+          onToggleDarkMode={() => setDarkMode((prev) => !prev)}
+          isStaffRole={isStaffRole}
+          editorialPreviewMode={editorialPreviewMode}
+          onToggleEditorialPreview={() => setEditorialPreviewMode((prev) => !prev)}
+        />
+      )}
 
       <AuthDialog
         open={authDialogOpen}
@@ -597,6 +814,9 @@ export default function App() {
         recoveryMode={recoveryMode}
         draftsList={draftsList}
         entries={entries}
+        corpusVersion={corpusVersion}
+        canAccessEditorialTools={canAccessEditorialTools}
+        totalAttestationsCount={totalAttestationsCount}
         sandboxPromotionRequests={sandboxPromotionRequests}
         onClearRecovery={() => setRecoveryMode(false)}
         onAuthChanged={syncUserSession}

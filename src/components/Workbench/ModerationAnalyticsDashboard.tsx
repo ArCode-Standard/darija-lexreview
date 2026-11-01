@@ -89,6 +89,7 @@ export function ModerationAnalyticsDashboard({
     let newEntriesProposed = 0
     let existingEditsProposed = 0
     let accepted = 0
+    let merged = 0
     let pending = 0
     let needsChanges = 0
     let rejected = 0
@@ -125,8 +126,9 @@ export function ModerationAnalyticsDashboard({
 
       const targetBucket = isNew ? kindBreakdown.newEntry : kindBreakdown.edit
 
-      if (sub.status === 'accepted') {
+      if (sub.status === 'accepted' || sub.status === 'merged') {
         accepted += 1
+        if (sub.status === 'merged') merged += 1
         targetBucket.accepted += 1
       } else if (sub.status === 'pending') {
         pending += 1
@@ -175,7 +177,7 @@ export function ModerationAnalyticsDashboard({
             decided: 0,
           }
           uCur.decided += 1
-          if (sub.status === 'accepted') uCur.accepted += 1
+          if (sub.status === 'accepted' || sub.status === 'merged') uCur.accepted += 1
           timelineMap.set(uKey, uCur)
         }
 
@@ -197,7 +199,7 @@ export function ModerationAnalyticsDashboard({
           timedCount: 0,
         }
         edStat.decidedCount += 1
-        if (sub.status === 'accepted') edStat.acceptedCount += 1
+        if (sub.status === 'accepted' || sub.status === 'merged') edStat.acceptedCount += 1
         else edStat.returnedOrRejectedCount += 1
 
         if (deltaHours !== null) {
@@ -239,6 +241,7 @@ export function ModerationAnalyticsDashboard({
       newEntriesProposed,
       existingEditsProposed,
       accepted,
+      merged,
       pending,
       needsChanges,
       rejected,
@@ -347,7 +350,15 @@ export function ModerationAnalyticsDashboard({
           </dd>
           <p className="mt-1 text-[11px] text-stone-500 dark:text-stone-400">
             معدل الاعتماد:{' '}
-            <span className="font-mono tabular-nums">{analytics.acceptanceRate}%</span> من المحسوم
+            <span className="font-mono tabular-nums">{analytics.acceptanceRate}%</span>
+            {analytics.merged > 0 ? (
+              <>
+                {' '}· مدمج رسمياً:{' '}
+                <span className="font-mono tabular-nums">{analytics.merged}</span>
+              </>
+            ) : (
+              ' من المحسوم'
+            )}
           </p>
         </div>
 

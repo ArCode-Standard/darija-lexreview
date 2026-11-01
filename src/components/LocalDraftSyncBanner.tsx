@@ -14,6 +14,7 @@ import { auditDraftForSync, syncLocalDraftsToAccount } from '../utils/draftSync'
 interface LocalDraftSyncBannerProps {
   isAuthenticated: boolean
   userEmail: string | null
+  corpusVersion: string
   draftsList: LocalDraft[]
   entries: LexicalEntry[]
   onRemoveSyncedDrafts: (entryIds: string[]) => void
@@ -24,6 +25,7 @@ interface LocalDraftSyncBannerProps {
 export function LocalDraftSyncBanner({
   isAuthenticated,
   userEmail,
+  corpusVersion,
   draftsList,
   entries,
   onRemoveSyncedDrafts,
@@ -58,7 +60,7 @@ export function LocalDraftSyncBanner({
     setSyncing(true)
     setSyncReport(null)
 
-    const result = await syncLocalDraftsToAccount(draftsList, entries)
+    const result = await syncLocalDraftsToAccount(draftsList, entries, corpusVersion)
     setSyncing(false)
 
     if (result.error && result.syncedEntryIds.length === 0) {

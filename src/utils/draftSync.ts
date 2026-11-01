@@ -6,6 +6,8 @@ import {
   isValidArabizi,
   validateEvidenceItems,
 } from './validation'
+import { computeEntryFingerprint } from './corpusPinning'
+import { humanizeSystemError } from './humanizeError'
 
 export interface DraftSyncAuditResult {
   draft: LocalDraft
@@ -97,7 +99,7 @@ export function auditDraftForSync(
       return {
         draft,
         ready: false,
-        reason: 'المقابل بالفرنسية مطلوب في المخطط الرسمي schema.json.',
+        reason: 'المقابل باللغة الفرنسية مطلوب لاستكمال بطاقة المفردة.',
         normalizedEntryId: 'NEW',
         cleanedProposedData: p,
         cleanedEvidence,
@@ -174,6 +176,8 @@ export function auditDraftForSync(
     'redistribution_permission',
     'training_permission',
     'commercial_permission',
+    'corpus_version',
+    'baseline_fingerprint',
   ])
   const cleanOut: ProposedFields = { submission_kind: 'edit_entry' }
   let filledFieldsCount = 0
@@ -234,6 +238,7 @@ export function auditDraftForSync(
 export async function syncLocalDraftsToAccount(
   draftsList: LocalDraft[],
   entries: LexicalEntry[],
+  corpusVersion = '1.5.0',
 ): Promise<{
   syncedEntryIds: string[]
   skippedAudits: DraftSyncAuditResult[]
@@ -258,7 +263,7 @@ export async function syncLocalDraftsToAccount(
     return {
       syncedEntryIds: [],
       skippedAudits,
-      error: 'اتصال قاعدة بيانات Supabase غير مهيأ حالياً.',
+      error: 'خدمة المزامنة السحابية غير متاحة حالياً؛ ستبقى مسوداتك محفوظة بأمان على جهازك.',
     }
   }
 
@@ -274,21 +279,48 @@ export async function syncLocalDraftsToAccount(
     }
   }
 
-  const rowsToInsert = readyAudits.map((item) => ({
-    entry_id: item.normalizedEntryId,
-    proposed_data: item.cleanedProposedData,
-    evidence: item.cleanedEvidence,
-    reviewer_note: item.draft.reviewerNote.trim() || null,
-    status: 'pending' as const,
-  }))
+  const entryById = new Map(entries.map((e) => [e.id, e]))
 
-  const { error } = await supabase.from('review_submissions').insert(rowsToInsert)
+  const rowsWithPinning = readyAudits.map((item) => {
+    const baseEntry = entryById.get(item.normalizedEntryId)
+    const fp =
+      item.cleanedProposedData.baseline_fingerprint ||
+      (baseEntry ? computeEntryFingerprint(baseEntry) : null)
+    const ver = item.cleanedProposedData.corpus_version || corpusVersion
+    const enrichedProposed: ProposedFields = {
+      ...item.cleanedProposedData,
+      corpus_version: ver,
+      ...(fp ? { baseline_fingerprint: fp } : {}),
+    }
+    return {
+      entry_id: item.normalizedEntryId,
+      corpus_version: ver,
+      baseline_fingerprint: fp,
+      proposed_data: enrichedProposed,
+      evidence: item.cleanedEvidence,
+      reviewer_note: item.draft.reviewerNote.trim() || null,
+      status: 'pending' as const,
+    }
+  })
 
-  if (error) {
+  let insertRes = await supabase.from('review_submissions').insert(rowsWithPinning)
+
+  if (insertRes.error) {
+    const fallbackRows = rowsWithPinning.map((r) => ({
+      entry_id: r.entry_id,
+      proposed_data: r.proposed_data,
+      evidence: r.evidence,
+      reviewer_note: r.reviewer_note,
+      status: r.status,
+    }))
+    insertRes = await supabase.from('review_submissions').insert(fallbackRows)
+  }
+
+  if (insertRes.error) {
     return {
       syncedEntryIds: [],
       skippedAudits,
-      error: `تعذر إرسال المسودات إلى قاعدة البيانات: ${error.message}`,
+      error: humanizeSystemError(insertRes.error, 'تعذر إرسال المسودات حالياً. يرجى المحاولة لاحقاً.'),
     }
   }
 

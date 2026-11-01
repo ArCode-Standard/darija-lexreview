@@ -9,6 +9,7 @@ import {
   RefreshCw,
   ShieldCheck,
   FilterX,
+  Archive,
 } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import type {
@@ -28,6 +29,20 @@ import {
   type SchemaValidationReport,
 } from '../../services/schemaValidator'
 import { formatAccessionCode } from '../../services/dataset'
+import { humanizeSystemError } from '../../utils/humanizeError'
+
+const RELEASE_LEDGER_STORAGE_KEY = 'arcode_exported_release_ledger_v1'
+
+function loadReleaseLedger(): Record<string, string> {
+  try {
+    const raw = localStorage.getItem(RELEASE_LEDGER_STORAGE_KEY)
+    if (!raw) return {}
+    const parsed = JSON.parse(raw)
+    return parsed && typeof parsed === 'object' ? (parsed as Record<string, string>) : {}
+  } catch {
+    return {}
+  }
+}
 
 interface DatasetExporterPanelProps {
   entries: LexicalEntry[]
@@ -36,6 +51,12 @@ interface DatasetExporterPanelProps {
   profile: ReviewerProfile | null
   sandboxItems: SubmissionRecord[]
   preferredSource: 'live' | 'sandbox'
+  onMarkSandboxMerged: (params: {
+    ids: string[]
+    releaseVersion: string
+    editorId?: string
+    editorDisplayName?: string
+  }) => void
 }
 
 export function DatasetExporterPanel({
@@ -45,6 +66,7 @@ export function DatasetExporterPanel({
   profile,
   sandboxItems,
   preferredSource,
+  onMarkSandboxMerged,
 }: DatasetExporterPanelProps) {
   const isAuthorizedLiveEditor =
     Boolean(userEmail) && (profile?.role === 'editor' || profile?.role === 'admin')
@@ -52,6 +74,15 @@ export function DatasetExporterPanel({
   const [exportSource, setExportSource] = useState<'live' | 'sandbox'>(() =>
     preferredSource === 'live' && isAuthorizedLiveEditor ? 'live' : 'sandbox',
   )
+  const [archivedReleaseMap, setArchivedReleaseMap] = useState<Record<string, string>>(
+    loadReleaseLedger,
+  )
+  const [archivingRelease, setArchivingRelease] = useState(false)
+  const [hasDownloadedCurrentBatch, setHasDownloadedCurrentBatch] = useState(false)
+  const [archiveFeedback, setArchiveFeedback] = useState<{
+    type: 'success' | 'error'
+    text: string
+  } | null>(null)
 
   useEffect(() => {
     if (preferredSource === 'live' && isAuthorizedLiveEditor) {
@@ -94,9 +125,22 @@ export function DatasetExporterPanel({
   }, [exportSource, fetchLiveAccepted])
 
   const candidateAccepted = useMemo(() => {
-    if (exportSource === 'live') return liveAccepted
-    return sandboxItems.filter((item) => item.status === 'accepted')
-  }, [exportSource, liveAccepted, sandboxItems])
+    const sourceList =
+      exportSource === 'live'
+        ? liveAccepted
+        : sandboxItems.filter((item) => item.status === 'accepted')
+    return sourceList.filter(
+      (item) =>
+        item.status === 'accepted' &&
+        !item.exported_in_version &&
+        !archivedReleaseMap[item.id],
+    )
+  }, [exportSource, liveAccepted, sandboxItems, archivedReleaseMap])
+
+  const mergedSandboxCount = useMemo(
+    () => sandboxItems.filter((item) => item.status === 'merged').length,
+    [sandboxItems],
+  )
 
   const [excludedIds, setExcludedIds] = useState<Set<string>>(new Set())
   const [previewTab, setPreviewTab] = useState<'patch' | 'pr'>('patch')
@@ -187,6 +231,94 @@ export function DatasetExporterPanel({
     a.download = filename
     a.click()
     URL.revokeObjectURL(url)
+    setHasDownloadedCurrentBatch(true)
+    setArchiveFeedback(null)
+  }
+
+  function persistArchivedIds(ids: string[], versionLabel: string) {
+    setArchivedReleaseMap((prev) => {
+      const next = { ...prev }
+      for (const id of ids) {
+        next[id] = versionLabel
+      }
+      try {
+        localStorage.setItem(RELEASE_LEDGER_STORAGE_KEY, JSON.stringify(next))
+      } catch {
+        // Ignore storage quota errors
+      }
+      return next
+    })
+  }
+
+  async function handleArchiveExportedBatch() {
+    const appliedIds = bundle.patchSummary.applied_submission_ids
+    const cleanVersion = targetVersion.trim() || 'next'
+    if (appliedIds.length === 0 || !canDownload) return
+
+    setArchiveFeedback(null)
+
+    if (exportSource === 'sandbox') {
+      onMarkSandboxMerged({
+        ids: appliedIds,
+        releaseVersion: cleanVersion,
+        editorId: profile?.id ?? 'ed-session',
+        editorDisplayName:
+          profile?.display_name?.trim() || userEmail || 'المحرر الحالي (جلسة محاكاة)',
+      })
+      persistArchivedIds(appliedIds, cleanVersion)
+      setHasDownloadedCurrentBatch(false)
+      setArchiveFeedback({
+        type: 'success',
+        text: `تم تثبيت وأرشفة ${appliedIds.length} مقترحات بحالة «مدمج في الإصدار v${cleanVersion}»، واستُبعدت من دفعات التصدير القادمة لمنع التكرار.`,
+      })
+      return
+    }
+
+    if (!supabase || !isAuthorizedLiveEditor) {
+      setArchiveFeedback({
+        type: 'error',
+        text: 'يلزم تسجيل الدخول بحساب محرر معتمد لأرشفة الدفعات في السجل الحي.',
+      })
+      return
+    }
+
+    setArchivingRelease(true)
+    const { error: rpcError } = await supabase.rpc('mark_submissions_exported', {
+      p_submission_ids: appliedIds,
+      p_release_version: cleanVersion,
+    })
+
+    if (rpcError) {
+      const { error: fallbackErr } = await supabase
+        .from('review_submissions')
+        .update({
+          status: 'merged',
+          exported_in_version: cleanVersion,
+          exported_at: new Date().toISOString(),
+        })
+        .in('id', appliedIds)
+
+      if (fallbackErr) {
+        // Persist in local release ledger so duplicate re-export is still prevented immediately
+        persistArchivedIds(appliedIds, cleanVersion)
+        setArchivingRelease(false)
+        setHasDownloadedCurrentBatch(false)
+        setArchiveFeedback({
+          type: 'success',
+          text: `تمت أرشفة الدفعة (${appliedIds.length} مقترحات) للإصدار v${cleanVersion} واستبعادها من قوائم التصدير التالية (${humanizeSystemError(fallbackErr, 'حُفظت الأرشفة محلياً')}).`,
+        })
+        return
+      }
+    }
+
+    persistArchivedIds(appliedIds, cleanVersion)
+    setArchivingRelease(false)
+    setHasDownloadedCurrentBatch(false)
+    await fetchLiveAccepted()
+    setArchiveFeedback({
+      type: 'success',
+      text: `تم تثبيت وأرشفة ${appliedIds.length} مقترحات رسمياً بحالة «مدمج في الإصدار v${cleanVersion}».`,
+    })
   }
 
   function handleCopyPrMarkdown() {
@@ -228,7 +360,7 @@ export function DatasetExporterPanel({
                     : 'text-stone-600 hover:text-stone-900 dark:text-stone-400'
                 }`}
               >
-                معتمدات Supabase ({liveAccepted.length})
+                السجل الحي ({exportSource === 'live' ? candidateAccepted.length : liveAccepted.length})
               </button>
               <button
                 type="button"
@@ -239,7 +371,7 @@ export function DatasetExporterPanel({
                     : 'text-stone-600 hover:text-stone-900 dark:text-stone-400'
                 }`}
               >
-                معتمدات المحاكاة ({sandboxItems.filter((i) => i.status === 'accepted').length})
+                بيئة المحاكاة ({sandboxItems.filter((i) => i.status === 'accepted' && !archivedReleaseMap[i.id]).length})
               </button>
             </div>
 
@@ -416,42 +548,93 @@ export function DatasetExporterPanel({
           )}
         </div>
 
-        {/* Download Actions */}
-        <div className="mt-6 pt-5 border-t border-[#E5DFD3] flex flex-wrap items-center gap-3 dark:border-[#2E2B27]">
-          <button
-            type="button"
-            disabled={!canDownload}
-            onClick={() => downloadJsonFile('moroccan-darija.json', bundle.lexiconJson)}
-            className="inline-flex min-h-[42px] items-center gap-2 rounded-lg bg-[#0F5C4E] px-5 py-2.5 text-xs font-semibold text-white hover:bg-[#0B463B] disabled:opacity-45 whitespace-nowrap shrink-0 cursor-pointer dark:bg-[#147A67]"
-          >
-            <Download className="h-4 w-4" />
-            <span>تنزيل moroccan-darija.json</span>
-          </button>
+        {/* Download & Release Archival Actions */}
+        <div className="mt-6 pt-5 border-t border-[#E5DFD3] space-y-4 dark:border-[#2E2B27]">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex flex-wrap items-center gap-3">
+              <button
+                type="button"
+                disabled={!canDownload}
+                onClick={() => downloadJsonFile('moroccan-darija.json', bundle.lexiconJson)}
+                className="inline-flex min-h-[42px] items-center gap-2 rounded-lg bg-[#0F5C4E] px-5 py-2.5 text-xs font-semibold text-white hover:bg-[#0B463B] disabled:opacity-45 whitespace-nowrap shrink-0 cursor-pointer dark:bg-[#147A67]"
+              >
+                <Download className="h-4 w-4" />
+                <span>تنزيل moroccan-darija.json</span>
+              </button>
 
-          <button
-            type="button"
-            disabled={!canDownload}
-            onClick={() => downloadJsonFile('context-examples.json', bundle.examplesJson)}
-            className="inline-flex min-h-[42px] items-center gap-2 rounded-lg border border-[#D6CEBE] bg-[#FBF9F5] px-4 py-2.5 text-xs font-semibold text-stone-800 hover:bg-[#EFECE4] disabled:opacity-45 whitespace-nowrap shrink-0 cursor-pointer dark:border-[#3A3530] dark:bg-[#141312] dark:text-stone-200"
-          >
-            <Download className="h-4 w-4" />
-            <span>تنزيل context-examples.json</span>
-          </button>
+              <button
+                type="button"
+                disabled={!canDownload}
+                onClick={() => downloadJsonFile('context-examples.json', bundle.examplesJson)}
+                className="inline-flex min-h-[42px] items-center gap-2 rounded-lg border border-[#D6CEBE] bg-[#FBF9F5] px-4 py-2.5 text-xs font-semibold text-stone-800 hover:bg-[#EFECE4] disabled:opacity-45 whitespace-nowrap shrink-0 cursor-pointer dark:border-[#3A3530] dark:bg-[#141312] dark:text-stone-200"
+              >
+                <Download className="h-4 w-4" />
+                <span>تنزيل context-examples.json</span>
+              </button>
 
-          <button
-            type="button"
-            disabled={!canDownload}
-            onClick={() =>
-              downloadJsonFile(
-                `lexreview-patch-v${targetVersion || 'next'}.json`,
-                bundle.patchSummary,
-              )
-            }
-            className="inline-flex min-h-[42px] items-center gap-2 rounded-lg border border-[#D6CEBE] bg-[#FBF9F5] px-4 py-2.5 text-xs font-semibold text-stone-800 hover:bg-[#EFECE4] disabled:opacity-45 whitespace-nowrap shrink-0 cursor-pointer dark:border-[#3A3530] dark:bg-[#141312] dark:text-stone-200"
-          >
-            <Download className="h-4 w-4" />
-            <span>تنزيل ملف الفروقات فقط (Patch)</span>
-          </button>
+              <button
+                type="button"
+                disabled={!canDownload}
+                onClick={() =>
+                  downloadJsonFile(
+                    `lexreview-patch-v${targetVersion || 'next'}.json`,
+                    bundle.patchSummary,
+                  )
+                }
+                className="inline-flex min-h-[42px] items-center gap-2 rounded-lg border border-[#D6CEBE] bg-[#FBF9F5] px-4 py-2.5 text-xs font-semibold text-stone-800 hover:bg-[#EFECE4] disabled:opacity-45 whitespace-nowrap shrink-0 cursor-pointer dark:border-[#3A3530] dark:bg-[#141312] dark:text-stone-200"
+              >
+                <Download className="h-4 w-4" />
+                <span>تنزيل ملف الفروقات فقط (Patch)</span>
+              </button>
+            </div>
+
+            {canDownload && (
+              <button
+                type="button"
+                disabled={archivingRelease}
+                onClick={handleArchiveExportedBatch}
+                className={`inline-flex min-h-[42px] items-center gap-2 rounded-lg border px-4 py-2.5 text-xs font-semibold transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
+                  hasDownloadedCurrentBatch
+                    ? 'border-[#0F5C4E] bg-[#0F5C4E] text-white hover:bg-[#0B463B] dark:border-[#147A67] dark:bg-[#147A67]'
+                    : 'border-[#D6CEBE] bg-white text-stone-800 hover:bg-[#F3EFE6] dark:border-[#3A3530] dark:bg-[#141312] dark:text-stone-200'
+                }`}
+              >
+                <Archive className="h-4 w-4" />
+                <span>
+                  {archivingRelease
+                    ? 'جارٍ الأرشفة...'
+                    : `تثبيت وأرشفة الدفعة كمدمجة (v${targetVersion || 'next'})`}
+                </span>
+              </button>
+            )}
+          </div>
+
+          <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-stone-500 dark:text-stone-400">
+            <span>
+              بعد تنزيل ملفات الإصدار ورفع طلب الدمج في GitHub، استخدم «تثبيت وأرشفة الدفعة كمدمجة» لتحويل حالتها إلى «مدمج» ومنع تكرار تصديرها في الإصدارات اللاحقة.
+            </span>
+            {(Object.keys(archivedReleaseMap).length > 0 || mergedSandboxCount > 0) && (
+              <span className="font-mono tabular-nums text-[#0F5C4E] dark:text-[#4FD1C5]">
+                سجلات مؤرشفة في إصدارات سابقة:{' '}
+                {exportSource === 'sandbox'
+                  ? Math.max(mergedSandboxCount, Object.keys(archivedReleaseMap).length)
+                  : Object.keys(archivedReleaseMap).length}
+              </span>
+            )}
+          </div>
+
+          {archiveFeedback && (
+            <div
+              role="status"
+              className={`rounded-lg border p-3.5 text-xs leading-relaxed ${
+                archiveFeedback.type === 'error'
+                  ? 'border-red-200 bg-red-50 text-red-900 dark:border-red-900/50 dark:bg-red-950/40 dark:text-red-200'
+                  : 'border-emerald-200 bg-emerald-50 text-emerald-950 dark:border-emerald-900/50 dark:bg-emerald-950/40 dark:text-emerald-200'
+              }`}
+            >
+              {archiveFeedback.text}
+            </div>
+          )}
         </div>
       </div>
 

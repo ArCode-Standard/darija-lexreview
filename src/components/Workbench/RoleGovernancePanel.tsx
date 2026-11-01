@@ -20,6 +20,7 @@ import type {
   UserRole,
 } from '../../types/lexicon'
 import { sanitizeExternalUrl } from '../../utils/validation'
+import { humanizeSystemError } from '../../utils/humanizeError'
 
 interface RoleGovernancePanelProps {
   queueSource: 'live' | 'sandbox'
@@ -42,9 +43,9 @@ interface RoleGovernancePanelProps {
 }
 
 function formatRoleBadgeText(role: UserRole): string {
-  if (role === 'admin') return 'مشرف عام (admin)'
-  if (role === 'editor') return 'محرر معتمد (editor)'
-  return 'مراجع مساهم (reviewer)'
+  if (role === 'admin') return 'مشرف عام'
+  if (role === 'editor') return 'محرر معتمد'
+  return 'مراجع مساهم'
 }
 
 function formatPromotionStatusText(status: PromotionRequestStatus): string {
@@ -116,7 +117,7 @@ export function RoleGovernancePanel({
 
     if (requestsRes.error) {
       setLiveSchemaNotice(
-        'جدول طلبات الترقية (role_promotion_requests) غير مفعل بعد في مشروع Supabase الحالي. شغّل ملف supabase/schema.sql المحدّث في محرر SQL لتفعيل السجل الحي، أو جرّب الدورة الكاملة فوراً في وضع المحاكاة.',
+        'سجل طلبات الترقية السحابي قيد التهيئة حالياً. يمكنك تجربة دورة مراجعة الطلبات كاملة في وضع المحاكاة.',
       )
       setLiveRequests([])
     } else {
@@ -140,7 +141,7 @@ export function RoleGovernancePanel({
       if (!sub.reviewer_id) continue
       const prev = map.get(sub.reviewer_id) ?? { total: 0, accepted: 0 }
       prev.total += 1
-      if (sub.status === 'accepted') prev.accepted += 1
+      if (sub.status === 'accepted' || sub.status === 'merged') prev.accepted += 1
       map.set(sub.reviewer_id, prev)
     }
     return map
@@ -205,7 +206,7 @@ export function RoleGovernancePanel({
         type: 'success',
         text:
           decision === 'approved'
-            ? `تمت الموافقة على طلب «${req.requester_name}» وترقية صلاحيته إلى محرر معتمد (editor) في بيئة المحاكاة.`
+            ? `تمت الموافقة على طلب «${req.requester_name}» وترقية صلاحيته إلى محرر معتمد في بيئة المحاكاة.`
             : `تم رفض طلب الترقية المقدم من «${req.requester_name}» مع حفظ الملاحظة.`,
       })
       return
@@ -225,7 +226,7 @@ export function RoleGovernancePanel({
     )
 
     if (rpcError) {
-      // Fallback to sequential RLS updates if the custom RPC hasn't been created yet
+      // Fallback to sequential updates if the custom RPC hasn't been created yet
       const { error: reqUpdateErr } = await supabase
         .from('role_promotion_requests')
         .update({
@@ -240,7 +241,7 @@ export function RoleGovernancePanel({
         setBusyId(null)
         setFeedback({
           type: 'error',
-          text: `تعذر تحديث طلب الترقية: ${reqUpdateErr.message}`,
+          text: humanizeSystemError(reqUpdateErr, 'تعذر تحديث طلب الترقية حالياً.'),
         })
         return
       }
@@ -255,7 +256,7 @@ export function RoleGovernancePanel({
           setBusyId(null)
           setFeedback({
             type: 'error',
-            text: `تم تحديث حالة الطلب لكن تعذرت ترقية الدور: ${roleErr.message}`,
+            text: humanizeSystemError(roleErr, 'تم تحديث حالة الطلب لكن تعذرت ترقية الصلاحية.'),
           })
           return
         }
@@ -270,7 +271,7 @@ export function RoleGovernancePanel({
       type: 'success',
       text:
         decision === 'approved'
-          ? `تمت ترقية «${req.requester_name}» رسمياً إلى صلاحية محرر معتمد (editor).`
+          ? `تمت ترقية «${req.requester_name}» رسمياً إلى صلاحية محرر معتمد.`
           : `تم تسجيل قرار رفض طلب «${req.requester_name}».`,
     })
   }
@@ -301,7 +302,7 @@ export function RoleGovernancePanel({
     if (error) {
       setFeedback({
         type: 'error',
-        text: `تعذر تعديل صلاحية العضو: ${error.message}`,
+        text: humanizeSystemError(error, 'تعذر تعديل صلاحية العضو حالياً.'),
       })
       return
     }
@@ -311,7 +312,7 @@ export function RoleGovernancePanel({
     )
     setFeedback({
       type: 'success',
-      text: `تم تحديث صلاحية «${member.display_name || member.id}» في قاعدة البيانات إلى ${formatRoleBadgeText(nextRole)}.`,
+      text: `تم تحديث صلاحية «${member.display_name || 'العضو'}» إلى ${formatRoleBadgeText(nextRole)}.`,
     })
   }
 
@@ -323,13 +324,10 @@ export function RoleGovernancePanel({
             <ShieldAlert className="h-5 w-5 shrink-0 mt-0.5 text-amber-700 dark:text-amber-400" />
             <div>
               <h4 className="font-display text-base font-bold text-stone-900 dark:text-stone-100">
-                قسم إدارة الصلاحيات وطلبات الترقية مخصص للمشرف العام (admin)
+                قسم إدارة الصلاحيات وطلبات الترقية مخصص للمشرف العام
               </h4>
               <p className="mt-1.5 text-xs leading-relaxed text-stone-600 dark:text-stone-400">
-                تمنع سياسات أمان الصفوف (RLS) في قاعدة البيانات أي حساب من رفع صلاحيته ذاتياً؛ يبدأ كل مساهم بصلاحية{' '}
-                <span className="font-mono font-semibold">reviewer</span>، وتتم الترقية إلى{' '}
-                <span className="font-mono font-semibold">editor</span> حصرياً بقرار من حساب يحمل صلاحية{' '}
-                <span className="font-mono font-semibold">admin</span>.
+                يبدأ كل مساهم بصلاحية «مراجع مساهم»، وتتم الترقية إلى «محرر معتمد» حصرياً بقرار موثق من المشرف العام للمنصة.
               </p>
               <p className="mt-2 text-xs leading-relaxed text-stone-600 dark:text-stone-400">
                 يمكنك تقديم «طلب صلاحية محرر» من نافذة حسابك الشخصي، أو التبديل إلى وضع المحاكاة لتجربة واجهة المشرف في مراجعة الطلبات وترقية الأعضاء مباشرة.
@@ -439,7 +437,7 @@ export function RoleGovernancePanel({
                 طلبات الترقية إلى «محرر معتمد» ({filteredRequests.length})
               </h4>
               <p className="mt-1 text-xs text-stone-600 dark:text-stone-400">
-                راجع الخبرة اللغوية للمتقدمين وترقيتهم مباشرة إلى صلاحية editor دون الحاجة لكتابة أوامر SQL يدوياً.
+                راجع الخبرة اللغوية للمتقدمين واعتمد ترقيتهم مباشرة إلى صلاحية محرر معتمد.
               </p>
             </div>
           </div>
@@ -601,7 +599,7 @@ export function RoleGovernancePanel({
                           className="inline-flex min-h-[38px] items-center gap-1.5 rounded-lg bg-[#0F5C4E] px-4 py-2 text-xs font-semibold text-white hover:bg-[#0B463B] disabled:opacity-50 whitespace-nowrap cursor-pointer dark:bg-[#147A67]"
                         >
                           <ShieldCheck className="h-4 w-4" />
-                          <span>اعتماد وترقية إلى محرر (editor)</span>
+                          <span>اعتماد وترقية إلى محرر معتمد</span>
                         </button>
 
                         <button
@@ -639,7 +637,7 @@ export function RoleGovernancePanel({
                 دليل المساهمين وإدارة الصلاحيات المباشرة ({filteredProfiles.length})
               </h4>
               <p className="mt-1 text-xs text-stone-600 dark:text-stone-400">
-                ترقية المراجعين الموثوقين أو تعديل صلاحيات المحررين مباشرة ضمن حدود أمان RBAC.
+                ترقية المراجعين الموثوقين أو تعديل صلاحيات المحررين مباشرة ضمن ضوابط الحوكمة.
               </p>
             </div>
           </div>

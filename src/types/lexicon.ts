@@ -25,7 +25,7 @@ export type SourceType =
   | 'other'
   | 'unknown'
 
-export type SubmissionStatus = 'pending' | 'accepted' | 'rejected' | 'needs_changes'
+export type SubmissionStatus = 'pending' | 'accepted' | 'rejected' | 'needs_changes' | 'merged'
 
 export interface ProvenanceInfo {
   sourceType: SourceType
@@ -101,6 +101,8 @@ export interface ProposedFields {
   redistribution_permission?: DataPermission
   training_permission?: DataPermission
   commercial_permission?: DataPermission
+  corpus_version?: string
+  baseline_fingerprint?: string
 }
 
 export interface LocalDraft {
@@ -127,6 +129,10 @@ export interface SubmissionRecord {
   editor_note: string | null
   created_at: string
   updated_at: string
+  corpus_version?: string | null
+  baseline_fingerprint?: string | null
+  exported_in_version?: string | null
+  exported_at?: string | null
   is_sandbox?: boolean
 }
 
@@ -215,8 +221,33 @@ export interface OfficialExportBundle {
   }
 }
 
+export type AttestationVerdict = 'accurate' | 'needs_correction' | 'regional_variant'
+
+export type RapidMicroTask = 'verify_words' | 'enrich_examples' | 'regional_usage'
+
+export interface CommunityAttestationRecord {
+  entry_id: string
+  verdict: AttestationVerdict
+  dialect_region: string | null
+  note: string | null
+  updated_at: string
+  corpus_version?: string
+  response_ms?: number | null
+  is_local?: boolean
+}
+
+export interface EntryAttestationSummary {
+  entryId: string
+  accurateCount: number
+  flaggedCount: number
+  regionalCount: number
+  weightedAccurateScore?: number
+  regions: string[]
+}
+
 export type DataMode = 'loading' | 'live' | 'demo'
 export type WorkbenchTab =
+  | 'rapid_review'
   | 'explorer'
   | 'new_entry'
   | 'corpus'
@@ -228,3 +259,4 @@ export type ExampleFilter =
   | 'with_examples'
   | 'needs_examples'
   | 'priority_enrichment'
+

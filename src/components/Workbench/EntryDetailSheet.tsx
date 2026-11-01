@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   ChevronRight,
   ChevronLeft,
@@ -15,7 +15,10 @@ import {
   FlaskConical,
   ArrowLeft,
   GitBranch,
+  Wand2,
   X,
+  Volume2,
+  AlertTriangle,
 } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import type {
@@ -32,9 +35,16 @@ import {
   formatStatusLabel,
 } from '../../services/dataset'
 import { MAX_EVIDENCE_ITEMS, validateEvidenceItems } from '../../utils/validation'
+import { suggestMoroccanArabizi } from '../../utils/arabiziTransliterator'
+import { computeEntryFingerprint } from '../../utils/corpusPinning'
+import { analyzeDarijaPhoneticsAndHomographs } from '../../utils/phoneticGuide'
+import { humanizeSystemError } from '../../utils/humanizeError'
 
 interface EntryDetailSheetProps {
   entry: LexicalEntry
+  allEntries: LexicalEntry[]
+  corpusVersion: string
+  canAccessEditorialTools: boolean
   currentIndex: number
   totalFiltered: number
   existingDraft?: LocalDraft
@@ -138,6 +148,9 @@ const EDITABLE_FIELD_GROUPS: Array<{
 
 export function EntryDetailSheet({
   entry,
+  allEntries,
+  corpusVersion,
+  canAccessEditorialTools,
   currentIndex,
   totalFiltered,
   existingDraft,
@@ -152,6 +165,10 @@ export function EntryDetailSheet({
   onRequireLogin,
   onSubmissionSuccess,
 }: EntryDetailSheetProps) {
+  const phoneticAnalysis = useMemo(
+    () => analyzeDarijaPhoneticsAndHomographs(entry, allEntries),
+    [entry, allEntries],
+  )
   const [form, setForm] = useState<ProposedFields>({})
   const [rightsConfirmed, setRightsConfirmed] = useState(false)
   const [trainingPermission, setTrainingPermission] = useState<DataPermission>('not_allowed')
@@ -201,7 +218,12 @@ export function EntryDetailSheet({
   const accessionCode = formatAccessionCode(entry.id, entry.numericId)
 
   const filledFieldsCount = Object.entries(form).filter(
-    ([key, v]) => key !== 'submission_kind' && typeof v === 'string' && v.trim() !== '',
+    ([key, v]) =>
+      key !== 'submission_kind' &&
+      key !== 'corpus_version' &&
+      key !== 'baseline_fingerprint' &&
+      typeof v === 'string' &&
+      v.trim() !== '',
   ).length
 
   function updateField(key: keyof ProposedFields, value: string) {
@@ -233,14 +255,20 @@ export function EntryDetailSheet({
   }
 
   function buildCleanProposedData(): ProposedFields {
-    const out: ProposedFields = { submission_kind: 'edit_entry' }
+    const out: ProposedFields = {
+      submission_kind: 'edit_entry',
+      corpus_version: corpusVersion,
+      baseline_fingerprint: computeEntryFingerprint(entry),
+    }
     for (const [k, v] of Object.entries(form)) {
       if (
         k === 'rights_holder' ||
         k === 'license' ||
         k === 'redistribution_permission' ||
         k === 'training_permission' ||
-        k === 'commercial_permission'
+        k === 'commercial_permission' ||
+        k === 'corpus_version' ||
+        k === 'baseline_fingerprint'
       ) {
         continue
       }
@@ -273,7 +301,7 @@ export function EntryDetailSheet({
     if (form.example_darija?.trim() && !form.example_arabizi?.trim()) {
       return {
         valid: false,
-        error: 'أدخل الكتابة اللاتينية (Arabizi) للشاهد السياقي الجديد حتى يتوافق مع مخطط context-schema.json.',
+        error: 'أدخل الكتابة اللاتينية (Arabizi) للشاهد السياقي الجديد لتسهيل قراءته وضبط نطقه.',
         cleanedEvidence: [],
       }
     }
@@ -390,9 +418,10 @@ export function EntryDetailSheet({
     }
 
     if (!supabase) {
+      handleSaveLocalDraft()
       setFeedback({
-        type: 'error',
-        text: 'اتصال Supabase غير مهيأ. يمكنك إرسال مقترحك إلى «طابور المحاكاة المحلي» أو حفظه كمسودة.',
+        type: 'info',
+        text: 'حُفظ تعديلك كمسودة محلية بأمان لعدم توفر اتصال بالخادم حالياً.',
       })
       return
     }
@@ -404,7 +433,7 @@ export function EntryDetailSheet({
     if (!user) {
       setFeedback({
         type: 'error',
-        text: 'يلزم تسجيل الدخول بحساب مراجع قبل إرسال المقترح إلى سجل التحكيم الحي.',
+        text: 'يرجى تسجيل الدخول أو إنشاء حساب لإرسال مقترحك باسمك، أو حفظه كمسودة محلية الآن.',
       })
       onRequireLogin()
       return
@@ -412,22 +441,33 @@ export function EntryDetailSheet({
 
     setBusy(true)
     setFeedback(null)
-    const insertPayload: Record<string, unknown> = {
+    const cleanProposed = buildCleanProposedData()
+    const baseInsert: Record<string, unknown> = {
       entry_id: entry.id,
-      proposed_data: buildCleanProposedData(),
+      proposed_data: cleanProposed,
       evidence: check.cleanedEvidence,
       reviewer_note: reviewerNote.trim() || null,
       status: 'pending',
     }
     if (activeRevision && !activeRevision.is_sandbox) {
-      insertPayload.supersedes_id = activeRevision.id
+      baseInsert.supersedes_id = activeRevision.id
     }
 
-    const { error } = await supabase.from('review_submissions').insert(insertPayload)
+    let insertRes = await supabase.from('review_submissions').insert({
+      ...baseInsert,
+      corpus_version: corpusVersion,
+      baseline_fingerprint: cleanProposed.baseline_fingerprint ?? null,
+    })
+    if (insertRes.error) {
+      insertRes = await supabase.from('review_submissions').insert(baseInsert)
+    }
     setBusy(false)
 
-    if (error) {
-      setFeedback({ type: 'error', text: `تعذر إرسال المقترح: ${error.message}` })
+    if (insertRes.error) {
+      setFeedback({
+        type: 'error',
+        text: humanizeSystemError(insertRes.error, 'تعذر إرسال المقترح حالياً. يرجى المحاولة لاحقاً.'),
+      })
       return
     }
 
@@ -444,8 +484,8 @@ export function EntryDetailSheet({
     setFeedback({
       type: 'success',
       text: wasRevision
-        ? 'تم تسجيل النسخة المنقحة في سجل التحكيم وربطها بالمقترح السابق عبر supersedes_id.'
-        : 'تم تسجيل المقترح في سجل التحكيم بحالة قيد المراجعة (pending). لا يتغير المعجم الرسمي إلا بعد اعتماد المحررين.',
+        ? 'تم إرسال النسخة المنقحة وربطها بمقترحك السابق للمراجعة.'
+        : 'تم إرسال المقترح بنجاح وهو الآن قيد المراجعة لدى اللجنة التحريرية.',
     })
     onSubmissionSuccess()
   }
@@ -513,16 +553,59 @@ export function EntryDetailSheet({
 
       {/* Headword Focal Anchor */}
       <div className="py-6 border-b border-[#E5DFD3] dark:border-[#2E2B27]">
-        <div className="flex flex-wrap items-baseline justify-between gap-4">
-          <h3 className="font-display text-3xl sm:text-4xl font-bold text-stone-900 dark:text-stone-100">
-            {entry.word}
-          </h3>
-          <span
-            dir="ltr"
-            className="font-mono text-base font-medium text-stone-600 dark:text-stone-300"
-          >
-            {entry.latin || '—'}
-          </span>
+        <div className="space-y-2.5">
+          <div className="flex flex-wrap items-baseline justify-between gap-4">
+            <h3 className="font-display text-3xl sm:text-4xl font-bold text-stone-900 dark:text-stone-100">
+              {entry.word}
+            </h3>
+            <span
+              dir="ltr"
+              className="font-mono text-base font-medium text-[#0F5C4E] dark:text-[#4FD1C5]"
+            >
+              {entry.latin || '—'}
+            </span>
+          </div>
+
+          {phoneticAnalysis.phoneticCues.length > 0 && (
+            <div className="flex flex-wrap items-center gap-2 text-xs text-stone-500 dark:text-stone-400">
+              <Volume2 className="h-3.5 w-3.5 shrink-0 text-[#0F5C4E] dark:text-[#4FD1C5]" aria-hidden="true" />
+              <span>دليل النطق:</span>
+              {phoneticAnalysis.phoneticCues.map((cue, idx) => (
+                <span key={cue.symbol} className="inline-flex items-center gap-1">
+                  {idx > 0 && <span aria-hidden="true">·</span>}
+                  <strong className="font-mono text-stone-800 dark:text-stone-200" dir="ltr">
+                    {cue.symbol}
+                  </strong>
+                  <span>= {cue.exampleNote}</span>
+                </span>
+              ))}
+            </div>
+          )}
+
+          {phoneticAnalysis.homographNotice && (
+            <div className="rounded-lg border border-amber-300/80 bg-amber-50/70 px-3.5 py-2.5 text-xs text-amber-950 dark:border-amber-800/50 dark:bg-amber-950/30 dark:text-amber-200">
+              <div className="flex items-start gap-2">
+                <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-700 dark:text-amber-400" aria-hidden="true" />
+                <p className="leading-relaxed">
+                  <strong className="font-semibold">تمييز المشترك اللفظي:</strong> يُقرأ هذا المدخل{' '}
+                  <span className="font-mono font-semibold" dir="ltr">
+                    {entry.latin}
+                  </span>
+                  ، ويختلف عن:{' '}
+                  {phoneticAnalysis.homographNotice.contrastReadings.map((sib, i) => (
+                    <span key={sib.latin + i}>
+                      {i > 0 ? ' أو ' : ''}
+                      <span className="font-mono font-semibold" dir="ltr">
+                        {sib.latin}
+                      </span>{' '}
+                      ({sib.meaningAr})
+                    </span>
+                  ))}
+                  .
+                </p>
+              </div>
+            </div>
+          )}
         </div>
 
         <dl className="mt-6 grid grid-cols-1 gap-y-5 sm:grid-cols-2 sm:gap-x-8 pt-5 border-t border-[#E5DFD3]/70 dark:border-[#2E2B27]">
@@ -673,7 +756,7 @@ export function EntryDetailSheet({
                 <GitBranch className="h-4 w-4 shrink-0 mt-0.5 text-amber-700 dark:text-amber-400" />
                 <div>
                   <p className="font-semibold">
-                    وضع إعداد نسخة منقحة تحل محل المقترح #{activeRevision.id.slice(0, 8)}
+                    إعداد نسخة منقحة لمقترحك السابق على هذا المدخل
                   </p>
                   {activeRevision.editor_note && (
                     <p className="mt-1 leading-relaxed">
@@ -718,23 +801,51 @@ export function EntryDetailSheet({
                 {group.groupTitle}
               </legend>
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                {group.fields.map((field) => (
-                  <label key={field.key} className="block">
-                    <span className="block text-xs text-stone-600 dark:text-stone-400">
-                      {field.label}
-                    </span>
-                    <input
-                      type="text"
-                      dir={field.dir}
-                      value={(form[field.key] as string | undefined) ?? ''}
-                      onChange={(e) => updateField(field.key, e.target.value)}
-                      placeholder={field.placeholder}
-                      className={`mt-1.5 w-full min-h-[40px] rounded-lg border border-[#D6CEBE] bg-[#FBF9F5] px-3.5 py-2 text-xs text-stone-900 placeholder:text-stone-400 focus:border-[#0F5C4E] focus:bg-white focus:outline-none dark:border-[#3A3530] dark:bg-[#141312] dark:text-stone-100 dark:focus:border-[#4FD1C5] ${
-                        field.dir === 'ltr' ? 'text-left font-mono' : ''
-                      }`}
-                    />
-                  </label>
-                ))}
+                {group.fields.map((field) => {
+                  const canAutoArabizi =
+                    field.key === 'arabizi' || field.key === 'example_arabizi'
+                  return (
+                    <div key={field.key} className="block">
+                      <div className="flex items-center justify-between gap-2">
+                        <label
+                          htmlFor={`detail-field-${field.key}`}
+                          className="block text-xs text-stone-600 dark:text-stone-400"
+                        >
+                          {field.label}
+                        </label>
+                        {canAutoArabizi && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const sourceAr =
+                                field.key === 'arabizi'
+                                  ? (form.word_ar?.trim() || entry.word)
+                                  : (form.example_darija?.trim() || '')
+                              if (sourceAr) {
+                                updateField(field.key, suggestMoroccanArabizi(sourceAr))
+                              }
+                            }}
+                            className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#0F5C4E] hover:underline whitespace-nowrap cursor-pointer dark:text-[#4FD1C5]"
+                          >
+                            <Wand2 className="h-3 w-3" />
+                            <span>توليد تلقائي</span>
+                          </button>
+                        )}
+                      </div>
+                      <input
+                        id={`detail-field-${field.key}`}
+                        type="text"
+                        dir={field.dir}
+                        value={(form[field.key] as string | undefined) ?? ''}
+                        onChange={(e) => updateField(field.key, e.target.value)}
+                        placeholder={field.placeholder}
+                        className={`mt-1.5 w-full min-h-[40px] rounded-lg border border-[#D6CEBE] bg-[#FBF9F5] px-3.5 py-2 text-xs text-stone-900 placeholder:text-stone-400 focus:border-[#0F5C4E] focus:bg-white focus:outline-none dark:border-[#3A3530] dark:bg-[#141312] dark:text-stone-100 dark:focus:border-[#4FD1C5] ${
+                          field.dir === 'ltr' ? 'text-left font-mono' : ''
+                        }`}
+                      />
+                    </div>
+                  )
+                })}
               </div>
             </fieldset>
           ))}
@@ -841,7 +952,7 @@ export function EntryDetailSheet({
                   className="mt-0.5 h-4 w-4 accent-[#0F5C4E] shrink-0"
                 />
                 <span className="text-xs leading-relaxed text-stone-700 dark:text-stone-300">
-                  أقرّ بأن التعديل أو الشاهد المضاف من صياغتي الأصلية أو من استعمال لغوي عام غير منقول حرفياً من مصدر محمي، وأملك حق إتاحته ضمن CC BY-NC 4.0 (إن تُرك دون تأكيد تبقى بيانات الحقوق <span className="font-mono">unknown</span> لحين المراجعة البشرية).
+                  أقرّ بأن التعديل أو الشاهد المضاف من صياغتي الأصلية أو من استعمال لغوي عام غير منقول حرفياً من مصدر محمي، وأملك حق إتاحته ضمن رخصة المعجم المفتوحة CC BY-NC 4.0.
                 </span>
               </label>
             </div>
@@ -861,14 +972,16 @@ export function EntryDetailSheet({
               <span>{busy ? 'جارٍ الإرسال...' : 'إرسال للمراجعة'}</span>
             </button>
 
-            <button
-              type="button"
-              onClick={handleSendToSandbox}
-              className="inline-flex min-h-[42px] items-center gap-2 rounded-lg border border-[#0F5C4E]/40 bg-[#FBF9F5] px-4 py-2.5 text-xs font-semibold text-[#0F5C4E] hover:bg-[#EFECE4] transition-colors whitespace-nowrap shrink-0 cursor-pointer dark:border-[#4FD1C5]/40 dark:bg-[#141312] dark:text-[#4FD1C5]"
-            >
-              <FlaskConical className="h-3.5 w-3.5" aria-hidden="true" />
-              <span>تجربة في المحاكاة</span>
-            </button>
+            {canAccessEditorialTools && (
+              <button
+                type="button"
+                onClick={handleSendToSandbox}
+                className="inline-flex min-h-[42px] items-center gap-2 rounded-lg border border-[#0F5C4E]/40 bg-[#FBF9F5] px-4 py-2.5 text-xs font-semibold text-[#0F5C4E] hover:bg-[#EFECE4] transition-colors whitespace-nowrap shrink-0 cursor-pointer dark:border-[#4FD1C5]/40 dark:bg-[#141312] dark:text-[#4FD1C5]"
+              >
+                <FlaskConical className="h-3.5 w-3.5" aria-hidden="true" />
+                <span>تجربة في المحاكاة التحريرية</span>
+              </button>
+            )}
 
             <button
               type="button"
@@ -910,7 +1023,7 @@ export function EntryDetailSheet({
               )}
               <span>{feedback.text}</span>
             </div>
-            {feedback.showSandboxJump && (
+            {feedback.showSandboxJump && canAccessEditorialTools && (
               <button
                 type="button"
                 onClick={onOpenModerationSandbox}

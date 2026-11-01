@@ -10,6 +10,7 @@ import {
   ArrowLeft,
   FlaskConical,
   GitBranch,
+  Wand2,
   X,
 } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
@@ -37,10 +38,17 @@ import {
   validateEvidenceItems,
 } from '../../utils/validation'
 import { formatAccessionCode } from '../../services/dataset'
+import {
+  buildCorpusArabiziLookup,
+  suggestMoroccanArabizi,
+} from '../../utils/arabiziTransliterator'
+import { humanizeSystemError } from '../../utils/humanizeError'
 
 interface NewEntryProposalPanelProps {
   entries: LexicalEntry[]
   categories: string[]
+  corpusVersion: string
+  canAccessEditorialTools: boolean
   activeDraft?: LocalDraft | null
   onClearActiveDraft?: () => void
   revisionTarget?: SubmissionRecord | null
@@ -62,6 +70,8 @@ interface NewEntryProposalPanelProps {
 export function NewEntryProposalPanel({
   entries,
   categories,
+  corpusVersion,
+  canAccessEditorialTools,
   activeDraft,
   onClearActiveDraft,
   revisionTarget,
@@ -102,6 +112,8 @@ export function NewEntryProposalPanel({
     text: string
     showSandboxJump?: boolean
   } | null>(null)
+
+  const corpusArabiziLookup = useMemo(() => buildCorpusArabiziLookup(entries), [entries])
 
   useEffect(() => {
     if (!activeDraft) return
@@ -203,6 +215,7 @@ export function NewEntryProposalPanel({
       redistribution_permission: rightsConfirmed ? 'allowed' : 'unknown',
       training_permission: rightsConfirmed ? trainingPermission : 'unknown',
       commercial_permission: rightsConfirmed ? 'not_allowed' : 'unknown',
+      corpus_version: corpusVersion,
     }
   }
 
@@ -242,7 +255,7 @@ export function NewEntryProposalPanel({
     if (!frenchTranslation.trim()) {
       return {
         valid: false,
-        error: 'أدخل المقابل باللغة الفرنسية (مطلوب في مخطط المعجم الرسمي schema.json).',
+        error: 'أدخل المقابل باللغة الفرنسية لاستكمال بطاقة المفردة المعيارية.',
         cleanedEvidence: [],
       }
     }
@@ -256,7 +269,7 @@ export function NewEntryProposalPanel({
     if (!isValidArabizi(exampleArabizi)) {
       return {
         valid: false,
-        error: 'أدخل الكتابة اللاتينية (Arabizi) لجملة الشاهد حتى يتوافق مع مخطط context-schema.json.',
+        error: 'أدخل الكتابة اللاتينية (Arabizi) لجملة الشاهد السياقي.',
         cleanedEvidence: [],
       }
     }
@@ -378,9 +391,10 @@ export function NewEntryProposalPanel({
     }
 
     if (!supabase) {
+      handleSaveLocalDraft()
       setFeedback({
-        type: 'error',
-        text: 'اتصال Supabase غير مهيأ. يمكنك إرسال المفردة إلى «طابور المحاكاة المحلي» لتجربة دورة التحكيم والتصدير كاملة.',
+        type: 'info',
+        text: 'حُفظت المفردة المقترحة في مسوداتك المحلية بأمان لعدم توفر اتصال بالخادم حالياً.',
       })
       return
     }
@@ -392,7 +406,7 @@ export function NewEntryProposalPanel({
     if (!user) {
       setFeedback({
         type: 'error',
-        text: 'يلزم تسجيل الدخول بحساب مراجع لإرسال المفردة إلى قاعدة بيانات التحكيم، أو استخدم زر المحاكاة المحلية للتجربة.',
+        text: 'يرجى تسجيل الدخول أو إنشاء حساب مجاني لإرسال المفردة الجديدة باسمك، أو حفظها كمسودة محلية الآن.',
       })
       onRequireLogin()
       return
@@ -400,22 +414,32 @@ export function NewEntryProposalPanel({
 
     setBusy(true)
     setFeedback(null)
-    const insertPayload: Record<string, unknown> = {
+    const proposedPayload = buildProposedData()
+    const baseInsert: Record<string, unknown> = {
       entry_id: 'NEW',
-      proposed_data: buildProposedData(),
+      proposed_data: proposedPayload,
       evidence: check.cleanedEvidence,
       reviewer_note: reviewerNote.trim() || null,
       status: 'pending',
     }
     if (revisionTarget && !revisionTarget.is_sandbox) {
-      insertPayload.supersedes_id = revisionTarget.id
+      baseInsert.supersedes_id = revisionTarget.id
     }
 
-    const { error } = await supabase.from('review_submissions').insert(insertPayload)
+    let insertRes = await supabase.from('review_submissions').insert({
+      ...baseInsert,
+      corpus_version: corpusVersion,
+    })
+    if (insertRes.error) {
+      insertRes = await supabase.from('review_submissions').insert(baseInsert)
+    }
     setBusy(false)
 
-    if (error) {
-      setFeedback({ type: 'error', text: `تعذر إرسال المقترح: ${error.message}` })
+    if (insertRes.error) {
+      setFeedback({
+        type: 'error',
+        text: humanizeSystemError(insertRes.error, 'تعذر إرسال المفردة حالياً. يرجى المحاولة لاحقاً.'),
+      })
       return
     }
 
@@ -425,8 +449,8 @@ export function NewEntryProposalPanel({
     setFeedback({
       type: 'success',
       text: wasRevision
-        ? 'تم إرسال النسخة المنقحة للمفردة الجديدة وربطها بالمقترح السابق عبر supersedes_id.'
-        : 'تم إرسال المفردة الجديدة إلى سجل التحكيم بحالة قيد المراجعة (pending) تمهيداً لفحصها من قِبل المحررين.',
+        ? 'تم إرسال النسخة المنقحة للمفردة الجديدة وربطها بمقترحك السابق للمراجعة.'
+        : 'تم إرسال المفردة الجديدة بنجاح وهي الآن قيد المراجعة لدى المحررين اللغويين.',
     })
     onSubmissionSuccess()
   }
@@ -435,19 +459,19 @@ export function NewEntryProposalPanel({
     <div className="rounded-xl border border-[#E5DFD3] bg-white p-5 sm:p-8 dark:border-[#2E2B27] dark:bg-[#1C1A18]">
       <div className="pb-6 border-b border-[#E5DFD3] dark:border-[#2E2B27]">
         <p className="text-xs font-semibold text-[#0F5C4E] dark:text-[#4FD1C5]">
-          إثراء المتن المعجمي · متوافق مع مخطط schema.json الرسمي
+          إثراء المتن المعجمي المفتوح
         </p>
         <h3 className="mt-1.5 font-display text-xl sm:text-2xl font-bold text-stone-900 dark:text-stone-100">
-          اقتراح مفردة أو عبارة مغربية جديدة
+          إضافة مفردة أو عبارة مغربية جديدة
         </h3>
         <p className="mt-1.5 max-w-[68ch] text-xs sm:text-sm leading-relaxed text-stone-600 dark:text-stone-400">
-          أضف مفردة أو تعبيراً اصطلاحياً غير مدرج في المتن الحالي، مع التحقق التلقائي من عدم التكرار واستيفاء الحقول الإلزامية والشاهد السياقي وإقرار حقوق المصدر.
+          اقترح مفردة أو تعبيراً متداولاً غير مدرج في المعجم الحالي، مع مثال طبيعي بالدارجة وتوضيح المعنى بالعربية والفرنسية.
         </p>
 
         {/* Quiet Arabizi Reference Bar */}
         <div className="mt-4 pt-3.5 border-t border-[#E5DFD3]/70 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs text-stone-600 dark:border-[#2E2B27] dark:text-stone-400">
           <span className="font-semibold text-stone-800 dark:text-stone-200">
-            مرجع رموز Arabizi القياسي:
+            مرجع رموز النطق الصوتي (Arabizi):
           </span>
           {ARABIZI_CONVENTIONS.map((item, idx) => (
             <span key={item.symbol} className="inline-flex items-center gap-1.5">
@@ -472,7 +496,7 @@ export function NewEntryProposalPanel({
               <GitBranch className="h-4 w-4 shrink-0 mt-0.5 text-amber-700 dark:text-amber-400" />
               <div>
                 <p className="font-semibold">
-                  إعداد نسخة منقحة للمفردة الجديدة (تحل محل #{revisionTarget.id.slice(0, 8)})
+                  إعداد نسخة منقحة لمقترحك السابق («{revisionTarget.proposed_data?.word_ar || 'مفردة جديدة'}»)
                 </p>
                 {revisionTarget.editor_note && (
                   <p className="mt-1 leading-relaxed">
@@ -560,11 +584,29 @@ export function NewEntryProposalPanel({
               />
             </label>
 
-            <label className="block">
-              <span className="block text-xs text-stone-600 dark:text-stone-400">
-                الكتابة اللاتينية (Arabizi) *
-              </span>
+            <div className="block">
+              <div className="flex items-center justify-between gap-2">
+                <label
+                  htmlFor="new-entry-arabizi"
+                  className="block text-xs text-stone-600 dark:text-stone-400"
+                >
+                  الكتابة اللاتينية (Arabizi) *
+                </label>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (wordAr.trim()) {
+                      setArabizi(suggestMoroccanArabizi(wordAr, corpusArabiziLookup))
+                    }
+                  }}
+                  className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#0F5C4E] hover:underline whitespace-nowrap cursor-pointer dark:text-[#4FD1C5]"
+                >
+                  <Wand2 className="h-3 w-3" />
+                  <span>توليد تلقائي</span>
+                </button>
+              </div>
               <input
+                id="new-entry-arabizi"
                 type="text"
                 dir="ltr"
                 value={arabizi}
@@ -572,7 +614,7 @@ export function NewEntryProposalPanel({
                 placeholder="dghya"
                 className="mt-1.5 w-full min-h-[40px] rounded-lg border border-[#D6CEBE] bg-[#FBF9F5] px-3.5 py-2 font-mono text-xs text-left text-stone-900 focus:border-[#0F5C4E] focus:bg-white focus:outline-none dark:border-[#3A3530] dark:bg-[#141312] dark:text-stone-100"
               />
-            </label>
+            </div>
 
             <label className="block">
               <span className="block text-xs text-stone-600 dark:text-stone-400">
@@ -717,11 +759,31 @@ export function NewEntryProposalPanel({
               />
             </label>
 
-            <label className="block">
-              <span className="block text-xs text-stone-600 dark:text-stone-400">
-                الكتابة اللاتينية للجملة (Arabizi) *
-              </span>
+            <div className="block">
+              <div className="flex items-center justify-between gap-2">
+                <label
+                  htmlFor="new-example-arabizi"
+                  className="block text-xs text-stone-600 dark:text-stone-400"
+                >
+                  الكتابة اللاتينية للجملة (Arabizi) *
+                </label>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (exampleDarija.trim()) {
+                      setExampleArabizi(
+                        suggestMoroccanArabizi(exampleDarija, corpusArabiziLookup),
+                      )
+                    }
+                  }}
+                  className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#0F5C4E] hover:underline whitespace-nowrap cursor-pointer dark:text-[#4FD1C5]"
+                >
+                  <Wand2 className="h-3 w-3" />
+                  <span>توليد تلقائي</span>
+                </button>
+              </div>
               <input
+                id="new-example-arabizi"
                 type="text"
                 dir="ltr"
                 value={exampleArabizi}
@@ -729,7 +791,7 @@ export function NewEntryProposalPanel({
                 placeholder="salit lkhdma dghya w jit."
                 className="mt-1.5 w-full min-h-[40px] rounded-lg border border-[#D6CEBE] bg-[#FBF9F5] px-3.5 py-2 font-mono text-xs text-left text-stone-900 focus:border-[#0F5C4E] focus:bg-white focus:outline-none dark:border-[#3A3530] dark:bg-[#141312] dark:text-stone-100"
               />
-            </label>
+            </div>
 
             <label className="block">
               <span className="block text-xs text-stone-600 dark:text-stone-400">
@@ -784,7 +846,7 @@ export function NewEntryProposalPanel({
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <label className="block">
               <span className="block text-xs text-stone-600 dark:text-stone-400">
-                طبيعة المصدر (source_type)
+                طبيعة المصدر
               </span>
               <select
                 value={sourceType}
@@ -909,17 +971,19 @@ export function NewEntryProposalPanel({
               className="inline-flex min-h-[42px] items-center gap-2 rounded-lg bg-[#0F5C4E] px-5 py-2.5 text-xs font-semibold text-white hover:bg-[#0B463B] disabled:opacity-50 whitespace-nowrap shrink-0 cursor-pointer dark:bg-[#147A67]"
             >
               <Send className="h-3.5 w-3.5" aria-hidden="true" />
-              <span>{busy ? 'جارٍ الإرسال...' : 'إرسال إلى سجل التحكيم'}</span>
+              <span>{busy ? 'جارٍ الإرسال...' : 'إرسال للمراجعة'}</span>
             </button>
 
-            <button
-              type="button"
-              onClick={handleSendToSandbox}
-              className="inline-flex min-h-[42px] items-center gap-2 rounded-lg border border-[#0F5C4E]/40 bg-[#FBF9F5] px-4 py-2.5 text-xs font-semibold text-[#0F5C4E] hover:bg-[#EFECE4] whitespace-nowrap shrink-0 cursor-pointer dark:border-[#4FD1C5]/40 dark:bg-[#141312] dark:text-[#4FD1C5]"
-            >
-              <FlaskConical className="h-3.5 w-3.5" aria-hidden="true" />
-              <span>تجربة في طابور المحاكاة المحلي</span>
-            </button>
+            {canAccessEditorialTools && (
+              <button
+                type="button"
+                onClick={handleSendToSandbox}
+                className="inline-flex min-h-[42px] items-center gap-2 rounded-lg border border-[#0F5C4E]/40 bg-[#FBF9F5] px-4 py-2.5 text-xs font-semibold text-[#0F5C4E] hover:bg-[#EFECE4] whitespace-nowrap shrink-0 cursor-pointer dark:border-[#4FD1C5]/40 dark:bg-[#141312] dark:text-[#4FD1C5]"
+              >
+                <FlaskConical className="h-3.5 w-3.5" aria-hidden="true" />
+                <span>تجربة في المحاكاة التحريرية</span>
+              </button>
+            )}
 
             <button
               type="button"
@@ -951,7 +1015,7 @@ export function NewEntryProposalPanel({
               )}
               <span>{feedback.text}</span>
             </div>
-            {feedback.showSandboxJump && (
+            {feedback.showSandboxJump && canAccessEditorialTools && (
               <button
                 type="button"
                 onClick={onOpenModerationSandbox}

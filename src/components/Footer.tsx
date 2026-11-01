@@ -3,9 +3,18 @@ import { Moon, Sun } from 'lucide-react'
 interface FooterProps {
   darkMode: boolean
   onToggleDarkMode: () => void
+  isStaffRole: boolean
+  editorialPreviewMode: boolean
+  onToggleEditorialPreview: () => void
 }
 
-export function Footer({ darkMode, onToggleDarkMode }: FooterProps) {
+export function Footer({
+  darkMode,
+  onToggleDarkMode,
+  isStaffRole,
+  editorialPreviewMode,
+  onToggleEditorialPreview,
+}: FooterProps) {
   return (
     <footer className="border-t border-[#E5DFD3] bg-[#F3EFE6]/60 dark:border-[#2E2B27] dark:bg-[#141312]">
       <div className="mx-auto flex max-w-[1280px] flex-col gap-6 px-5 py-10 sm:px-8 md:flex-row md:items-center md:justify-between">
@@ -14,11 +23,11 @@ export function Footer({ darkMode, onToggleDarkMode }: FooterProps) {
             ArCode Standard · Darija LexReview
           </p>
           <p className="mt-1 text-xs text-stone-600 dark:text-stone-400">
-            نبني البنية التحتية المعيارية المفتوحة لمعالجة اللغات واللهجات العربية. كود المنصة مرخص بموجب MIT؛ يخضع المتن المعجمي لرخصة مستودع البيانات الرسمي.
+            البنية التحتية المعيارية المفتوحة لتدقيق وتوثيق معجم الدارجة المغربية. كود المنصة مرخص بموجب MIT؛ يخضع المتن المعجمي لرخصة مستودع البيانات الرسمي.
           </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-5 text-xs text-stone-600 dark:text-stone-400 shrink-0">
+        <div className="flex flex-wrap items-center gap-4 text-xs text-stone-600 dark:text-stone-400 shrink-0">
           <a
             href="https://github.com/ArCode-Standard/moroccan-darija-dataset"
             target="_blank"
@@ -36,6 +45,22 @@ export function Footer({ darkMode, onToggleDarkMode }: FooterProps) {
           >
             مستودع المنصة
           </a>
+          {!isStaffRole && (
+            <>
+              <span aria-hidden="true">·</span>
+              <button
+                type="button"
+                onClick={onToggleEditorialPreview}
+                className={`hover:underline whitespace-nowrap cursor-pointer ${
+                  editorialPreviewMode
+                    ? 'font-semibold text-[#0F5C4E] dark:text-[#4FD1C5]'
+                    : 'text-stone-500 hover:text-stone-800 dark:text-stone-400 dark:hover:text-stone-200'
+                }`}
+              >
+                {editorialPreviewMode ? 'إغلاق معاينة بيئة المحررين' : 'معاينة بيئة المحررين'}
+              </button>
+            </>
+          )}
           <span aria-hidden="true">·</span>
           <button
             type="button"

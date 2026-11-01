@@ -8,7 +8,8 @@ interface HeroSectionProps {
   categoriesCount: number
   examplesCount: number
   dataMode: DataMode
-  onStartReview: () => void
+  onStartRapidReview: () => void
+  onStartDetailedReview: () => void
 }
 
 export function HeroSection({
@@ -16,7 +17,8 @@ export function HeroSection({
   categoriesCount,
   examplesCount,
   dataMode,
-  onStartReview,
+  onStartRapidReview,
+  onStartDetailedReview,
 }: HeroSectionProps) {
   const [imgFailed, setImgFailed] = useState(false)
 
@@ -38,7 +40,7 @@ export function HeroSection({
             </h1>
 
             <p className="mt-6 max-w-[65ch] text-base leading-[1.8] text-stone-600 dark:text-stone-300 dark:tracking-[0.01em]">
-              بيئة تحريرية متخصصة لتمكين الباحثين والمراجعين من فحص المداخل المعجمية، وتدقيق الضبط الكتابي بالعربية وArabizi، وربط كل دلالة بشواهد سياقية موثقة قبل رفعها للاعتماد في المستودع الرسمي.
+              شارك في تدقيق المفردات ببطاقات سريعة (نعم / لا / تصحيح فوري مع توليد تلقائي للـ Arabizi)، أو افحص المتن التفصيلي وحكّم المقترحات قبل تصديرها للمستودع الرسمي.
             </p>
           </div>
 
@@ -46,19 +48,20 @@ export function HeroSection({
             <div className="flex flex-wrap items-center gap-4">
               <button
                 type="button"
-                onClick={onStartReview}
+                onClick={onStartRapidReview}
                 className="inline-flex min-h-[44px] items-center justify-center gap-2.5 rounded-lg bg-[#0F5C4E] px-6 py-2.5 text-sm font-semibold text-white transition-colors duration-150 hover:bg-[#0B463B] whitespace-nowrap shrink-0 cursor-pointer dark:bg-[#147A67] dark:hover:bg-[#0F5C4E] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0F5C4E]"
               >
-                <span>ابدأ فحص المدخلات</span>
+                <span>ابدأ المراجعة السريعة (نعم / لا)</span>
                 <ArrowLeft className="h-4 w-4" aria-hidden="true" />
               </button>
 
-              <a
-                href="#method"
-                className="inline-flex min-h-[44px] items-center justify-center rounded-lg border border-[#D6CEBE] bg-white px-5 py-2.5 text-sm font-medium text-stone-800 transition-colors duration-150 hover:bg-[#F3EFE6] whitespace-nowrap shrink-0 dark:border-[#3A3530] dark:bg-[#1C1A18] dark:text-stone-200 dark:hover:bg-[#262320]"
+              <button
+                type="button"
+                onClick={onStartDetailedReview}
+                className="inline-flex min-h-[44px] items-center justify-center rounded-lg border border-[#D6CEBE] bg-white px-5 py-2.5 text-sm font-medium text-stone-800 transition-colors duration-150 hover:bg-[#F3EFE6] whitespace-nowrap shrink-0 cursor-pointer dark:border-[#3A3530] dark:bg-[#1C1A18] dark:text-stone-200 dark:hover:bg-[#262320]"
               >
-                استعرض معايير التحقق
-              </a>
+                الفحص التفصيلي للمعجم
+              </button>
             </div>
 
             <div className="mt-5 flex flex-wrap items-center gap-2 text-xs text-stone-500 dark:text-stone-400">
