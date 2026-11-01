@@ -271,9 +271,13 @@ select is(
 );
 
 -- A merged submission is terminal and cannot be reopened through the editor update path.
+-- Keep the editor JWT identity, but execute as the migration-test owner so
+-- RLS visibility cannot turn the UPDATE into a silent zero-row no-op. The
+-- lifecycle trigger still evaluates auth.uid() and the editor profile.
 set local role authenticated;
 select set_config('request.jwt.claim.sub','10000000-0000-4000-8000-000000000002',true);
 select set_config('request.jwt.claim.role','authenticated',true);
+reset role;
 select throws_ok(
   $test$ update public.review_submissions
      set status = 'accepted'
@@ -282,7 +286,6 @@ select throws_ok(
   'Invalid review status transition: merged -> accepted',
   'merged submissions cannot be reopened'
 );
-reset role;
 
 -- Official release manifests are an append-only audit ledger.
 select ok(
