@@ -1,5 +1,5 @@
 # ArCode Darija LexReview
-<img width="944" height="431" alt="image" src="https://github.com/user-attachments/assets/a0ef85ab-43c0-44b5-b4b5-d1346975f4a1" />
+<img width="1200" height="896" alt="Gemini_Generated_Image_ytlljdytlljdytll" src="https://github.com/user-attachments/assets/497edff1-37ed-4d74-acb2-fa55753ea4ac" />
 
 
 منصة مراجعة لغوية تعاونية قائمة على الأدلة لتحسين بيانات الدارجة المغربية، من تطوير **ArCode Standard**.
