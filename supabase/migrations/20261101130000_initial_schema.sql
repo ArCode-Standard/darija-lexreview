@@ -295,9 +295,13 @@ alter table public.review_submissions enable row level security;
 alter table public.role_promotion_requests enable row level security;
 
 drop policy if exists "reviewers read own profile" on public.reviewer_profiles;
+drop policy if exists "admins read contributor profiles" on public.reviewer_profiles;
 create policy "reviewers read own profile"
 on public.reviewer_profiles for select to authenticated
-using (id = (select auth.uid()) or (select private.is_lexreview_editor()));
+using (
+  id = (select auth.uid())
+  or (select private.is_lexreview_admin())
+);
 
 drop policy if exists "reviewers create own profile" on public.reviewer_profiles;
 create policy "reviewers create own profile"
