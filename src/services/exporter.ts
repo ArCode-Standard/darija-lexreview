@@ -152,7 +152,7 @@ export function isNewEntrySubmission(sub: SubmissionRecord): boolean {
 
 /**
  * Deterministically merges accepted submissions onto a deep clone of the official corpus
- * and runs strict schema.json + context-schema.json validation.
+ * and runs internal structural checks. This is not a substitute for JSON Schema validation.
  */
 export function buildOfficialExportBundle(
   rawCorpus: RawOfficialCorpus,
@@ -545,7 +545,7 @@ export function buildOfficialExportBundle(
     examples_count: examplesClone.length,
   }
 
-  // Run strict self-audit against schema.json & context-schema.json
+  // Run internal structural self-audit; the official JSON Schema validator must run separately.
   const schemaAuditIssues = auditGeneratedSchemas(
     entriesClone,
     examplesClone,
