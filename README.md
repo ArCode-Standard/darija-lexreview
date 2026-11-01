@@ -38,10 +38,10 @@ VITE_SUPABASE_PUBLISHABLE_KEY=YOUR_SUPABASE_PUBLISHABLE_KEY
 نفّذ الملفات بالترتيب التالي في SQL Editor داخل Supabase:
 
 1. للمشروع الجديد فقط: [supabase/schema.sql](supabase/schema.sql) لإنشاء الجداول وسياسات RLS الأساسية.
-2. طبّق ملفات [supabase/migrations](supabase/migrations) بالترتيب التصاعدي لأسمائها، بما فيها `20261101130441_security_governance_hardening.sql` و`20261101130559_audit_actor_index.sql` و`20261101131000_rbac_promotions_and_profiles.sql` و`20261101132000_close_governance_gaps.sql`.
+2. طبّق ملفات [supabase/migrations](supabase/migrations) بالترتيب التصاعدي لأسمائها، بما فيها `20261101130441_security_governance_hardening.sql` و`20261101130559_audit_actor_index.sql` و`20261101131000_rbac_promotions_and_profiles.sql` و`20261101132000_close_governance_gaps.sql`، ثم بقية الترحيلات اللاحقة بالترتيب، بما فيها `20261101180000_immutable_release_ledger.sql`.
 3. للمشروع القائم الذي سبق تطبيق المخطط الأساسي عليه: لا تُعد تشغيل المخطط الأساسي؛ طبّق ملفات الترحيل الجديدة غير المسجلة فقط وبالترتيب.
 
-لا تفتح استقبال المساهمات العامة قبل تطبيق الترحيلات والتحقق من الصلاحيات بحسابات اختبار منفصلة.
+لا تفتح استقبال المساهمات العامة قبل تطبيق جميع الترحيلات والتحقق من الصلاحيات بحسابات اختبار منفصلة. سجل الإصدارات الرسمي append-only: لا يمكن إعادة استخدام رقم إصدار سابق أو تعديل/حذف سجل إصدار؛ يجب نشر رقم إصدار جديد عند التصحيح.
 
 ## سير المراجعة
 
