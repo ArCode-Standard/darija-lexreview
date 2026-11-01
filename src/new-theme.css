@@ -1,0 +1,21 @@
+:root {
+  /* OpenDesign Tokens - Dark Mode */
+  --bg: #201d1d;
+  --surface: #302c2c;
+  --fg: #fdfcfc;
+  --accent: #007aff;
+  --accent-hover: #0056b3;
+  --success: #30d158;
+  --warn: #ff9f0a;
+  --danger: #ff3b30;
+  --line: #464343;
+}
+
+/* Overriding Legacy Classes with Tokens */
+body { background-color: var(--bg) !important; color: var(--fg) !important; }
+.card, .detail, .word-list { background-color: var(--surface) !important; border-color: var(--line) !important; }
+.topbar { background-color: var(--bg) !important; border-bottom: 1px solid var(--line) !important; }
+.primary { background-color: var(--accent) !important; }
+.primary:hover { background-color: var(--accent-hover) !important; }
+.entry { background-color: var(--surface) !important; border-bottom: 1px solid var(--line) !important; }
+.entry.active { background-color: var(--surface) !important; border-right: 3px solid var(--accent) !important; }
