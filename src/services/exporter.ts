@@ -200,7 +200,17 @@ export function buildOfficialExportBundle(
     }
   }
 
-  const touchedEntryIds = new Map<number, string[]>()
+  const acceptedEditCounts = new Map<number, number>()
+  for (const candidate of sortedSubs) {
+    if (candidate.status !== 'accepted' || isNewEntrySubmission(candidate)) continue
+    const targetId = Number.parseInt(candidate.entry_id, 10)
+    if (!Number.isNaN(targetId)) acceptedEditCounts.set(targetId, (acceptedEditCounts.get(targetId) ?? 0) + 1)
+  }
+  const conflictedEditIds = new Set([...acceptedEditCounts.entries()].filter(([, count]) => count > 1).map(([id]) => id))
+  for (const id of conflictedEditIds) {
+    conflictsCount += 1
+    issues.push({ severity: 'error', target: 'conflict', itemRef: 'LEX-' + String(id).padStart(4, '0'), message: 'توجد عدة مقترحات معتمدة للمدخل نفسه. أُوقفت جميعها حتى تسوية التعارض.' })
+  }
   const modifiedEntriesMap = new Map<number, Record<string, unknown>>()
   const addedEntries: Array<Record<string, unknown>> = []
   const addedExamples: Array<Record<string, unknown>> = []
@@ -238,7 +248,7 @@ export function buildOfficialExportBundle(
       if (existingId !== undefined) {
         conflictsCount += 1
         issues.push({
-          severity: 'warning',
+          severity: 'error',
           target: 'conflict',
           itemRef: `${wordAr} (LEX-${String(existingId).padStart(4, '0')})`,
           message: `المفردة الجديدة «${wordAr}» تطابق مدخلاً موجوداً في نفس الفئة (#${existingId}). تأكد من كونها معنىً مغايراً.`,
@@ -256,11 +266,11 @@ export function buildOfficialExportBundle(
       const provenanceObj: Record<string, unknown> = {
         source_type: sourceType,
         source_name: (p.source_name ?? '').trim() || 'Darija LexReview — مساهمة مراجعة',
-        rights_holder: 'ArCode Standard Contributors',
-        redistribution_permission: 'allowed',
-        training_permission: 'allowed',
-        commercial_permission: 'not_allowed',
-        license: 'CC BY-NC 4.0',
+        rights_holder: 'unknown',
+        redistribution_permission: 'unknown',
+        training_permission: 'unknown',
+        commercial_permission: 'unknown',
+        license: 'unknown',
         accessed_at: reviewedDate,
       }
       if (firstSafeUrl) {
@@ -322,11 +332,11 @@ export function buildOfficialExportBundle(
           const exProv: Record<string, unknown> = {
             source_type: sourceType,
             source_name: (p.source_name ?? '').trim() || 'Darija LexReview — مساهمة مراجعة',
-            rights_holder: 'ArCode Standard Contributors',
-            redistribution_permission: 'allowed',
-            training_permission: 'allowed',
-            commercial_permission: 'not_allowed',
-            license: 'CC BY-NC 4.0',
+            rights_holder: 'unknown',
+            redistribution_permission: 'unknown',
+            training_permission: 'unknown',
+            commercial_permission: 'unknown',
+            license: 'unknown',
             accessed_at: reviewedDate,
           }
           if (firstSafeUrl) exProv.source_url = firstSafeUrl
@@ -382,18 +392,7 @@ export function buildOfficialExportBundle(
         continue
       }
 
-      const prevSubs = touchedEntryIds.get(targetNumId) ?? []
-      if (prevSubs.length > 0) {
-        conflictsCount += 1
-        issues.push({
-          severity: 'warning',
-          target: 'conflict',
-          itemRef: `LEX-${String(targetNumId).padStart(4, '0')}`,
-          message: `يوجد أكثر من مقترح معتمد لنفس المدخل (#${targetNumId}). تم تطبيق التعديلات بترتيب زمني تصاعدي بحيث يسود الاعتماد الأحدث.`,
-        })
-      }
-      prevSubs.push(sub.id)
-      touchedEntryIds.set(targetNumId, prevSubs)
+      if (conflictedEditIds.has(targetNumId)) continue
 
       const existing = { ...entriesClone[targetIdx] }
 
@@ -422,11 +421,11 @@ export function buildOfficialExportBundle(
           ? { ...(existing.provenance as Record<string, unknown>) }
           : {
               source_type: 'original',
-              rights_holder: 'ArCode Standard',
-              redistribution_permission: 'allowed',
-              training_permission: 'allowed',
-              commercial_permission: 'not_allowed',
-              license: 'CC BY-NC 4.0',
+              rights_holder: 'unknown',
+              redistribution_permission: 'unknown',
+              training_permission: 'unknown',
+              commercial_permission: 'unknown',
+              license: 'unknown',
             }
 
       if (firstSafeUrl && !existingProv.source_url) {
@@ -772,6 +771,8 @@ function generatePullRequestMarkdown(params: {
 }): string {
   return `## تحديث المعجم الرسمي — الإصدار ${params.targetVersion} (عبر Darija LexReview)
 
+> هذا وصف آلي وليس شهادة اجتياز أو موافقة قانونية. لا تدمج التغييرات قبل إكمال عناصر التحقق أعلاه.
+
 ### ملخص الدفعة المعتمدة
 - **مداخل معجمية مُحدَّثة ومُدقَّقة**: ${params.modifiedCount}
 - **مفردات جديدة مضافة إلى المتن**: ${params.addedEntriesCount}
@@ -780,11 +781,11 @@ function generatePullRequestMarkdown(params: {
 - **إجمالي شواهد \`context-examples.json\` بعد الدمج**: ${params.totalExamples}
 
 ### التحقق والضبط المعياري
-- [x] اجتازت جميع المداخل والشواهد فحص مطابقة \`schema.json\` و\`context-schema.json\` (\`additionalProperties: false\`).
-- [x] تمت مراجعة الشواهد ومصادر التحقق بشرياً من قِبل محرر مخوّل.
-- [x] تم التحقق من توافق بيانات المصدر مع رخصة \`CC BY-NC 4.0\`.
+- [ ] يجب تشغيل مدقق JSON Schema الرسمي وتوثيق نتيجته قبل الدمج.
+- [ ] يجب توثيق مراجعة بشرية مستقلة لكل مدخل وشاهد.
+- [ ] يجب التحقق من حقوق المصدر والترخيص؛ القيم غير المعروفة لا تمنح أي إذن.
 
-### معرفات المقترحات المدمجة (${params.appliedIds.length})
+### معرفات المقترحات المشمولة (${params.appliedIds.length})
 ${params.appliedIds.length > 0 ? params.appliedIds.map((id) => `- \`${id}\``).join('\n') : '- لا توجد مقترحات مدمجة بعد'}
 `
 }
