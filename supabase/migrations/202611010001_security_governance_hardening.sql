@@ -43,6 +43,7 @@ begin
   end if;
 
   if tg_op = 'INSERT' then
+    actor := coalesce(actor, new.reviewer_id);
     insert into public.review_decision_events (
       submission_id, actor_id, event_type, previous_status,
       new_status, editor_note, submission_snapshot
