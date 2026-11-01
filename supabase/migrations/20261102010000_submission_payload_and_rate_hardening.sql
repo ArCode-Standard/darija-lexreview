@@ -1,5 +1,6 @@
 -- Tighten server-side submission payload limits and make per-user rate limiting concurrency-safe.
--- Existing data must pass validation before this migration is deployed to production.
+-- The existing BEFORE INSERT trigger from the governance migration invokes this function.
+-- Existing production data is validated before the constraints are accepted.
 
 begin;
 
@@ -9,7 +10,15 @@ alter table public.review_submissions
   add constraint review_submissions_proposed_data_size_check
     check (pg_column_size(proposed_data) < 20000) not valid,
   add constraint review_submissions_evidence_count_check
-    check (jsonb_typeof(evidence) = 'array' and jsonb_array_length(evidence) <= 5) not valid;
+    check (
+      case
+        when jsonb_typeof(evidence) = 'array'
+          then jsonb_array_length(evidence) <= 5
+        else false
+      end
+    ) not valid,
+  add constraint review_submissions_evidence_size_check
+    check (pg_column_size(evidence) < 20000) not valid;
 
 alter table public.review_submissions
   validate constraint review_submissions_entry_id_length_check;
@@ -17,6 +26,8 @@ alter table public.review_submissions
   validate constraint review_submissions_proposed_data_size_check;
 alter table public.review_submissions
   validate constraint review_submissions_evidence_count_check;
+alter table public.review_submissions
+  validate constraint review_submissions_evidence_size_check;
 
 create or replace function private.enforce_submission_rate_and_bounds()
 returns trigger
@@ -25,25 +36,31 @@ security definer
 set search_path = ''
 as $$
 declare
-  v_actor uuid := coalesce((select auth.uid()), new.reviewer_id);
+  v_actor uuid := (select auth.uid());
   v_recent_count integer;
   v_parent_reviewer uuid;
 begin
-  if v_actor is null then
+  -- Never infer the caller from client-supplied row data. PostgREST requests
+  -- must carry an authenticated Supabase identity.
+  if v_actor is null or new.reviewer_id is distinct from v_actor then
     raise exception 'Authenticated contributor required'
       using errcode = '42501';
   end if;
 
   -- Serialize concurrent inserts for the same contributor so parallel requests
   -- cannot race past the rolling-hour limit.
-  perform pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtext(v_actor::text));
-
-  new.reviewer_id := v_actor;
+  perform pg_catalog.pg_advisory_xact_lock(
+    pg_catalog.hashtextextended(v_actor::text, 0)
+  );
 
   if char_length(pg_catalog.btrim(new.entry_id)) not between 1 and 40
      or pg_catalog.pg_column_size(new.proposed_data) >= 20000
-     or pg_catalog.jsonb_typeof(new.evidence) <> 'array'
-     or pg_catalog.jsonb_array_length(new.evidence) > 5 then
+     or pg_catalog.pg_column_size(new.evidence) >= 20000
+     or case
+          when pg_catalog.jsonb_typeof(new.evidence) = 'array'
+            then pg_catalog.jsonb_array_length(new.evidence) > 5
+          else true
+        end then
     raise exception 'Submission payload exceeds the permitted bounds'
       using errcode = '23514';
   end if;
