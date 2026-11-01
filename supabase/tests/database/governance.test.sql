@@ -221,7 +221,7 @@ set local role authenticated;
 select set_config('request.jwt.claim.sub','10000000-0000-4000-8000-000000000001',true);
 select set_config('request.jwt.claim.role','authenticated',true);
 select throws_ok(
-  $ select public.mark_submissions_exported('{}'::uuid[], 'ci-export-1') $,
+  $test$ select public.mark_submissions_exported('{}'::uuid[], 'ci-export-1') $test$,
   '42501',
   'Editor role required to archive exported submissions',
   'contributor cannot invoke the export RPC'
@@ -275,9 +275,9 @@ set local role authenticated;
 select set_config('request.jwt.claim.sub','10000000-0000-4000-8000-000000000002',true);
 select set_config('request.jwt.claim.role','authenticated',true);
 select throws_ok(
-  $ update public.review_submissions
+  $test$ update public.review_submissions
      set status = 'accepted'
-     where entry_id = 'ci-entry-export' $,
+     where entry_id = 'ci-entry-export' $test$,
   '23514',
   'Invalid review status transition: merged -> accepted',
   'merged submissions cannot be reopened'
