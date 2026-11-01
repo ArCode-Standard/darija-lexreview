@@ -1,7 +1,7 @@
 begin;
 
 create extension if not exists pgtap with schema extensions;
-select plan(25);
+select plan(31);
 
 -- All fixtures are synthetic and live only in this disposable CI database.
 insert into auth.users (
@@ -208,6 +208,81 @@ select is(
 );
 reset role;
 
+
+
+-- Export RPC is authenticated-editor only and archives accepted submissions atomically.
+select ok(
+  not has_function_privilege('anon','public.mark_submissions_exported(uuid[],text)','EXECUTE'),
+  'anonymous users cannot execute the export RPC'
+);
+
+-- Contributors may not archive submissions, even when the function is directly invoked.
+set local role authenticated;
+select set_config('request.jwt.claim.sub','10000000-0000-4000-8000-000000000001',true);
+select set_config('request.jwt.claim.role','authenticated',true);
+select throws_ok(
+  $ select public.mark_submissions_exported('{}'::uuid[], 'ci-export-1') $,
+  '42501',
+  'Editor role required to archive exported submissions',
+  'contributor cannot invoke the export RPC'
+);
+reset role;
+
+-- Create a fresh contributor submission, accept it as editor, then export it.
+set local role authenticated;
+select set_config('request.jwt.claim.sub','10000000-0000-4000-8000-000000000001',true);
+select set_config('request.jwt.claim.role','authenticated',true);
+insert into public.review_submissions(entry_id, proposed_data, evidence, reviewer_note)
+values ('ci-entry-export','{"lemma":"كتاب"}','[]','export lifecycle fixture');
+reset role;
+
+set local role authenticated;
+select set_config('request.jwt.claim.sub','10000000-0000-4000-8000-000000000002',true);
+select set_config('request.jwt.claim.role','authenticated',true);
+update public.review_submissions
+set status = 'accepted'
+where entry_id = 'ci-entry-export';
+
+select is(
+  public.mark_submissions_exported(
+    array(select id from public.review_submissions where entry_id = 'ci-entry-export'),
+    'ci-export-1'
+  ),
+  1,
+  'editor export RPC reports one archived submission'
+);
+reset role;
+
+select is(
+  (select status from public.review_submissions where entry_id = 'ci-entry-export'),
+  'merged',
+  'exported accepted submission transitions to merged'
+);
+select is(
+  (select count(*)::integer
+   from public.review_decision_events e
+   join public.review_submissions s on s.id = e.submission_id
+   where s.entry_id = 'ci-entry-export'
+     and e.event_type = 'decision'
+     and e.previous_status = 'accepted'
+     and e.new_status = 'merged'),
+  1,
+  'export transition appends exactly one accepted-to-merged audit event'
+);
+
+-- A merged submission is terminal and cannot be reopened through the editor update path.
+set local role authenticated;
+select set_config('request.jwt.claim.sub','10000000-0000-4000-8000-000000000002',true);
+select set_config('request.jwt.claim.role','authenticated',true);
+select throws_ok(
+  $ update public.review_submissions
+     set status = 'accepted'
+     where entry_id = 'ci-entry-export' $,
+  '23514',
+  'Invalid review status transition: merged -> accepted',
+  'merged submissions cannot be reopened'
+);
+reset role;
 
 -- Official release manifests are an append-only audit ledger.
 select ok(
