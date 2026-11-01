@@ -93,7 +93,7 @@ begin
 
   return new;
 end;
-$;
+$$;
 
 revoke all on function private.enforce_submission_rate_and_bounds()
   from public, anon, authenticated, service_role;
