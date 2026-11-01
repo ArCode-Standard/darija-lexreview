@@ -969,7 +969,11 @@ export default function App() {
             />
           )}
 
-          {workbenchTab === 'profile' && userEmail && (\n            <ContributorProfilePanel profile={reviewerProfile} userEmail={userEmail} onProfileSaved={syncUserSession} />\n          )}\n\n          {workbenchTab === 'moderation' && canAccessEditorialTools && (
+          {workbenchTab === 'profile' && userEmail && (
+            <ContributorProfilePanel profile={reviewerProfile} userEmail={userEmail} onProfileSaved={syncUserSession} />
+          )}
+
+          {workbenchTab === 'moderation' && canAccessEditorialTools && (
             <EditorModerationPanel
               entries={entries}
               categories={categories}
