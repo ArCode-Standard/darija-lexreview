@@ -393,7 +393,7 @@ export function DatasetExporterPanel({
                     المصدر:{' '}
                     {schemaReport.schemaSource === 'official_github'
                       ? 'مستودع ArCode-Standard الحي'
-                      : 'المخطط المعياري المضمن'}
+                      : 'تعذر الوصول إلى المخطط الرسمي — التنزيل معطّل'}
                   </span>
                 </div>
               ) : schemaReport ? (
