@@ -149,13 +149,13 @@ export function DatasetExporterPanel({
         <div className="flex flex-wrap items-start justify-between gap-4 pb-6 border-b border-[#E5DFD3] dark:border-[#2E2B27]">
           <div>
             <p className="text-xs font-semibold text-[#0F5C4E] dark:text-[#4FD1C5]">
-              جسر الدمج مع GitHub · التحقق الهيكلي الآلي (schema.json & context-schema.json)
+              جسر التصدير إلى المعجم الرسمي · فحوص بنيوية وحقوق إعادة الاستخدام
             </p>
             <h3 className="mt-1.5 font-display text-xl sm:text-2xl font-bold text-stone-900 dark:text-stone-100">
               مُصدِّر التعديلات المعتمدة إلى المعجم الرسمي
             </h3>
             <p className="mt-1.5 max-w-[68ch] text-xs sm:text-sm leading-relaxed text-stone-600 dark:text-stone-400">
-              يدمج المقترحات المعتمدة تحريرياً فوق نسخة المعجم الرسمية دون فقدان أي حقل أرشيفي، ويعيد حساب فهارس الفئات والمعرفات المتسلسلة، ويتحقق من مطابقة كل سجل لمخطط المستودع قبل التنزيل.
+              يدمج المقترحات المعتمدة فوق نسخة المعجم الرسمية، ويعيد حساب الفهارس والمعرفات، ويجري فحوصاً بنيوية داخلية. يتطلب التصدير أيضاً توثيق حقوق إعادة الاستخدام ومراجعتها بشرياً؛ هذه الفحوص ليست بديلاً عن مدقق JSON Schema الرسمي.
             </p>
           </div>
 
@@ -255,7 +255,7 @@ export function DatasetExporterPanel({
               <div className="flex items-center gap-2 text-xs font-bold text-red-900 dark:text-red-200">
                 <AlertCircle className="h-4 w-4 shrink-0" />
                 <span>
-                  أوقف الفاحص الهيكلي عملية التصدير لوجود {errorIssues.length} خطأ يخالف مخطط JSON الرسمي:
+                  أوقف نظام التحقق عملية التصدير لوجود {errorIssues.length} خطأ بنيوي أو نقص في توثيق الحقوق:
                 </span>
               </div>
               <ul className="space-y-1 ps-6 list-disc text-xs text-red-900 dark:text-red-200">
@@ -271,7 +271,7 @@ export function DatasetExporterPanel({
               <div className="flex items-center gap-2 text-xs font-semibold text-emerald-950 dark:text-emerald-200">
                 <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-700 dark:text-emerald-400" />
                 <span>
-                  اجتازت الحزمة فحص المطابقة الصارم مع schema.json وcontext-schema.json بنجاح (0 أخطاء هيكلية).
+                  اجتازت الحزمة الفحوص البنيوية الداخلية واكتملت بيانات الحقوق المطلوبة. هذا لا يغني عن تشغيل مدقق JSON Schema أو المراجعة القانونية البشرية قبل الدمج.
                 </span>
               </div>
               {warningIssues.length > 0 && (
