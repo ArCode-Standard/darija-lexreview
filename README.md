@@ -1,4 +1,6 @@
 # ArCode Darija LexReview
+<img width="944" height="431" alt="image" src="https://github.com/user-attachments/assets/a0ef85ab-43c0-44b5-b4b5-d1346975f4a1" />
+
 
 منصة مراجعة لغوية تعاونية قائمة على الأدلة لتحسين بيانات الدارجة المغربية، من تطوير **ArCode Standard**.
 
