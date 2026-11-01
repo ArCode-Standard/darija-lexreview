@@ -12,6 +12,7 @@ import {
 } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import type {
+  DataPermission,
   EntryType,
   EvidenceItem,
   LexicalEntry,
@@ -81,6 +82,7 @@ export function NewEntryProposalPanel({
   const [sourceType, setSourceType] = useState<SourceType>('contributor')
   const [sourceName, setSourceName] = useState('')
   const [rightsConfirmed, setRightsConfirmed] = useState(false)
+  const [trainingPermission, setTrainingPermission] = useState<DataPermission>('not_allowed')
 
   const [evidenceList, setEvidenceList] = useState<EvidenceItem[]>([{ url: '', note: '' }])
   const [reviewerNote, setReviewerNote] = useState('')
@@ -111,6 +113,7 @@ export function NewEntryProposalPanel({
     if (p.source_type) setSourceType(p.source_type)
     setSourceName(p.source_name ?? '')
     setRightsConfirmed(Boolean(p.rights_confirmed))
+    setTrainingPermission(p.training_permission ?? 'not_allowed')
     setEvidenceList(
       activeDraft.evidence.length > 0 ? activeDraft.evidence : [{ url: '', note: '' }],
     )
@@ -157,6 +160,11 @@ export function NewEntryProposalPanel({
       source_type: sourceType,
       source_name: sourceName.trim() || 'مساهمة ميدانية عبر Darija LexReview',
       rights_confirmed: rightsConfirmed,
+      rights_holder: rightsConfirmed ? 'contributor' : 'unknown',
+      license: rightsConfirmed ? 'CC BY-NC 4.0' : 'unknown',
+      redistribution_permission: rightsConfirmed ? 'allowed' : 'unknown',
+      training_permission: rightsConfirmed ? trainingPermission : 'unknown',
+      commercial_permission: rightsConfirmed ? 'not_allowed' : 'unknown',
     }
   }
 
@@ -263,6 +271,7 @@ export function NewEntryProposalPanel({
     setExampleFrench('')
     setSourceName('')
     setRightsConfirmed(false)
+    setTrainingPermission('not_allowed')
     setEvidenceList([{ url: '', note: '' }])
     setReviewerNote('')
   }
@@ -712,6 +721,24 @@ export function NewEntryProposalPanel({
             </label>
           </div>
 
+          <label className="block max-w-xl">
+            <span className="block text-xs text-stone-600 dark:text-stone-400">
+              إذن استخدام المساهمة في تدريب نماذج الذكاء الاصطناعي
+            </span>
+            <select
+              value={trainingPermission}
+              onChange={(e) => setTrainingPermission(e.target.value as DataPermission)}
+              className="mt-1.5 w-full min-h-[40px] rounded-lg border border-[#D6CEBE] bg-[#FBF9F5] px-3 py-2 text-xs text-stone-900 focus:border-[#0F5C4E] focus:outline-none dark:border-[#3A3530] dark:bg-[#141312] dark:text-stone-100"
+            >
+              <option value="not_allowed">غير مسموح</option>
+              <option value="allowed">مسموح</option>
+              <option value="not_applicable">لا ينطبق</option>
+            </select>
+            <span className="mt-1 block text-[11px] leading-relaxed text-stone-500 dark:text-stone-400">
+              يُسجل هذا الإذن بشكل مستقل عن رخصة إعادة التوزيع. الخيار الافتراضي يمنع استخدام المساهمة في التدريب.
+            </span>
+          </label>
+
           <div className="space-y-2.5">
             {evidenceList.map((ev, index) => (
               <div key={index} className="grid grid-cols-1 gap-2.5 sm:grid-cols-12 items-start">
@@ -775,7 +802,7 @@ export function NewEntryProposalPanel({
               className="mt-0.5 h-4 w-4 accent-[#0F5C4E] shrink-0"
             />
             <span className="text-xs leading-relaxed text-stone-700 dark:text-stone-300">
-              أقرّ بأن المفردة والتعريف وجملة الشاهد المقترحة من صياغتي الأصلية أو من استعمال لغوي عام غير منقول حرفياً من معجم محمي بحقوق نشر، وأوافق على إتاحتها ضمن رخصة المتن الرسمي (CC BY-NC 4.0).
+              أقرّ بأن المفردة والتعريف وجملة الشاهد من صياغتي الأصلية أو من استعمال لغوي عام غير منقول حرفياً من مصدر محمي، وأملك حق إتاحتها ضمن CC BY-NC 4.0. أسمح بإعادة التوزيع وفق شروط الرخصة، ولا أمنح إذناً بالاستخدام التجاري.
             </span>
           </label>
         </fieldset>
