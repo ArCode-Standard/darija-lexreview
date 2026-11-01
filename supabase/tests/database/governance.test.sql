@@ -1,7 +1,7 @@
 begin;
 
 create extension if not exists pgtap with schema extensions;
-select plan(11);
+select plan(18);
 
 -- All fixtures are synthetic and live only in this disposable CI database.
 insert into auth.users (
@@ -140,6 +140,68 @@ select is(
   'self-review rejection leaves submission pending'
 );
 reset role;
+
+
+-- Official release manifests are an append-only audit ledger.
+select ok(
+  exists (
+    select 1 from pg_trigger
+    where tgrelid = 'public.release_manifests'::regclass
+      and tgname = 'release_manifests_append_only'
+      and not tgisinternal
+  ),
+  'release manifest table has an append-only mutation trigger'
+);
+select ok(
+  not has_table_privilege('authenticated','public.release_manifests','UPDATE'),
+  'authenticated cannot update release manifests directly'
+);
+select ok(
+  not has_table_privilege('authenticated','public.release_manifests','DELETE'),
+  'authenticated cannot delete release manifests directly'
+);
+
+set local role authenticated;
+select set_config('request.jwt.claim.sub','10000000-0000-4000-8000-000000000003',true);
+select set_config('request.jwt.claim.role','authenticated',true);
+select public.record_release_manifest(
+  'ci-2026.11.1',
+  repeat('a',64),
+  repeat('b',64),
+  1, 0, 0, 0, 0,
+  '{}'::uuid[]
+);
+select throws_ok(
+  $$ select public.record_release_manifest(
+    'ci-2026.11.1',
+    repeat('c',64),
+    repeat('d',64),
+    2, 0, 0, 0, 0,
+    '{}'::uuid[]
+  ) $$,
+  '23505',
+  'Release version ci-2026.11.1 already exists; release manifests are immutable. Publish a new version instead.',
+  're-registering an existing release version is rejected'
+);
+reset role;
+
+select throws_ok(
+  $$ update public.release_manifests set notes = 'tampered' where version = 'ci-2026.11.1' $$,
+  '55000',
+  'Official release manifests are immutable; create a new version instead.',
+  'release manifest updates are rejected by the database trigger'
+);
+select throws_ok(
+  $$ delete from public.release_manifests where version = 'ci-2026.11.1' $$,
+  '55000',
+  'Official release manifests are immutable; create a new version instead.',
+  'release manifest deletion is rejected by the database trigger'
+);
+select is(
+  (select count(*)::integer from public.release_manifests where version = 'ci-2026.11.1'),
+  1,
+  'the original release manifest remains unchanged after rejected mutations'
+);
 
 select * from finish();
 rollback;
