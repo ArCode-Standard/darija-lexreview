@@ -259,25 +259,25 @@ export function ModerationAnalyticsDashboard({
     }
   }, [filteredSubmissions, editorNamesMap])
 
-  const axisColor = isDark ? '#A8A29E' : '#57534E'
-  const gridColor = isDark ? '#2E2B27' : '#E5DFD3'
-  const tealColor = isDark ? '#2DD4BF' : '#0F5C4E'
-  const stoneBarColor = isDark ? '#78716C' : '#8C8273'
-  const amberColor = isDark ? '#F59E0B' : '#B45309'
-  const redColor = isDark ? '#F87171' : '#B91C1C'
+  const axisColor = isDark ? '#A1A1AA' : '#52525B'
+  const gridColor = isDark ? 'rgba(255,255,255,0.08)' : '#E4E4E7'
+  const tealColor = isDark ? '#D9FF43' : '#047857'
+  const stoneBarColor = isDark ? '#52525B' : '#A1A1AA'
+  const amberColor = isDark ? '#FBBF24' : '#D97706'
+  const redColor = isDark ? '#FF3B2F' : '#DC2626'
 
   return (
     <section
       aria-label="لوحة إحصائيات نشاط المحررين"
-      className="rounded-xl border border-[#E5DFD3] bg-white p-5 sm:p-6 dark:border-[#2E2B27] dark:bg-[#1C1A18]"
+      className="rounded-2xl border border-zinc-200 bg-white p-5 sm:p-6 dark:border-white/10 dark:bg-[#0C0C10]"
     >
       {/* Header & Controls */}
-      <div className="flex flex-wrap items-center justify-between gap-4 pb-5 border-b border-[#E5DFD3] dark:border-[#2E2B27]">
+      <div className="flex flex-wrap items-center justify-between gap-4 pb-5 border-b border-zinc-200 dark:border-white/10">
         <div>
-          <p className="text-xs font-semibold text-[#0F5C4E] dark:text-[#4FD1C5]">
+          <p className="font-mono text-[11px] font-semibold uppercase tracking-wider text-emerald-700 dark:text-[#D9FF43]">
             مؤشرات الأداء التحريري · {queueSource === 'live' ? 'سجل Supabase الحي' : 'بيئة المحاكاة التحريرية'}
           </p>
-          <h4 className="mt-1 font-display text-base sm:text-lg font-bold text-stone-900 dark:text-stone-100">
+          <h4 className="mt-1 font-display text-base sm:text-lg font-bold text-zinc-950 dark:text-white">
             لوحة إحصائيات التحكيم وزمن استجابة المحررين
           </h4>
         </div>
@@ -286,7 +286,7 @@ export function ModerationAnalyticsDashboard({
           <div
             role="group"
             aria-label="النطاق الزمني للإحصائيات"
-            className="inline-flex items-center gap-1 rounded-lg border border-[#E5DFD3] bg-[#F3EFE6] p-1 dark:border-[#2E2B27] dark:bg-[#141312]"
+            className="inline-flex items-center gap-1 rounded-full border border-zinc-200 bg-zinc-100 p-1 dark:border-white/12 dark:bg-[#07070A]"
           >
             {(
               [
@@ -299,10 +299,10 @@ export function ModerationAnalyticsDashboard({
                 key={val}
                 type="button"
                 onClick={() => setRange(val)}
-                className={`min-h-[30px] rounded-md px-2.5 py-1 text-xs font-medium transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
+                className={`min-h-[30px] rounded-full px-3 py-1 text-xs font-semibold transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
                   range === val
-                    ? 'bg-white text-stone-900 shadow-2xs dark:bg-[#2A2622] dark:text-stone-100'
-                    : 'text-stone-600 hover:text-stone-900 dark:text-stone-400'
+                    ? 'bg-zinc-950 text-white dark:bg-[#D9FF43] dark:text-[#050507]'
+                    : 'text-zinc-600 hover:text-zinc-950 dark:text-zinc-400 dark:hover:text-white'
                 }`}
               >
                 {label}
@@ -313,7 +313,7 @@ export function ModerationAnalyticsDashboard({
           <button
             type="button"
             onClick={() => setCollapsed((c) => !c)}
-            className="inline-flex min-h-[36px] items-center gap-1.5 rounded-lg border border-[#D6CEBE] bg-[#FBF9F5] px-3 py-1.5 text-xs font-medium text-stone-700 hover:bg-[#EFECE4] whitespace-nowrap shrink-0 cursor-pointer dark:border-[#3A3530] dark:bg-[#141312] dark:text-stone-300"
+            className="inline-flex min-h-[36px] items-center gap-1.5 rounded-full border border-zinc-300 bg-zinc-50 px-3.5 py-1.5 text-xs font-medium text-zinc-700 hover:bg-zinc-100 whitespace-nowrap shrink-0 cursor-pointer dark:border-white/15 dark:bg-[#07070A] dark:text-zinc-300 dark:hover:border-white/30"
           >
             {collapsed ? (
               <>
@@ -331,28 +331,28 @@ export function ModerationAnalyticsDashboard({
       </div>
 
       {/* 4-Column Operational KPI Strip */}
-      <dl className="grid grid-cols-2 gap-y-5 py-5 lg:grid-cols-4 border-b border-[#E5DFD3] dark:border-[#2E2B27]">
-        <div className="pe-4 lg:border-e lg:border-[#E5DFD3] lg:dark:border-[#2E2B27]">
-          <dt className="text-xs text-stone-500 dark:text-stone-400">
+      <dl className="grid grid-cols-2 gap-y-5 py-5 lg:grid-cols-4 border-b border-zinc-200 dark:border-white/10">
+        <div className="pe-4 lg:border-e lg:border-zinc-200 lg:dark:border-white/10">
+          <dt className="text-xs text-zinc-500 dark:text-zinc-400">
             إجمالي المداخل المقترحة
           </dt>
-          <dd className="mt-1.5 font-mono text-2xl font-semibold tabular-nums text-stone-900 dark:text-stone-100">
+          <dd className="mt-1.5 font-mono text-2xl font-semibold tabular-nums text-zinc-950 dark:text-white">
             {analytics.total.toLocaleString('en-US')}
           </dd>
-          <p className="mt-1 text-[11px] text-stone-500 dark:text-stone-400">
+          <p className="mt-1 text-[11px] text-zinc-500 dark:text-zinc-400">
             تعديل: <span className="font-mono tabular-nums">{analytics.existingEditsProposed}</span> · جديدة:{' '}
             <span className="font-mono tabular-nums">{analytics.newEntriesProposed}</span>
           </p>
         </div>
 
-        <div className="ps-4 lg:px-6 lg:border-e lg:border-[#E5DFD3] lg:dark:border-[#2E2B27]">
-          <dt className="text-xs text-stone-500 dark:text-stone-400">
+        <div className="ps-4 lg:px-6 lg:border-e lg:border-zinc-200 lg:dark:border-white/10">
+          <dt className="text-xs text-zinc-500 dark:text-zinc-400">
             المداخل المعتمدة للدمج
           </dt>
-          <dd className="mt-1.5 font-mono text-2xl font-semibold tabular-nums text-[#0F5C4E] dark:text-[#4FD1C5]">
+          <dd className="mt-1.5 font-mono text-2xl font-semibold tabular-nums text-emerald-700 dark:text-[#D9FF43]">
             {analytics.accepted.toLocaleString('en-US')}
           </dd>
-          <p className="mt-1 text-[11px] text-stone-500 dark:text-stone-400">
+          <p className="mt-1 text-[11px] text-zinc-500 dark:text-zinc-400">
             معدل الاعتماد:{' '}
             <span className="font-mono tabular-nums">{analytics.acceptanceRate}%</span>
             {analytics.merged > 0 ? (
@@ -366,27 +366,27 @@ export function ModerationAnalyticsDashboard({
           </p>
         </div>
 
-        <div className="pe-4 pt-4 border-t border-[#E5DFD3] lg:pt-0 lg:border-t-0 lg:px-6 lg:border-e lg:border-[#E5DFD3] dark:border-[#2E2B27] lg:dark:border-[#2E2B27]">
-          <dt className="text-xs text-stone-500 dark:text-stone-400">
+        <div className="pe-4 pt-4 border-t border-zinc-200 lg:pt-0 lg:border-t-0 lg:px-6 lg:border-e lg:border-zinc-200 dark:border-white/10 lg:dark:border-white/10">
+          <dt className="text-xs text-zinc-500 dark:text-zinc-400">
             بانتظار التحكيم أو التعديل
           </dt>
-          <dd className="mt-1.5 font-mono text-2xl font-semibold tabular-nums text-stone-900 dark:text-stone-100">
+          <dd className="mt-1.5 font-mono text-2xl font-semibold tabular-nums text-zinc-950 dark:text-white">
             {analytics.pending.toLocaleString('en-US')}
           </dd>
-          <p className="mt-1 text-[11px] text-stone-500 dark:text-stone-400">
+          <p className="mt-1 text-[11px] text-zinc-500 dark:text-zinc-400">
             للتعديل: <span className="font-mono tabular-nums">{analytics.needsChanges}</span> · مرفوض:{' '}
             <span className="font-mono tabular-nums">{analytics.rejected}</span>
           </p>
         </div>
 
-        <div className="ps-4 pt-4 border-t border-[#E5DFD3] lg:pt-0 lg:border-t-0 lg:ps-6 dark:border-[#2E2B27]">
-          <dt className="text-xs text-stone-500 dark:text-stone-400">
+        <div className="ps-4 pt-4 border-t border-zinc-200 lg:pt-0 lg:border-t-0 lg:ps-6 dark:border-white/10">
+          <dt className="text-xs text-zinc-500 dark:text-zinc-400">
             متوسط زمن استجابة المحررين
           </dt>
-          <dd className="mt-1.5 font-display text-2xl font-bold tabular-nums text-stone-900 dark:text-stone-100">
+          <dd className="mt-1.5 font-display text-2xl font-bold tabular-nums text-zinc-950 dark:text-white">
             {formatDurationArabic(analytics.avgResponseHours)}
           </dd>
-          <p className="mt-1 text-[11px] text-stone-500 dark:text-stone-400">
+          <p className="mt-1 text-[11px] text-zinc-500 dark:text-zinc-400">
             الوسيط الزمني: {formatDurationArabic(analytics.medianResponseHours)}
           </p>
         </div>
@@ -396,7 +396,7 @@ export function ModerationAnalyticsDashboard({
       {!collapsed && (
         <div className="pt-6 space-y-8">
           {filteredSubmissions.length === 0 ? (
-            <div className="py-10 text-center text-xs text-stone-500 dark:text-stone-400">
+            <div className="py-10 text-center text-xs text-zinc-500 dark:text-zinc-400">
               لا توجد بيانات مقترحات مسجلة ضمن النطاق الزمني المحدد لعرض الرسوم البيانية.
             </div>
           ) : (
@@ -405,13 +405,13 @@ export function ModerationAnalyticsDashboard({
               <div className="grid grid-cols-1 gap-8 lg:grid-cols-12">
                 <div className="lg:col-span-7 min-w-0">
                   <div className="flex flex-wrap items-baseline justify-between gap-2 mb-3">
-                    <h5 className="text-xs font-semibold text-stone-800 dark:text-stone-200">
+                    <h5 className="text-xs font-semibold text-zinc-800 dark:text-zinc-200">
                       التدفق اليومي للمقترحات مقابل الاعتمادات
                     </h5>
-                    <div className="flex items-center gap-3 text-[11px] text-stone-500 dark:text-stone-400">
+                    <div className="flex items-center gap-3 text-[11px] text-zinc-500 dark:text-zinc-400">
                       <span>المقترحات الواردة</span>
                       <span aria-hidden="true">·</span>
-                      <span className="font-semibold text-[#0F5C4E] dark:text-[#4FD1C5]">
+                      <span className="font-semibold text-emerald-700 dark:text-[#D9FF43]">
                         المداخل المعتمدة
                       </span>
                     </div>
@@ -458,24 +458,24 @@ export function ModerationAnalyticsDashboard({
                             return (
                               <div
                                 dir="rtl"
-                                className="rounded-lg border border-[#D6CEBE] bg-[#FBF9F5] px-3 py-2 text-xs shadow-sm dark:border-[#3A3530] dark:bg-[#141312]"
+                                className="rounded-xl border border-zinc-200 bg-white px-3 py-2 text-xs shadow-lg dark:border-white/15 dark:bg-[#07070A]"
                               >
-                                <p className="font-mono font-semibold text-stone-900 dark:text-stone-100">
+                                <p className="font-mono font-semibold text-zinc-950 dark:text-white">
                                   {row.dateKey}
                                 </p>
-                                <p className="mt-1 text-stone-600 dark:text-stone-300">
+                                <p className="mt-1 text-zinc-600 dark:text-zinc-300">
                                   مقترحات واردة:{' '}
                                   <span className="font-mono font-semibold tabular-nums">
                                     {row.proposed}
                                   </span>
                                 </p>
-                                <p className="text-[#0F5C4E] dark:text-[#4FD1C5]">
+                                <p className="text-emerald-700 dark:text-[#D9FF43]">
                                   مداخل معتمدة:{' '}
                                   <span className="font-mono font-semibold tabular-nums">
                                     {row.accepted}
                                   </span>
                                 </p>
-                                <p className="text-stone-500 dark:text-stone-400">
+                                <p className="text-zinc-500 dark:text-zinc-400">
                                   إجمالي المحسوم:{' '}
                                   <span className="font-mono tabular-nums">{row.decided}</span>
                                 </p>
@@ -506,12 +506,12 @@ export function ModerationAnalyticsDashboard({
                   </div>
                 </div>
 
-                <div className="lg:col-span-5 min-w-0 lg:border-s lg:border-[#E5DFD3] lg:ps-8 lg:dark:border-[#2E2B27]">
+                <div className="lg:col-span-5 min-w-0 lg:border-s lg:border-zinc-200 lg:ps-8 lg:dark:border-white/10">
                   <div className="flex flex-wrap items-baseline justify-between gap-2 mb-3">
-                    <h5 className="text-xs font-semibold text-stone-800 dark:text-stone-200">
+                    <h5 className="text-xs font-semibold text-zinc-800 dark:text-zinc-200">
                       حالات التحكيم حسب نوع المساهمة
                     </h5>
-                    <span className="text-[11px] text-stone-500 dark:text-stone-400">
+                    <span className="text-[11px] text-zinc-500 dark:text-zinc-400">
                       تعديل مدخل مقابل مفردة جديدة
                     </span>
                   </div>
@@ -540,7 +540,7 @@ export function ModerationAnalyticsDashboard({
                           tickLine={false}
                         />
                         <Tooltip
-                          cursor={{ fill: isDark ? '#262320' : '#F3EFE6' }}
+                          cursor={{ fill: isDark ? 'rgba(255,255,255,0.04)' : '#F4F4F5' }}
                           content={({ active, payload }) => {
                             if (!active || !payload || payload.length === 0) return null
                             const row = payload[0]?.payload as {
@@ -553,23 +553,23 @@ export function ModerationAnalyticsDashboard({
                             return (
                               <div
                                 dir="rtl"
-                                className="rounded-lg border border-[#D6CEBE] bg-[#FBF9F5] px-3 py-2 text-xs shadow-sm space-y-0.5 dark:border-[#3A3530] dark:bg-[#141312]"
+                                className="rounded-xl border border-zinc-200 bg-white px-3 py-2 text-xs shadow-lg space-y-0.5 dark:border-white/15 dark:bg-[#07070A]"
                               >
-                                <p className="font-display font-bold text-stone-900 dark:text-stone-100">
+                                <p className="font-display font-bold text-zinc-950 dark:text-white">
                                   {row.name}
                                 </p>
-                                <p className="text-[#0F5C4E] dark:text-[#4FD1C5]">
+                                <p className="text-emerald-700 dark:text-[#D9FF43]">
                                   معتمد: <span className="font-mono tabular-nums">{row.accepted}</span>
                                 </p>
-                                <p className="text-amber-800 dark:text-amber-300">
+                                <p className="text-amber-700 dark:text-amber-300">
                                   قيد المراجعة:{' '}
                                   <span className="font-mono tabular-nums">{row.pending}</span>
                                 </p>
-                                <p className="text-stone-600 dark:text-stone-400">
+                                <p className="text-zinc-600 dark:text-zinc-400">
                                   يحتاج تعديلاً:{' '}
                                   <span className="font-mono tabular-nums">{row.needsChanges}</span>
                                 </p>
-                                <p className="text-red-800 dark:text-red-300">
+                                <p className="text-red-700 dark:text-[#FF3B2F]">
                                   مرفوض: <span className="font-mono tabular-nums">{row.rejected}</span>
                                 </p>
                               </div>
@@ -611,14 +611,14 @@ export function ModerationAnalyticsDashboard({
               </div>
 
               {/* Row 2: Editor Activity Chart + Response Time Table */}
-              <div className="pt-6 border-t border-[#E5DFD3] grid grid-cols-1 gap-8 lg:grid-cols-12 items-start dark:border-[#2E2B27]">
+              <div className="pt-6 border-t border-zinc-200 grid grid-cols-1 gap-8 lg:grid-cols-12 items-start dark:border-white/10">
                 <div className="lg:col-span-6 min-w-0">
-                  <h5 className="text-xs font-semibold text-stone-800 mb-3 dark:text-stone-200">
+                  <h5 className="text-xs font-semibold text-zinc-800 mb-3 dark:text-zinc-200">
                     حجم القرارات التحكيمية لكل محرر
                   </h5>
 
                   {analytics.editorLeaderboard.length === 0 ? (
-                    <p className="py-8 text-xs text-stone-500 dark:text-stone-400">
+                    <p className="py-8 text-xs text-zinc-500 dark:text-zinc-400">
                       لم تُحسم أي مقترحات بعد لاحتساب نشاط المحررين؛ اعتمد أو راجع مقترحاً من القائمة أدناه لتحديث المؤشر فوراً.
                     </p>
                   ) : (
@@ -650,7 +650,7 @@ export function ModerationAnalyticsDashboard({
                             tickLine={false}
                           />
                           <Tooltip
-                            cursor={{ fill: isDark ? '#262320' : '#F3EFE6' }}
+                            cursor={{ fill: isDark ? 'rgba(255,255,255,0.04)' : '#F4F4F5' }}
                             content={({ active, payload }) => {
                               if (!active || !payload || payload.length === 0) return null
                               const ed = payload[0]?.payload as {
@@ -662,24 +662,24 @@ export function ModerationAnalyticsDashboard({
                               return (
                                 <div
                                   dir="rtl"
-                                  className="rounded-lg border border-[#D6CEBE] bg-[#FBF9F5] px-3 py-2 text-xs shadow-sm space-y-0.5 dark:border-[#3A3530] dark:bg-[#141312]"
+                                  className="rounded-xl border border-zinc-200 bg-white px-3 py-2 text-xs shadow-lg space-y-0.5 dark:border-white/15 dark:bg-[#07070A]"
                                 >
-                                  <p className="font-display font-bold text-stone-900 dark:text-stone-100">
+                                  <p className="font-display font-bold text-zinc-950 dark:text-white">
                                     {ed.editorName}
                                   </p>
-                                  <p className="text-[#0F5C4E] dark:text-[#4FD1C5]">
+                                  <p className="text-emerald-700 dark:text-[#D9FF43]">
                                     مداخل معتمدة:{' '}
                                     <span className="font-mono tabular-nums">
                                       {ed.acceptedCount}
                                     </span>
                                   </p>
-                                  <p className="text-stone-600 dark:text-stone-300">
+                                  <p className="text-zinc-600 dark:text-zinc-300">
                                     مرفوض / طلب تعديل:{' '}
                                     <span className="font-mono tabular-nums">
                                       {ed.returnedOrRejectedCount}
                                     </span>
                                   </p>
-                                  <p className="text-stone-500 dark:text-stone-400">
+                                  <p className="text-zinc-500 dark:text-zinc-400">
                                     متوسط الاستجابة: {formatDurationArabic(ed.avgHours)}
                                   </p>
                                 </div>
@@ -705,39 +705,39 @@ export function ModerationAnalyticsDashboard({
                   )}
                 </div>
 
-                <div className="lg:col-span-6 min-w-0 lg:border-s lg:border-[#E5DFD3] lg:ps-8 lg:dark:border-[#2E2B27]">
-                  <h5 className="text-xs font-semibold text-stone-800 mb-3 dark:text-stone-200">
+                <div className="lg:col-span-6 min-w-0 lg:border-s lg:border-zinc-200 lg:ps-8 lg:dark:border-white/10">
+                  <h5 className="text-xs font-semibold text-zinc-800 mb-3 dark:text-zinc-200">
                     سجل سرعة استجابة المحررين
                   </h5>
 
                   {analytics.editorLeaderboard.length === 0 ? (
-                    <p className="py-8 text-xs text-stone-500 dark:text-stone-400">
+                    <p className="py-8 text-xs text-zinc-500 dark:text-zinc-400">
                       ستظهر هنا أزمنة الاستجابة التفصيلية بمجرد تسجيل أول قرار تحكيمي.
                     </p>
                   ) : (
                     <div className="overflow-x-auto">
                       <table className="w-full text-start border-collapse text-xs">
                         <thead>
-                          <tr className="border-b border-[#E5DFD3] text-stone-500 dark:border-[#2E2B27] dark:text-stone-400">
+                          <tr className="border-b border-zinc-200 text-zinc-500 dark:border-white/10 dark:text-zinc-400">
                             <th className="py-2 text-start font-medium">المحرر</th>
                             <th className="py-2 text-end font-medium">المعتمد</th>
                             <th className="py-2 text-end font-medium">المجموع المحسوم</th>
                             <th className="py-2 text-end font-medium">متوسط الاستجابة</th>
                           </tr>
                         </thead>
-                        <tbody className="divide-y divide-[#E5DFD3] dark:divide-[#2E2B27]">
+                        <tbody className="divide-y divide-zinc-200 dark:divide-white/10">
                           {analytics.editorLeaderboard.map((ed) => (
                             <tr key={ed.editorKey}>
-                              <td className="py-2.5 font-medium text-stone-900 dark:text-stone-100">
+                              <td className="py-2.5 font-medium text-zinc-950 dark:text-white">
                                 {ed.editorName}
                               </td>
-                              <td className="py-2.5 text-end font-mono tabular-nums text-[#0F5C4E] dark:text-[#4FD1C5]">
+                              <td className="py-2.5 text-end font-mono tabular-nums text-emerald-700 dark:text-[#D9FF43]">
                                 {ed.acceptedCount}
                               </td>
-                              <td className="py-2.5 text-end font-mono tabular-nums text-stone-700 dark:text-stone-300">
+                              <td className="py-2.5 text-end font-mono tabular-nums text-zinc-700 dark:text-zinc-300">
                                 {ed.decidedCount}
                               </td>
-                              <td className="py-2.5 text-end font-mono tabular-nums text-stone-700 dark:text-stone-300">
+                              <td className="py-2.5 text-end font-mono tabular-nums text-zinc-700 dark:text-zinc-300">
                                 {formatDurationArabic(ed.avgHours)}
                               </td>
                             </tr>

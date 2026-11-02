@@ -11,33 +11,43 @@
         display: flex;
         align-items: center;
         justify-content: center;
-        background: #fbf9f5;
-        color: #1c1917;
+        background: #050507;
+        color: #f4f4f6;
         font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
         padding: 24px;
         text-align: center;
       }
       .card {
-        max-width: 400px;
-        border: 1px solid #e5dfd3;
-        background: #ffffff;
-        border-radius: 12px;
-        padding: 24px;
+        max-width: 420px;
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        background: #0c0c10;
+        border-radius: 16px;
+        padding: 28px 24px;
+      }
+      .dot {
+        display: inline-block;
+        width: 10px;
+        height: 10px;
+        border-radius: 999px;
+        background: #d9ff43;
+        margin-bottom: 14px;
       }
       h1 {
         font-size: 16px;
         margin: 0 0 8px;
+        color: #ffffff;
       }
       p {
         font-size: 13px;
-        color: #57534e;
+        color: #a1a1aa;
         margin: 0;
-        line-height: 1.6;
+        line-height: 1.7;
       }
     </style>
   </head>
   <body>
     <div class="card">
+      <span class="dot" aria-hidden="true"></span>
       <h1>تم التحقق من الحساب بنجاح</h1>
       <p>جارٍ نقل الجلسة إلى مساحة المراجعة وإغلاق هذه النافذة تلقائياً...</p>
     </div>
@@ -53,7 +63,7 @@
                 hash: rawHash,
                 search: rawSearch,
               },
-              window.location.origin
+              '*'
             );
           } catch (err) {
             console.error('postMessage failed:', err);

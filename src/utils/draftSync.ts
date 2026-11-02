@@ -6,6 +6,7 @@ import {
   isValidArabizi,
   validateEvidenceItems,
 } from './validation'
+import { buildCorpusArabiziLookup, suggestMoroccanArabizi } from './arabiziTransliterator'
 import { computeEntryFingerprint } from './corpusPinning'
 import { humanizeSystemError } from './humanizeError'
 
@@ -34,12 +35,13 @@ export function auditDraftForSync(
   const isNew = isNewEntryLocalDraft(draft)
   const { cleaned: cleanedEvidence, invalidUrls } = validateEvidenceItems(draft.evidence ?? [])
   const noteTrimmed = (draft.reviewerNote ?? '').trim()
+  const lookup = buildCorpusArabiziLookup(entries)
 
   if (invalidUrls.length > 0) {
     return {
       draft,
       ready: false,
-      reason: `يحتوي على رابط شاهد غير صالح (${invalidUrls[0]}).`,
+      reason: `يحتوي على رابط مصدر غير صالح (${invalidUrls[0]}).`,
       normalizedEntryId: isNew ? 'NEW' : draft.entryId,
       cleanedProposedData: p,
       cleanedEvidence,
@@ -48,38 +50,20 @@ export function auditDraftForSync(
 
   if (isNew) {
     const wordAr = (p.word_ar ?? '').trim()
-    const arabizi = (p.arabizi ?? '').trim()
-    const category = (p.category ?? draft.category ?? '').trim()
+    const rawArabizi = (p.arabizi ?? '').trim()
+    const arabizi = rawArabizi || suggestMoroccanArabizi(wordAr, lookup)
+    const category = (p.category ?? draft.category ?? 'التواصل').trim() || 'التواصل'
     const msa = (p.msa_translation ?? p.meaning ?? '').trim()
     const french = (p.french_translation ?? '').trim()
     const exDarija = (p.example_darija ?? '').trim()
-    const exArabizi = (p.example_arabizi ?? '').trim()
+    const rawExArabizi = (p.example_arabizi ?? '').trim()
+    const exArabizi = rawExArabizi || suggestMoroccanArabizi(exDarija, lookup)
 
     if (!wordAr || !containsArabicScript(wordAr)) {
       return {
         draft,
         ready: false,
-        reason: 'المفردة بالعربية ناقصة في هذه المسودة.',
-        normalizedEntryId: 'NEW',
-        cleanedProposedData: p,
-        cleanedEvidence,
-      }
-    }
-    if (!isValidArabizi(arabizi)) {
-      return {
-        draft,
-        ready: false,
-        reason: 'الكتابة بـ Arabizi ناقصة أو غير مطابقة للضوابط.',
-        normalizedEntryId: 'NEW',
-        cleanedProposedData: p,
-        cleanedEvidence,
-      }
-    }
-    if (!category) {
-      return {
-        draft,
-        ready: false,
-        reason: 'الفئة المعجمية غير محددة.',
+        reason: 'الكلمة بالدارجة ناقصة في هذه المسودة.',
         normalizedEntryId: 'NEW',
         cleanedProposedData: p,
         cleanedEvidence,
@@ -89,27 +73,37 @@ export function auditDraftForSync(
       return {
         draft,
         ready: false,
-        reason: 'المقابل بالعربية الفصحى غير مكتمل.',
+        reason: 'معنى الكلمة بالعربية غير مكتمل.',
         normalizedEntryId: 'NEW',
         cleanedProposedData: p,
         cleanedEvidence,
       }
     }
-    if (!french) {
+    if (!exDarija || !containsArabicScript(exDarija)) {
       return {
         draft,
         ready: false,
-        reason: 'المقابل باللغة الفرنسية مطلوب لاستكمال بطاقة المفردة.',
+        reason: 'جملة المثال بالدارجة غير مكتملة.',
         normalizedEntryId: 'NEW',
         cleanedProposedData: p,
         cleanedEvidence,
       }
     }
-    if (!exDarija || !containsArabicScript(exDarija) || !isValidArabizi(exArabizi)) {
+    if (rawArabizi && !isValidArabizi(rawArabizi)) {
       return {
         draft,
         ready: false,
-        reason: 'جملة الشاهد السياقي بالدارجة أو كتابتها بـ Arabizi غير مكتملة.',
+        reason: 'الكتابة اللاتينية تحتوي على رموز غير مدعومة.',
+        normalizedEntryId: 'NEW',
+        cleanedProposedData: p,
+        cleanedEvidence,
+      }
+    }
+    if (rawExArabizi && !isValidArabizi(rawExArabizi)) {
+      return {
+        draft,
+        ready: false,
+        reason: 'الكتابة اللاتينية للمثال تحتوي على رموز غير مدعومة.',
         normalizedEntryId: 'NEW',
         cleanedProposedData: p,
         cleanedEvidence,
@@ -119,17 +113,7 @@ export function auditDraftForSync(
       return {
         draft,
         ready: false,
-        reason: 'يلزم تأكيد إقرار رخصة الملكية الفكرية قبل الإرسال.',
-        normalizedEntryId: 'NEW',
-        cleanedProposedData: p,
-        cleanedEvidence,
-      }
-    }
-    if (cleanedEvidence.length === 0 && !noteTrimmed) {
-      return {
-        draft,
-        ready: false,
-        reason: 'أضف رابط شاهد أو ملاحظة سياق رصد ميداني.',
+        reason: 'يلزم تفعيل الإقرار بالرخصة المفتوحة قبل الإرسال.',
         normalizedEntryId: 'NEW',
         cleanedProposedData: p,
         cleanedEvidence,
@@ -141,7 +125,7 @@ export function auditDraftForSync(
       return {
         draft,
         ready: false,
-        reason: 'تتطابق مع مدخل قائم في المعجم؛ اشرح فرق المعنى في مذكرة المراجع أولاً.',
+        reason: 'تتطابق مع مفردة موجودة في المعجم؛ وضح فرق المعنى أولاً.',
         normalizedEntryId: 'NEW',
         cleanedProposedData: p,
         cleanedEvidence,
@@ -156,13 +140,13 @@ export function auditDraftForSync(
         ...p,
         submission_kind: 'new_entry',
         word_ar: wordAr,
-        arabizi,
+        arabizi: isValidArabizi(arabizi) ? arabizi : undefined,
         category,
         msa_translation: msa,
         meaning: msa,
-        french_translation: french,
+        ...(french ? { french_translation: french } : {}),
         example_darija: exDarija,
-        example_arabizi: exArabizi,
+        example_arabizi: isValidArabizi(exArabizi) ? exArabizi : undefined,
       },
       cleanedEvidence,
     }
@@ -193,33 +177,18 @@ export function auditDraftForSync(
     }
   }
 
+  if (cleanOut.example_darija && !cleanOut.example_arabizi) {
+    const autoExLat = suggestMoroccanArabizi(cleanOut.example_darija, lookup)
+    if (autoExLat && isValidArabizi(autoExLat)) {
+      cleanOut.example_arabizi = autoExLat
+    }
+  }
+
   if (filledFieldsCount === 0 && !noteTrimmed) {
     return {
       draft,
       ready: false,
-      reason: 'لا تحتوي المسودة على حقول معدلة أو مذكرة مراجعة.',
-      normalizedEntryId: draft.entryId,
-      cleanedProposedData: cleanOut,
-      cleanedEvidence,
-    }
-  }
-
-  if (cleanOut.example_darija && !cleanOut.example_arabizi) {
-    return {
-      draft,
-      ready: false,
-      reason: 'الشاهد الجديد يتطلب كتابته اللاتينية بـ Arabizi.',
-      normalizedEntryId: draft.entryId,
-      cleanedProposedData: cleanOut,
-      cleanedEvidence,
-    }
-  }
-
-  if (cleanedEvidence.length === 0 && !noteTrimmed) {
-    return {
-      draft,
-      ready: false,
-      reason: 'أرفق رابط شاهد واحداً على الأقل أو اشرح مبرر المراجعة.',
+      reason: 'لا تحتوي المسودة على تعديل مقترح أو ملاحظة.',
       normalizedEntryId: draft.entryId,
       cleanedProposedData: cleanOut,
       cleanedEvidence,
@@ -254,7 +223,7 @@ export async function syncLocalDraftsToAccount(
       skippedAudits,
       error:
         skippedAudits.length > 0
-          ? 'جميع المسودات المحفوظة حالياً تحتاج استكمال بعض الحقول الإلزامية قبل إرسالها.'
+          ? 'المسودات المحفوظة حالياً تحتاج استكمال الحقول الأساسية قبل إرسالها.'
           : undefined,
     }
   }
@@ -298,7 +267,8 @@ export async function syncLocalDraftsToAccount(
       baseline_fingerprint: fp,
       proposed_data: enrichedProposed,
       evidence: item.cleanedEvidence,
-      reviewer_note: item.draft.reviewerNote.trim() || null,
+      reviewer_note:
+        item.draft.reviewerNote.trim() || 'مساهمة معجمية مزامنة من مسودات المراجع',
       status: 'pending' as const,
     }
   })
@@ -320,7 +290,10 @@ export async function syncLocalDraftsToAccount(
     return {
       syncedEntryIds: [],
       skippedAudits,
-      error: humanizeSystemError(insertRes.error, 'تعذر إرسال المسودات حالياً. يرجى المحاولة لاحقاً.'),
+      error: humanizeSystemError(
+        insertRes.error,
+        'تعذر إرسال المسودات حالياً. يرجى المحاولة لاحقاً.',
+      ),
     }
   }
 

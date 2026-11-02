@@ -73,12 +73,27 @@ export function humanizeSystemError(
     return 'انتهت صلاحية الجلسة الحالية. يرجى إعادة تسجيل الدخول للمتابعة.';
   }
 
-  // OAuth provider availability
+  // OAuth provider availability & identity linking
   if (
     normalized.includes('provider is not enabled') ||
     normalized.includes('unsupported provider')
   ) {
-    return 'تسجيل الدخول السريع عبر هذه الخدمة غير متاح مؤقتاً. يمكنك الدخول بالبريد الإلكتروني وكلمة المرور.';
+    return 'المصادقة عبر هذه الخدمة غير مفعّلة حالياً في إعدادات المنصة. يمكنك استخدام البريد الإلكتروني مؤقتاً.';
+  }
+
+  if (normalized.includes('manual linking is disabled')) {
+    return 'ربط الحسابات الخارجية يتطلب تفعيل خيار الربط اليدوي (Manual Linking) في إعدادات المصادقة.';
+  }
+
+  if (
+    normalized.includes('identity is already linked') ||
+    normalized.includes('identity_already_exists')
+  ) {
+    return 'هذا الحساب الخارجي مرتبط مسبقاً بحساب مساهم آخر في المنصة.';
+  }
+
+  if (normalized.includes('single_identity_not_deletable')) {
+    return 'لا يمكن فك ربط وسيلة الدخول الوحيدة المرتبطة بحسابك حتى لا تفقد الوصول إليه.';
   }
 
   // Authorization / permissions / RLS

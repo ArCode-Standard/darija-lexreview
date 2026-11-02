@@ -1,6 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url><loc>https://darija-lexreview.pages.dev/</loc></url>
+  <url><loc>https://darija-lexreview.pages.dev/review</loc></url>
+  <url><loc>https://darija-lexreview.pages.dev/lexicon</loc></url>
+  <url><loc>https://darija-lexreview.pages.dev/contribute</loc></url>
   <url><loc>https://darija-lexreview.pages.dev/about/</loc></url>
   <url><loc>https://darija-lexreview.pages.dev/methodology/</loc></url>
   <url><loc>https://darija-lexreview.pages.dev/privacy/</loc></url>

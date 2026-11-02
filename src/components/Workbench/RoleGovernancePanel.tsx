@@ -318,18 +318,18 @@ export function RoleGovernancePanel({
 
   if (queueSource === 'live' && !isLiveAdmin) {
     return (
-      <div className="rounded-xl border border-[#E5DFD3] bg-white p-6 sm:p-8 dark:border-[#2E2B27] dark:bg-[#1C1A18]">
+      <div className="rounded-2xl border border-zinc-200 bg-white p-6 sm:p-8 dark:border-white/10 dark:bg-[#0C0C10]">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="flex items-start gap-3 max-w-[70ch]">
-            <ShieldAlert className="h-5 w-5 shrink-0 mt-0.5 text-amber-700 dark:text-amber-400" />
+            <ShieldAlert className="h-5 w-5 shrink-0 mt-0.5 text-amber-600 dark:text-amber-400" />
             <div>
-              <h4 className="font-display text-base font-bold text-stone-900 dark:text-stone-100">
+              <h4 className="font-display text-base font-bold text-zinc-950 dark:text-white">
                 قسم إدارة الصلاحيات وطلبات الترقية مخصص للمشرف العام
               </h4>
-              <p className="mt-1.5 text-xs leading-relaxed text-stone-600 dark:text-stone-400">
+              <p className="mt-1.5 text-xs leading-relaxed text-zinc-600 dark:text-zinc-400">
                 يبدأ كل مساهم بصلاحية «مراجع مساهم»، وتتم الترقية إلى «محرر معتمد» حصرياً بقرار موثق من المشرف العام للمنصة.
               </p>
-              <p className="mt-2 text-xs leading-relaxed text-stone-600 dark:text-stone-400">
+              <p className="mt-2 text-xs leading-relaxed text-zinc-600 dark:text-zinc-400">
                 يمكنك تقديم «طلب صلاحية محرر» من نافذة حسابك الشخصي، أو التبديل إلى وضع المحاكاة لتجربة واجهة المشرف في مراجعة الطلبات وترقية الأعضاء مباشرة.
               </p>
             </div>
@@ -340,7 +340,7 @@ export function RoleGovernancePanel({
               <button
                 type="button"
                 onClick={onOpenAuth}
-                className="min-h-[38px] rounded-lg bg-[#0F5C4E] px-4 py-2 text-xs font-semibold text-white hover:bg-[#0B463B] cursor-pointer dark:bg-[#147A67]"
+                className="min-h-[38px] rounded-full bg-zinc-950 px-4 py-2 text-xs font-semibold text-white hover:bg-zinc-800 cursor-pointer dark:bg-[#D9FF43] dark:text-[#050507] dark:hover:bg-[#e5ff73]"
               >
                 تسجيل الدخول / إنشاء حساب
               </button>
@@ -348,7 +348,7 @@ export function RoleGovernancePanel({
             <button
               type="button"
               onClick={() => onSwitchQueueSource('sandbox')}
-              className="min-h-[38px] rounded-lg border border-[#D6CEBE] bg-[#FBF9F5] px-4 py-2 text-xs font-semibold text-stone-800 hover:bg-[#EFECE4] cursor-pointer dark:border-[#3A3530] dark:bg-[#141312] dark:text-stone-200"
+              className="min-h-[38px] rounded-full border border-zinc-300 bg-zinc-50 px-4 py-2 text-xs font-semibold text-zinc-800 hover:bg-zinc-100 cursor-pointer dark:border-white/15 dark:bg-[#07070A] dark:text-zinc-200 dark:hover:border-white/30"
             >
               معاينة لوحة المشرف في المحاكاة
             </button>
@@ -362,49 +362,49 @@ export function RoleGovernancePanel({
     <div className="space-y-6">
       {/* KPI Governance Summary */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <div className="rounded-xl border border-[#E5DFD3] bg-white p-4 dark:border-[#2E2B27] dark:bg-[#1C1A18]">
-          <p className="text-xs text-stone-500 dark:text-stone-400">طلبات ترقية معلقة</p>
-          <p className="mt-1.5 font-mono text-2xl font-bold tabular-nums text-amber-800 dark:text-amber-400">
+        <div className="rounded-2xl border border-zinc-200 bg-white p-4 dark:border-white/10 dark:bg-[#0C0C10]">
+          <p className="text-xs text-zinc-500 dark:text-zinc-400">طلبات ترقية معلقة</p>
+          <p className="mt-1.5 font-mono text-2xl font-bold tabular-nums text-amber-700 dark:text-amber-400">
             {kpis.pendingReqs}
           </p>
-          <p className="mt-1 text-[11px] text-stone-500 dark:text-stone-400">
+          <p className="mt-1 text-[11px] text-zinc-500 dark:text-zinc-400">
             بانتظار مراجعة المشرف
           </p>
         </div>
 
-        <div className="rounded-xl border border-[#E5DFD3] bg-white p-4 dark:border-[#2E2B27] dark:bg-[#1C1A18]">
-          <p className="text-xs text-stone-500 dark:text-stone-400">المحررون المعتمدون</p>
-          <p className="mt-1.5 font-mono text-2xl font-bold tabular-nums text-[#0F5C4E] dark:text-[#4FD1C5]">
+        <div className="rounded-2xl border border-zinc-200 bg-white p-4 dark:border-white/10 dark:bg-[#0C0C10]">
+          <p className="text-xs text-zinc-500 dark:text-zinc-400">المحررون المعتمدون</p>
+          <p className="mt-1.5 font-mono text-2xl font-bold tabular-nums text-emerald-700 dark:text-[#D9FF43]">
             {kpis.editors}
           </p>
-          <p className="mt-1 text-[11px] text-stone-500 dark:text-stone-400">
+          <p className="mt-1 text-[11px] text-zinc-500 dark:text-zinc-400">
             مخوّلون بالتحكيم والتصدير
           </p>
         </div>
 
-        <div className="rounded-xl border border-[#E5DFD3] bg-white p-4 dark:border-[#2E2B27] dark:bg-[#1C1A18]">
-          <p className="text-xs text-stone-500 dark:text-stone-400">المراجعون المساهمون</p>
-          <p className="mt-1.5 font-mono text-2xl font-bold tabular-nums text-stone-900 dark:text-stone-100">
+        <div className="rounded-2xl border border-zinc-200 bg-white p-4 dark:border-white/10 dark:bg-[#0C0C10]">
+          <p className="text-xs text-zinc-500 dark:text-zinc-400">المراجعون المساهمون</p>
+          <p className="mt-1.5 font-mono text-2xl font-bold tabular-nums text-zinc-950 dark:text-white">
             {kpis.reviewers}
           </p>
-          <p className="mt-1 text-[11px] text-stone-500 dark:text-stone-400">
+          <p className="mt-1 text-[11px] text-zinc-500 dark:text-zinc-400">
             صلاحية اقتراح وتوثيق افتراضية
           </p>
         </div>
 
-        <div className="rounded-xl border border-[#E5DFD3] bg-white p-4 dark:border-[#2E2B27] dark:bg-[#1C1A18]">
-          <p className="text-xs text-stone-500 dark:text-stone-400">المشرفون العامون</p>
-          <p className="mt-1.5 font-mono text-2xl font-bold tabular-nums text-stone-900 dark:text-stone-100">
+        <div className="rounded-2xl border border-zinc-200 bg-white p-4 dark:border-white/10 dark:bg-[#0C0C10]">
+          <p className="text-xs text-zinc-500 dark:text-zinc-400">المشرفون العامون</p>
+          <p className="mt-1.5 font-mono text-2xl font-bold tabular-nums text-zinc-950 dark:text-white">
             {kpis.admins}
           </p>
-          <p className="mt-1 text-[11px] text-stone-500 dark:text-stone-400">
+          <p className="mt-1 text-[11px] text-zinc-500 dark:text-zinc-400">
             إدارة الحوكمة والأدوار
           </p>
         </div>
       </div>
 
       {liveSchemaNotice && queueSource === 'live' && (
-        <div className="rounded-xl border border-amber-300 bg-amber-50/90 p-4 text-xs leading-relaxed text-amber-950 dark:border-amber-800/60 dark:bg-amber-950/30 dark:text-amber-200">
+        <div className="rounded-2xl border border-amber-300 bg-amber-50/90 p-4 text-xs leading-relaxed text-amber-950 dark:border-amber-500/30 dark:bg-amber-950/25 dark:text-amber-200">
           {liveSchemaNotice}
         </div>
       )}
@@ -412,38 +412,38 @@ export function RoleGovernancePanel({
       {feedback && (
         <div
           role="status"
-          className={`flex items-start gap-2.5 rounded-xl border p-4 text-xs leading-relaxed ${
+          className={`flex items-start gap-2.5 rounded-2xl border p-4 text-xs leading-relaxed ${
             feedback.type === 'error'
-              ? 'border-red-300 bg-red-50 text-red-900 dark:border-red-800/60 dark:bg-red-950/40 dark:text-red-200'
-              : 'border-emerald-300 bg-emerald-50 text-emerald-950 dark:border-emerald-800/60 dark:bg-emerald-950/40 dark:text-emerald-200'
+              ? 'border-red-300 bg-red-50 text-red-900 dark:border-[#FF3B2F]/40 dark:bg-[#FF3B2F]/10 dark:text-red-200'
+              : 'border-emerald-300 bg-emerald-50 text-emerald-950 dark:border-[#D9FF43]/35 dark:bg-[#D9FF43]/10 dark:text-zinc-100'
           }`}
         >
           {feedback.type === 'error' ? (
-            <XCircle className="h-4 w-4 shrink-0 mt-0.5 text-red-700 dark:text-red-400" />
+            <XCircle className="h-4 w-4 shrink-0 mt-0.5 text-red-700 dark:text-[#FF3B2F]" />
           ) : (
-            <CheckCircle2 className="h-4 w-4 shrink-0 mt-0.5 text-emerald-700 dark:text-emerald-400" />
+            <CheckCircle2 className="h-4 w-4 shrink-0 mt-0.5 text-emerald-700 dark:text-[#D9FF43]" />
           )}
           <span>{feedback.text}</span>
         </div>
       )}
 
       {/* Section 1: Editor Promotion Requests */}
-      <div className="rounded-xl border border-[#E5DFD3] bg-white p-5 sm:p-6 space-y-5 dark:border-[#2E2B27] dark:bg-[#1C1A18]">
-        <div className="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-[#E5DFD3] dark:border-[#2E2B27]">
+      <div className="rounded-2xl border border-zinc-200 bg-white p-5 sm:p-6 space-y-5 dark:border-white/10 dark:bg-[#0C0C10]">
+        <div className="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-zinc-200 dark:border-white/10">
           <div className="flex items-start gap-2.5">
-            <UserCheck className="h-5 w-5 shrink-0 mt-0.5 text-[#0F5C4E] dark:text-[#4FD1C5]" />
+            <UserCheck className="h-5 w-5 shrink-0 mt-0.5 text-emerald-700 dark:text-[#D9FF43]" />
             <div>
-              <h4 className="font-display text-base font-bold text-stone-900 dark:text-stone-100">
+              <h4 className="font-display text-base font-bold text-zinc-950 dark:text-white">
                 طلبات الترقية إلى «محرر معتمد» ({filteredRequests.length})
               </h4>
-              <p className="mt-1 text-xs text-stone-600 dark:text-stone-400">
+              <p className="mt-1 text-xs text-zinc-600 dark:text-zinc-400">
                 راجع الخبرة اللغوية للمتقدمين واعتمد ترقيتهم مباشرة إلى صلاحية محرر معتمد.
               </p>
             </div>
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            <div className="inline-flex items-center gap-1 rounded-lg bg-[#F3EFE6] p-1 dark:bg-[#141312]">
+            <div className="inline-flex items-center gap-1 rounded-full border border-zinc-200 bg-zinc-100 p-1 dark:border-white/12 dark:bg-[#07070A]">
               {(
                 [
                   ['pending', 'المعلقة'],
@@ -456,10 +456,10 @@ export function RoleGovernancePanel({
                   key={st}
                   type="button"
                   onClick={() => setStatusFilter(st)}
-                  className={`min-h-[32px] rounded-md px-3 py-1 text-xs font-medium transition-colors whitespace-nowrap cursor-pointer ${
+                  className={`min-h-[30px] rounded-full px-3 py-1 text-xs font-semibold transition-colors whitespace-nowrap cursor-pointer ${
                     statusFilter === st
-                      ? 'bg-white text-stone-900 shadow-2xs dark:bg-[#2A2622] dark:text-stone-100'
-                      : 'text-stone-600 hover:text-stone-900 dark:text-stone-400'
+                      ? 'bg-zinc-950 text-white dark:bg-[#D9FF43] dark:text-[#050507]'
+                      : 'text-zinc-600 hover:text-zinc-950 dark:text-zinc-400 dark:hover:text-white'
                   }`}
                 >
                   {label}
@@ -472,7 +472,7 @@ export function RoleGovernancePanel({
                 type="button"
                 disabled={loadingLive}
                 onClick={fetchLiveGovernanceData}
-                className="inline-flex min-h-[34px] items-center gap-1.5 rounded-lg border border-[#D6CEBE] bg-[#FBF9F5] px-3 py-1.5 text-xs font-medium text-stone-700 hover:bg-[#EFECE4] cursor-pointer dark:border-[#3A3530] dark:bg-[#141312] dark:text-stone-300"
+                className="inline-flex min-h-[34px] items-center gap-1.5 rounded-full border border-zinc-300 bg-zinc-50 px-3.5 py-1.5 text-xs font-medium text-zinc-700 hover:bg-zinc-100 cursor-pointer dark:border-white/15 dark:bg-[#07070A] dark:text-zinc-300 dark:hover:border-white/30"
               >
                 <RefreshCw className={`h-3.5 w-3.5 ${loadingLive ? 'animate-spin' : ''}`} />
                 <span>تحديث</span>
@@ -481,7 +481,7 @@ export function RoleGovernancePanel({
               <button
                 type="button"
                 onClick={onResetSandboxGovernance}
-                className="inline-flex min-h-[34px] items-center gap-1.5 rounded-lg border border-[#D6CEBE] bg-[#FBF9F5] px-3 py-1.5 text-xs font-medium text-stone-700 hover:bg-[#EFECE4] cursor-pointer dark:border-[#3A3530] dark:bg-[#141312] dark:text-stone-300"
+                className="inline-flex min-h-[34px] items-center gap-1.5 rounded-full border border-zinc-300 bg-zinc-50 px-3.5 py-1.5 text-xs font-medium text-zinc-700 hover:bg-zinc-100 cursor-pointer dark:border-white/15 dark:bg-[#07070A] dark:text-zinc-300 dark:hover:border-white/30"
               >
                 <RotateCcw className="h-3.5 w-3.5" />
                 <span>إعادة ضبط بيانات الحوكمة</span>
@@ -491,15 +491,15 @@ export function RoleGovernancePanel({
         </div>
 
         {loadingLive && queueSource === 'live' ? (
-          <div className="py-10 text-center text-xs text-stone-500">
+          <div className="py-10 text-center text-xs text-zinc-500">
             جارٍ جلب طلبات الترقية وسجل الأعضاء...
           </div>
         ) : filteredRequests.length === 0 ? (
-          <div className="py-10 text-center text-xs text-stone-500 dark:text-stone-400">
+          <div className="py-10 text-center text-xs text-zinc-500 dark:text-zinc-400">
             لا توجد طلبات ترقية مطابقة لهذا الفلتر حالياً.
           </div>
         ) : (
-          <div className="divide-y divide-[#E5DFD3] dark:divide-[#2E2B27]">
+          <div className="divide-y divide-zinc-200 dark:divide-white/10">
             {filteredRequests.map((req) => {
               const safeSampleUrl = req.sample_links
                 ? sanitizeExternalUrl(req.sample_links)
@@ -512,27 +512,27 @@ export function RoleGovernancePanel({
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div>
                       <div className="flex flex-wrap items-center gap-2">
-                        <span className="font-display text-base font-bold text-stone-900 dark:text-stone-100">
+                        <span className="font-display text-base font-bold text-zinc-950 dark:text-white">
                           {req.requester_name}
                         </span>
                         {req.dialect_region && (
                           <>
-                            <span className="text-stone-400" aria-hidden="true">·</span>
-                            <span className="text-xs text-stone-600 dark:text-stone-400">
+                            <span className="text-zinc-400" aria-hidden="true">·</span>
+                            <span className="text-xs text-zinc-600 dark:text-zinc-400">
                               الرافد اللهجي: {req.dialect_region}
                             </span>
                           </>
                         )}
                         {userStats && (
                           <>
-                            <span className="text-stone-400" aria-hidden="true">·</span>
-                            <span className="font-mono text-xs tabular-nums text-[#0F5C4E] dark:text-[#4FD1C5]">
+                            <span className="text-zinc-400" aria-hidden="true">·</span>
+                            <span className="font-mono text-xs tabular-nums text-emerald-700 dark:text-[#D9FF43]">
                               {userStats.total} مساهمات ({userStats.accepted} معتمدة)
                             </span>
                           </>
                         )}
                       </div>
-                      <p className="mt-1 font-mono text-[11px] tabular-nums text-stone-500 dark:text-stone-400">
+                      <p className="mt-1 font-mono text-[11px] tabular-nums text-zinc-500 dark:text-zinc-400">
                         تاريخ التقديم: {new Date(req.created_at).toLocaleString('ar-MA')}
                       </p>
                     </div>
@@ -540,29 +540,29 @@ export function RoleGovernancePanel({
                     <span
                       className={`text-xs font-semibold ${
                         req.status === 'approved'
-                          ? 'text-emerald-700 dark:text-emerald-400'
+                          ? 'text-emerald-700 dark:text-[#D9FF43]'
                           : req.status === 'rejected'
-                            ? 'text-red-700 dark:text-red-400'
-                            : 'text-amber-800 dark:text-amber-400'
+                            ? 'text-red-700 dark:text-[#FF3B2F]'
+                            : 'text-amber-700 dark:text-amber-400'
                       }`}
                     >
                       {formatPromotionStatusText(req.status)}
                     </span>
                   </div>
 
-                  <div className="rounded-lg border border-[#E5DFD3] bg-[#FBF9F5] p-3.5 text-xs leading-relaxed text-stone-800 dark:border-[#2E2B27] dark:bg-[#141312] dark:text-stone-200">
-                    <p className="font-semibold text-stone-600 dark:text-stone-400 mb-1">
+                  <div className="rounded-xl border border-zinc-200 bg-zinc-50 p-3.5 text-xs leading-relaxed text-zinc-800 dark:border-white/10 dark:bg-[#07070A] dark:text-zinc-200">
+                    <p className="font-semibold text-zinc-600 dark:text-zinc-400 mb-1">
                       نبذة الخبرة ومسوغات طلب الصلاحية:
                     </p>
                     <p>{req.experience_summary}</p>
                     {safeSampleUrl && (
-                      <div className="mt-2.5 pt-2 border-t border-[#E5DFD3] dark:border-[#2E2B27]">
+                      <div className="mt-2.5 pt-2 border-t border-zinc-200 dark:border-white/10">
                         <a
                           href={safeSampleUrl}
                           target="_blank"
                           rel="noopener noreferrer"
                           dir="ltr"
-                          className="inline-flex items-center gap-1.5 font-mono text-[11px] text-[#0F5C4E] hover:underline dark:text-[#4FD1C5]"
+                          className="inline-flex items-center gap-1.5 font-mono text-[11px] text-emerald-700 hover:underline dark:text-[#D9FF43]"
                         >
                           <ExternalLink className="h-3 w-3 shrink-0" />
                           <span className="truncate max-w-[340px]">{safeSampleUrl}</span>
@@ -574,7 +574,7 @@ export function RoleGovernancePanel({
                   {req.status === 'pending' ? (
                     <div className="space-y-3 pt-1">
                       <div>
-                        <label className="block text-xs font-medium text-stone-700 dark:text-stone-300">
+                        <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300">
                           ملاحظة المشرف العام (إلزامية عند الرفض، اختيارية عند الترقية)
                         </label>
                         <input
@@ -587,7 +587,7 @@ export function RoleGovernancePanel({
                             }))
                           }
                           placeholder="مثال: خبرة موثقة في الضبط المعجمي والترجمة، يُعتمد محرراً..."
-                          className="mt-1.5 w-full rounded-lg border border-[#D6CEBE] bg-white px-3.5 py-2 text-xs text-stone-900 focus:border-[#0F5C4E] focus:outline-none dark:border-[#3A3530] dark:bg-[#141312] dark:text-stone-100"
+                          className="mt-1.5 w-full rounded-xl border border-zinc-300 bg-white px-3.5 py-2 text-xs text-zinc-950 focus:border-zinc-900 focus:outline-none dark:border-white/15 dark:bg-[#07070A] dark:text-white dark:focus:border-[#D9FF43]"
                         />
                       </div>
 
@@ -596,7 +596,7 @@ export function RoleGovernancePanel({
                           type="button"
                           disabled={isBusy}
                           onClick={() => handleAdjudicateRequest(req, 'approved')}
-                          className="inline-flex min-h-[38px] items-center gap-1.5 rounded-lg bg-[#0F5C4E] px-4 py-2 text-xs font-semibold text-white hover:bg-[#0B463B] disabled:opacity-50 whitespace-nowrap cursor-pointer dark:bg-[#147A67]"
+                          className="inline-flex min-h-[38px] items-center gap-1.5 rounded-full bg-zinc-950 px-4 py-2 text-xs font-semibold text-white hover:bg-zinc-800 disabled:opacity-50 whitespace-nowrap cursor-pointer dark:bg-[#D9FF43] dark:text-[#050507] dark:hover:bg-[#e5ff73]"
                         >
                           <ShieldCheck className="h-4 w-4" />
                           <span>اعتماد وترقية إلى محرر معتمد</span>
@@ -606,7 +606,7 @@ export function RoleGovernancePanel({
                           type="button"
                           disabled={isBusy}
                           onClick={() => handleAdjudicateRequest(req, 'rejected')}
-                          className="inline-flex min-h-[38px] items-center gap-1.5 rounded-lg border border-red-300 bg-red-50 px-4 py-2 text-xs font-semibold text-red-900 hover:bg-red-100 disabled:opacity-50 whitespace-nowrap cursor-pointer dark:border-red-800 dark:bg-red-950/40 dark:text-red-200"
+                          className="inline-flex min-h-[38px] items-center gap-1.5 rounded-full border border-red-300 bg-red-50 px-4 py-2 text-xs font-semibold text-red-900 hover:bg-red-100 disabled:opacity-50 whitespace-nowrap cursor-pointer dark:border-[#FF3B2F]/40 dark:bg-[#FF3B2F]/10 dark:text-[#FF3B2F] dark:hover:bg-[#FF3B2F]/20"
                         >
                           <XCircle className="h-4 w-4" />
                           <span>رفض الطلب</span>
@@ -615,7 +615,7 @@ export function RoleGovernancePanel({
                     </div>
                   ) : (
                     req.admin_note && (
-                      <p className="text-xs text-stone-600 dark:text-stone-400">
+                      <p className="text-xs text-zinc-600 dark:text-zinc-400">
                         <strong className="font-semibold">قرار المشرف:</strong> {req.admin_note}
                       </p>
                     )
@@ -628,28 +628,28 @@ export function RoleGovernancePanel({
       </div>
 
       {/* Section 2: Direct Role Directory Management */}
-      <div className="rounded-xl border border-[#E5DFD3] bg-white p-5 sm:p-6 space-y-4 dark:border-[#2E2B27] dark:bg-[#1C1A18]">
-        <div className="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-[#E5DFD3] dark:border-[#2E2B27]">
+      <div className="rounded-2xl border border-zinc-200 bg-white p-5 sm:p-6 space-y-4 dark:border-white/10 dark:bg-[#0C0C10]">
+        <div className="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-zinc-200 dark:border-white/10">
           <div className="flex items-start gap-2.5">
-            <Users className="h-5 w-5 shrink-0 mt-0.5 text-[#0F5C4E] dark:text-[#4FD1C5]" />
+            <Users className="h-5 w-5 shrink-0 mt-0.5 text-emerald-700 dark:text-[#D9FF43]" />
             <div>
-              <h4 className="font-display text-base font-bold text-stone-900 dark:text-stone-100">
+              <h4 className="font-display text-base font-bold text-zinc-950 dark:text-white">
                 دليل المساهمين وإدارة الصلاحيات المباشرة ({filteredProfiles.length})
               </h4>
-              <p className="mt-1 text-xs text-stone-600 dark:text-stone-400">
+              <p className="mt-1 text-xs text-zinc-600 dark:text-zinc-400">
                 ترقية المراجعين الموثوقين أو تعديل صلاحيات المحررين مباشرة ضمن ضوابط الحوكمة.
               </p>
             </div>
           </div>
 
           <div className="relative w-full sm:w-64">
-            <Search className="pointer-events-none absolute top-2.5 end-3 h-3.5 w-3.5 text-stone-400" />
+            <Search className="pointer-events-none absolute top-2.5 end-3 h-3.5 w-3.5 text-zinc-400" />
             <input
               type="search"
               value={memberQuery}
               onChange={(e) => setMemberQuery(e.target.value)}
               placeholder="بحث بالاسم أو المنطقة أو الدور..."
-              className="w-full rounded-lg border border-[#D6CEBE] bg-[#FBF9F5] ps-3 pe-8 py-1.5 text-xs text-stone-900 focus:border-[#0F5C4E] focus:outline-none dark:border-[#3A3530] dark:bg-[#141312] dark:text-stone-100"
+              className="w-full rounded-full border border-zinc-300 bg-zinc-50 ps-3.5 pe-8 py-1.5 text-xs text-zinc-950 focus:border-zinc-900 focus:outline-none dark:border-white/15 dark:bg-[#07070A] dark:text-white dark:focus:border-[#D9FF43]"
             />
           </div>
         </div>
@@ -657,7 +657,7 @@ export function RoleGovernancePanel({
         <div className="overflow-x-auto">
           <table className="w-full text-right text-xs">
             <thead>
-              <tr className="border-b border-[#E5DFD3] text-stone-500 dark:border-[#2E2B27] dark:text-stone-400">
+              <tr className="border-b border-zinc-200 text-zinc-500 dark:border-white/10 dark:text-zinc-400">
                 <th className="py-2.5 pe-3 font-semibold">العضو / اللقب العلمي</th>
                 <th className="py-2.5 px-3 font-semibold">المنطقة والتخصص</th>
                 <th className="py-2.5 px-3 font-semibold">حساب GitHub</th>
@@ -665,26 +665,26 @@ export function RoleGovernancePanel({
                 <th className="py-2.5 ps-3 font-semibold text-left">إجراء الحوكمة</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-[#E5DFD3] dark:divide-[#2E2B27]">
+            <tbody className="divide-y divide-zinc-200 dark:divide-white/10">
               {filteredProfiles.map((member) => {
                 const isBusy = busyId === member.id
                 return (
                   <tr key={member.id}>
                     <td className="py-3 pe-3">
-                      <div className="font-semibold text-stone-900 dark:text-stone-100">
+                      <div className="font-semibold text-zinc-950 dark:text-white">
                         {member.display_name || 'مساهم مسجل'}
                       </div>
                       <div
                         dir="ltr"
-                        className="font-mono text-[11px] tabular-nums text-stone-500 dark:text-stone-400"
+                        className="font-mono text-[11px] tabular-nums text-zinc-500 dark:text-zinc-400"
                       >
                         {member.id.slice(0, 14)}
                       </div>
                     </td>
-                    <td className="py-3 px-3 text-stone-600 dark:text-stone-400">
+                    <td className="py-3 px-3 text-zinc-600 dark:text-zinc-400">
                       <div>{member.dialect_region || '—'}</div>
                       {member.specialty && (
-                        <div className="text-[11px] text-stone-500 dark:text-stone-500">
+                        <div className="text-[11px] text-zinc-500 dark:text-zinc-500">
                           {member.specialty}
                         </div>
                       )}
@@ -693,22 +693,22 @@ export function RoleGovernancePanel({
                       {member.github_handle ? (
                         <span
                           dir="ltr"
-                          className="font-mono text-[11px] text-stone-700 dark:text-stone-300"
+                          className="font-mono text-[11px] text-zinc-700 dark:text-zinc-300"
                         >
                           @{member.github_handle}
                         </span>
                       ) : (
-                        <span className="text-stone-400">—</span>
+                        <span className="text-zinc-400">—</span>
                       )}
                     </td>
                     <td className="py-3 px-3">
                       <span
                         className={`font-semibold ${
                           member.role === 'admin'
-                            ? 'text-amber-800 dark:text-amber-400'
+                            ? 'text-amber-700 dark:text-amber-400'
                             : member.role === 'editor'
-                              ? 'text-[#0F5C4E] dark:text-[#4FD1C5]'
-                              : 'text-stone-700 dark:text-stone-300'
+                              ? 'text-emerald-700 dark:text-[#D9FF43]'
+                              : 'text-zinc-700 dark:text-zinc-300'
                         }`}
                       >
                         {formatRoleBadgeText(member.role)}
@@ -716,13 +716,13 @@ export function RoleGovernancePanel({
                     </td>
                     <td className="py-3 ps-3 text-left">
                       {member.role === 'admin' ? (
-                        <span className="text-[11px] text-stone-400">صلاحية مشرف محمية</span>
+                        <span className="text-[11px] text-zinc-400">صلاحية مشرف محمية</span>
                       ) : member.role === 'reviewer' ? (
                         <button
                           type="button"
                           disabled={isBusy}
                           onClick={() => handleDirectRoleChange(member, 'editor')}
-                          className="inline-flex min-h-[30px] items-center gap-1 rounded-md bg-[#0F5C4E] px-2.5 py-1 text-[11px] font-semibold text-white hover:bg-[#0B463B] disabled:opacity-50 whitespace-nowrap cursor-pointer dark:bg-[#147A67]"
+                          className="inline-flex min-h-[30px] items-center gap-1 rounded-full bg-zinc-950 px-3 py-1 text-[11px] font-semibold text-white hover:bg-zinc-800 disabled:opacity-50 whitespace-nowrap cursor-pointer dark:bg-[#D9FF43] dark:text-[#050507] dark:hover:bg-[#e5ff73]"
                         >
                           ترقية إلى محرر
                         </button>
@@ -731,7 +731,7 @@ export function RoleGovernancePanel({
                           type="button"
                           disabled={isBusy}
                           onClick={() => handleDirectRoleChange(member, 'reviewer')}
-                          className="inline-flex min-h-[30px] items-center gap-1 rounded-md border border-[#D6CEBE] bg-[#FBF9F5] px-2.5 py-1 text-[11px] font-semibold text-stone-700 hover:bg-[#EFECE4] disabled:opacity-50 whitespace-nowrap cursor-pointer dark:border-[#3A3530] dark:bg-[#141312] dark:text-stone-300"
+                          className="inline-flex min-h-[30px] items-center gap-1 rounded-full border border-zinc-300 bg-zinc-50 px-3 py-1 text-[11px] font-semibold text-zinc-700 hover:bg-zinc-100 disabled:opacity-50 whitespace-nowrap cursor-pointer dark:border-white/15 dark:bg-[#07070A] dark:text-zinc-300 dark:hover:border-white/30"
                         >
                           إرجاع إلى مراجع
                         </button>

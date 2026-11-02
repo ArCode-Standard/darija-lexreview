@@ -1,0 +1,18 @@
+# Clean independent SPA routes (HTTP 200 rewrites) — preserves static SEO pages & /404.html
+/review          /index.html   200
+/review/         /index.html   200
+/lexicon         /index.html   200
+/lexicon/        /index.html   200
+/lexicon/*       /index.html   200
+/contribute      /index.html   200
+/contribute/     /index.html   200
+/submissions     /index.html   200
+/submissions/    /index.html   200
+/profile         /index.html   200
+/profile/        /index.html   200
+/auth            /index.html   200
+/auth/           /index.html   200
+/editorial       /index.html   200
+/editorial/      /index.html   200
+/export          /index.html   200
+/export/         /index.html   200

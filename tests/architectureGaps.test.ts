@@ -1,8 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import { sha256Hex } from '../src/utils/sha256'
 import {
+  buildAppRouteUrl,
+  buildCleanEntryUrl,
   buildEntryShareUrl,
   buildWorkbenchUrlSearch,
+  parseAppRoute,
   parseWorkbenchUrlState,
 } from '../src/utils/urlState'
 import {
@@ -96,6 +99,34 @@ describe('URL deep-linking state sync', () => {
   it('builds clean shareable entry URLs', () => {
     const shareUrl = buildEntryShareUrl('108', 'https://lexreview.example.org/?tab=submissions')
     expect(shareUrl).toBe('https://lexreview.example.org/?tab=explorer&entry=108#workspace')
+    const cleanUrl = buildCleanEntryUrl('108', 'https://lexreview.example.org/?tab=submissions')
+    expect(cleanUrl).toBe('https://lexreview.example.org/lexicon/108')
+  })
+
+  it('parses independent page paths and upgrades legacy ?tab= links cleanly', () => {
+    expect(parseAppRoute('/', '').page).toBe('home')
+    expect(parseAppRoute('/review', '').page).toBe('review')
+    expect(parseAppRoute('/contribute', '').page).toBe('contribute')
+    expect(parseAppRoute('/auth', '').page).toBe('auth')
+    expect(parseAppRoute('/profile', '').page).toBe('profile')
+    expect(parseAppRoute('/editorial', '').page).toBe('editorial')
+    expect(parseAppRoute('/export', '').page).toBe('export')
+
+    const wordRoute = parseAppRoute('/lexicon/108', '?cat=ظرف&q=بزاف')
+    expect(wordRoute).toEqual({
+      page: 'lexicon',
+      explorerSubView: 'entries',
+      entryId: '108',
+      category: 'ظرف',
+      exampleFilter: 'all',
+      query: 'بزاف',
+    })
+    expect(buildAppRouteUrl(wordRoute)).toBe('/lexicon/108?cat=%D8%B8%D8%B1%D9%81&q=%D8%A8%D8%B2%D8%A7%D9%81')
+
+    const legacyUpgrade = parseAppRoute('/', '?tab=explorer&entry=108')
+    expect(legacyUpgrade.page).toBe('lexicon')
+    expect(legacyUpgrade.entryId).toBe('108')
+    expect(buildAppRouteUrl(legacyUpgrade)).toBe('/lexicon/108')
   })
 })
 
@@ -122,5 +153,33 @@ describe('Offline corpus snapshot cache & lifecycle statuses', () => {
   it('formats withdrawn and superseded submission statuses in Arabic', () => {
     expect(formatStatusLabel('withdrawn')).toContain('مسحوب')
     expect(formatStatusLabel('superseded')).toContain('مُستبدل')
+  })
+})
+
+describe('Streamlined 3-field contributor draft validation & silent Arabizi', () => {
+  it('accepts a 3-field Arabic new-entry draft and synthesizes Arabizi automatically', async () => {
+    const { auditDraftForSync } = await import('../src/utils/draftSync')
+    const audit = auditDraftForSync(
+      {
+        entryId: 'NEW:تبييض',
+        headword: 'تبييض',
+        proposedData: {
+          submission_kind: 'new_entry',
+          word_ar: 'تبييض',
+          msa_translation: 'صباغة الجدران بالجير',
+          example_darija: 'درنا التبييض للدار قبل العيد.',
+          rights_confirmed: true,
+        },
+        evidence: [],
+        reviewerNote: '',
+        updatedAt: '2026-11-01T10:30:00.000Z',
+      },
+      DEMO_ENTRIES,
+    )
+
+    expect(audit.ready).toBe(true)
+    expect(audit.cleanedProposedData.arabizi).toBeTruthy()
+    expect(audit.cleanedProposedData.example_arabizi).toBeTruthy()
+    expect(audit.cleanedProposedData.category).toBe('التواصل')
   })
 })

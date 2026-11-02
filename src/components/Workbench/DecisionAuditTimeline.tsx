@@ -102,11 +102,11 @@ export function DecisionAuditTimeline({
           )
 
   return (
-    <div className="pt-4 border-t border-[#E5DFD3] space-y-3 dark:border-[#2E2B27]">
+    <div className="pt-4 border-t border-zinc-200 space-y-3 dark:border-white/10">
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">
-          <History className="h-4 w-4 text-[#0F5C4E] dark:text-[#4FD1C5]" aria-hidden="true" />
-          <h5 className="text-xs font-semibold text-stone-800 dark:text-stone-200">
+          <History className="h-4 w-4 text-emerald-700 dark:text-[#D9FF43]" aria-hidden="true" />
+          <h5 className="text-xs font-semibold text-zinc-800 dark:text-zinc-200">
             سجل التدقيق الزمني غير القابل للتعديل
           </h5>
         </div>
@@ -116,7 +116,7 @@ export function DecisionAuditTimeline({
             type="button"
             onClick={fetchLiveAuditEvents}
             disabled={loading}
-            className="inline-flex items-center gap-1 text-[11px] text-stone-500 hover:text-stone-800 cursor-pointer dark:text-stone-400 dark:hover:text-stone-200"
+            className="inline-flex items-center gap-1 text-[11px] text-zinc-500 hover:text-zinc-900 cursor-pointer dark:text-zinc-400 dark:hover:text-white"
           >
             <RefreshCw className={`h-3 w-3 ${loading ? 'animate-spin' : ''}`} />
             <span>تحديث السجل</span>
@@ -125,19 +125,19 @@ export function DecisionAuditTimeline({
       </div>
 
       {loading && queueSource === 'live' ? (
-        <p className="text-xs text-stone-500 dark:text-stone-400">
+        <p className="text-xs text-zinc-500 dark:text-zinc-400">
           جارٍ جلب التسلسل الزمني للقرارات...
         </p>
       ) : errorMsg && queueSource === 'live' ? (
-        <p className="text-xs text-stone-500 dark:text-stone-400">
+        <p className="text-xs text-zinc-500 dark:text-zinc-400">
           {errorMsg}
         </p>
       ) : events.length === 0 ? (
-        <p className="text-xs text-stone-500 dark:text-stone-400">
+        <p className="text-xs text-zinc-500 dark:text-zinc-400">
           لا توجد أحداث تدقيق مسجلة لهذا المقترح بعد.
         </p>
       ) : (
-        <ol className="relative ms-2 border-s border-[#D6CEBE] space-y-3 ps-4 dark:border-[#3A3530]">
+        <ol className="relative ms-2 border-s border-zinc-300 space-y-3 ps-4 dark:border-white/15">
           {events.map((ev) => {
             const actorLabel =
               ev.actor_display_name ||
@@ -147,21 +147,21 @@ export function DecisionAuditTimeline({
               <li key={String(ev.id)} className="relative text-xs">
                 <span
                   aria-hidden="true"
-                  className="absolute -start-[21px] top-1.5 h-2.5 w-2.5 rounded-full border border-white bg-[#0F5C4E] dark:border-[#1C1A18] dark:bg-[#4FD1C5]"
+                  className="absolute -start-[21px] top-1.5 h-2.5 w-2.5 rounded-full border border-white bg-emerald-700 dark:border-[#0C0C10] dark:bg-[#D9FF43]"
                 />
                 <div className="flex flex-wrap items-baseline justify-between gap-2">
-                  <span className="font-semibold text-stone-900 dark:text-stone-100">
+                  <span className="font-semibold text-zinc-950 dark:text-[#F5F5F7]">
                     {formatEventTitle(ev)}
                   </span>
-                  <span className="font-mono text-[11px] tabular-nums text-stone-500 dark:text-stone-400">
+                  <span className="font-mono text-[11px] tabular-nums text-zinc-500 dark:text-zinc-400">
                     {new Date(ev.occurred_at).toLocaleString('ar-MA')}
                   </span>
                 </div>
-                <p className="mt-0.5 text-[11px] text-stone-500 dark:text-stone-400">
+                <p className="mt-0.5 text-[11px] text-zinc-500 dark:text-zinc-400">
                   الفاعل المسجل: {actorLabel}
                 </p>
                 {ev.editor_note && (
-                  <p className="mt-1 rounded-md border border-[#E5DFD3] bg-[#FBF9F5] px-2.5 py-1.5 text-xs leading-relaxed text-stone-700 dark:border-[#2E2B27] dark:bg-[#141312] dark:text-stone-300">
+                  <p className="mt-1 rounded-xl border border-zinc-200 bg-zinc-50 px-2.5 py-1.5 text-xs leading-relaxed text-zinc-700 dark:border-white/10 dark:bg-[#07070A] dark:text-zinc-300">
                     {ev.editor_note}
                   </p>
                 )}

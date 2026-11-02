@@ -12,8 +12,13 @@ import {
   XCircle,
 } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
-import type { LexicalEntry, LocalDraft, SubmissionRecord } from '../../types/lexicon'
-import { formatAccessionCode, formatStatusLabel } from '../../services/dataset'
+import type {
+  LexicalEntry,
+  LocalDraft,
+  SubmissionRecord,
+  SubmissionStatus,
+} from '../../types/lexicon'
+import { formatAccessionCode } from '../../services/dataset'
 import { isNewEntrySubmission } from '../../services/exporter'
 import { auditDraftForSync, syncLocalDraftsToAccount } from '../../utils/draftSync'
 import { humanizeSystemError } from '../../utils/humanizeError'
@@ -33,6 +38,44 @@ interface SubmissionsPanelProps {
   onDeleteDraft: (entryId: string) => void
   onRemoveMultipleDrafts: (entryIds: string[]) => void
   onOpenAuth: () => void
+}
+
+function formatContributorStatus(status: SubmissionStatus): string {
+  switch (status) {
+    case 'pending':
+      return 'قيد المراجعة'
+    case 'accepted':
+      return 'اعتُمدت في المعجم'
+    case 'merged':
+      return 'مدمجة في المعجم الرسمي'
+    case 'needs_changes':
+      return 'تحتاج توضيحاً بسيطاً'
+    case 'rejected':
+      return 'لم تُعتمد بصيغتها الحالية'
+    case 'withdrawn':
+      return 'تم سحبها'
+    case 'superseded':
+      return 'تم تحديثها بنسخة أحدث'
+    default:
+      return 'قيد المراجعة'
+  }
+}
+
+function summarizeDraftPreview(draft: LocalDraft): string {
+  const p = draft.proposedData ?? {}
+  if (p.msa_translation || p.meaning) {
+    return `المعنى: ${(p.msa_translation || p.meaning || '').trim()}`
+  }
+  if (p.example_darija) {
+    return `مثال: «${p.example_darija.trim()}»`
+  }
+  if (p.word_ar) {
+    return `تصويب الكلمة إلى: «${p.word_ar.trim()}»`
+  }
+  if (draft.reviewerNote?.trim()) {
+    return draft.reviewerNote.trim()
+  }
+  return 'مسودة جاهزة للاستكمال'
 }
 
 export function SubmissionsPanel({
@@ -159,8 +202,8 @@ export function SubmissionsPanel({
       type: 'success',
       text:
         res.skippedAudits.length > 0
-          ? `تم إرسال ${res.syncedEntryIds.length} مسودات مكتملة إلى حسابك، وبقيت ${res.skippedAudits.length} مسودات لاستكمال حقولها.`
-          : `تمت مزامنة وإرسال جميع المسودات الجاهزة (${res.syncedEntryIds.length}) إلى حسابك بنجاح.`,
+          ? `تم إرسال ${res.syncedEntryIds.length} مسودات مكتملة إلى حسابك، وبقيت ${res.skippedAudits.length} مسودات لاستكمال حقولها الأساسية.`
+          : `تم إرسال جميع مسوداتك الجاهزة (${res.syncedEntryIds.length}) بنجاح.`,
     })
   }
 
@@ -171,7 +214,7 @@ export function SubmissionsPanel({
       setConfirmWithdrawId(null)
       setSyncMsg({
         type: 'success',
-        text: 'تم سحب المقترح من طابور المراجعة قبل صدور قرار تحكيمي.',
+        text: 'تم سحب المقترح بنجاح.',
       })
       return
     }
@@ -187,7 +230,7 @@ export function SubmissionsPanel({
         type: 'error',
         text: humanizeSystemError(
           error,
-          'تعذر سحب المقترح حالياً (قد يكون قد دخل مرحلة التحكيم بالفعل).',
+          'تعذر سحب المساهمة حالياً (قد تكون قيد الفحص لدى المحررين بالفعل).',
         ),
       })
       return
@@ -195,7 +238,7 @@ export function SubmissionsPanel({
     await loadSubmissions()
     setSyncMsg({
       type: 'success',
-      text: 'تم سحب مقترحك بنجاح مع توثيق السحب في سجل التدقيق.',
+      text: 'تم سحب المساهمة بنجاح.',
     })
   }
 
@@ -203,8 +246,11 @@ export function SubmissionsPanel({
     const isNew = isNewEntrySubmission(sub)
     const target = entryById.get(sub.entry_id)
     const titleLabel = isNew
-      ? `${sub.proposed_data?.word_ar || 'مفردة جديدة'} (مفردة جديدة)`
-      : `${target?.word ?? `مدخل رقم ${sub.entry_id}`} (${formatAccessionCode(sub.entry_id, target?.numericId ?? null)})`
+      ? `${sub.proposed_data?.word_ar || 'مفردة جديدة'} · إضافة جديدة`
+      : canAccessEditorialTools
+        ? `${target?.word ?? sub.entry_id} (${formatAccessionCode(sub.entry_id, target?.numericId ?? null)})`
+        : target?.word ?? 'مفردة في المعجم'
+
     const canRevise = sub.status === 'needs_changes' || sub.status === 'rejected'
     const canWithdraw = sub.status === 'pending'
     const isConfirmingWithdraw = confirmWithdrawId === sub.id
@@ -216,57 +262,61 @@ export function SubmissionsPanel({
       >
         <div className="space-y-1.5 flex-1">
           <div className="flex flex-wrap items-center gap-2 text-xs">
-            <span className="font-display text-sm font-bold text-stone-900 dark:text-stone-100">
+            <span className="font-display text-sm font-bold text-zinc-950 dark:text-[#F5F5F7]">
               {titleLabel}
             </span>
-            <span aria-hidden="true" className="text-stone-300 dark:text-stone-600">
+            <span aria-hidden="true" className="text-zinc-300 dark:text-zinc-600">
               ·
             </span>
             <span
               className={`font-semibold ${
                 sub.status === 'merged' || sub.status === 'accepted'
-                  ? 'text-[#0F5C4E] dark:text-[#4FD1C5]'
+                  ? 'text-emerald-700 dark:text-[#D9FF43]'
                   : sub.status === 'needs_changes'
                     ? 'text-amber-700 dark:text-amber-400'
                     : sub.status === 'rejected'
-                      ? 'text-red-700 dark:text-red-400'
+                      ? 'text-red-700 dark:text-[#FF3B2F]'
                       : sub.status === 'withdrawn' || sub.status === 'superseded'
-                        ? 'text-stone-500 dark:text-stone-500'
-                        : 'text-stone-600 dark:text-stone-400'
+                        ? 'text-zinc-500 dark:text-zinc-500'
+                        : 'text-zinc-600 dark:text-zinc-400'
               }`}
             >
-              {sub.status === 'merged' && sub.exported_in_version
-                ? `مدمج في الإصدار v${sub.exported_in_version.replace(/^v/i, '')}`
-                : formatStatusLabel(sub.status)}
+              {formatContributorStatus(sub.status)}
             </span>
             {sub.supersedes_id && (
               <>
-                <span aria-hidden="true" className="text-stone-300 dark:text-stone-600">
+                <span aria-hidden="true" className="text-zinc-300 dark:text-zinc-600">
                   ·
                 </span>
-                <span className="inline-flex items-center gap-1 text-[11px] text-stone-600 dark:text-stone-400">
+                <span className="inline-flex items-center gap-1 text-[11px] text-zinc-600 dark:text-zinc-400">
                   <GitBranch className="h-3 w-3" aria-hidden="true" />
-                  <span>نسخة منقحة لمقترح سابق</span>
+                  <span>نسخة معدّلة</span>
                 </span>
               </>
             )}
-            <span aria-hidden="true" className="text-stone-300 dark:text-stone-600">
+            <span aria-hidden="true" className="text-zinc-300 dark:text-zinc-600">
               ·
             </span>
-            <span className="font-mono tabular-nums text-stone-500 dark:text-stone-400">
+            <span className="font-mono tabular-nums text-zinc-500 dark:text-zinc-400">
               {new Date(sub.created_at).toLocaleDateString('ar-MA')}
             </span>
           </div>
 
-          {sub.reviewer_note && (
-            <p className="text-xs leading-relaxed text-stone-700 dark:text-stone-300">
-              ملاحظتك: {sub.reviewer_note}
+          {sub.proposed_data?.msa_translation && (
+            <p className="text-xs text-zinc-600 dark:text-zinc-400">
+              المعنى المقترح: {sub.proposed_data.msa_translation}
             </p>
           )}
-          {sub.editor_note && (
-            <p className="rounded-md border border-[#E5DFD3] bg-[#FBF9F5] px-3 py-2 text-xs leading-relaxed text-stone-700 dark:border-[#2E2B27] dark:bg-[#141312] dark:text-stone-300">
-              <strong className="font-semibold">ملاحظة اللجنة التحريرية:</strong> {sub.editor_note}
+          {sub.proposed_data?.example_darija && (
+            <p className="text-xs text-zinc-600 dark:text-zinc-400">
+              المثال: «{sub.proposed_data.example_darija}»
             </p>
+          )}
+
+          {sub.editor_note && (
+            <div className="mt-1 rounded-xl border border-amber-300/80 bg-amber-50/70 px-3 py-2 text-xs leading-relaxed text-amber-950 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200">
+              <strong className="font-semibold">رد المحرر اللغوي:</strong> {sub.editor_note}
+            </div>
           )}
         </div>
 
@@ -275,10 +325,10 @@ export function SubmissionsPanel({
             <button
               type="button"
               onClick={() => onStartRevision(sub)}
-              className="inline-flex min-h-[36px] items-center gap-1.5 rounded-lg border border-[#0F5C4E] bg-[#FBF9F5] px-3.5 py-1.5 text-xs font-semibold text-[#0F5C4E] hover:bg-[#EFECE4] whitespace-nowrap cursor-pointer dark:border-[#4FD1C5]/60 dark:bg-[#141312] dark:text-[#4FD1C5]"
+              className="inline-flex min-h-[36px] items-center gap-1.5 rounded-full bg-zinc-950 px-4 py-1.5 text-xs font-semibold text-white hover:bg-zinc-800 whitespace-nowrap cursor-pointer dark:bg-[#D9FF43] dark:text-[#050507] dark:hover:bg-[#e5ff73]"
             >
               <RotateCcw className="h-3.5 w-3.5" aria-hidden="true" />
-              <span>تقديم نسخة منقحة</span>
+              <span>تعديل وإعادة إرسال</span>
             </button>
           )}
 
@@ -286,27 +336,27 @@ export function SubmissionsPanel({
             <button
               type="button"
               onClick={() => setConfirmWithdrawId(sub.id)}
-              className="inline-flex min-h-[36px] items-center gap-1.5 rounded-lg border border-[#D6CEBE] bg-[#FBF9F5] px-3 py-1.5 text-xs font-medium text-stone-700 hover:border-red-300 hover:text-red-700 whitespace-nowrap cursor-pointer dark:border-[#3A3530] dark:bg-[#141312] dark:text-stone-300 dark:hover:text-red-400"
+              className="inline-flex min-h-[36px] items-center gap-1.5 rounded-full border border-zinc-300 bg-zinc-50 px-3.5 py-1.5 text-xs font-medium text-zinc-700 hover:border-red-300 hover:text-red-700 whitespace-nowrap cursor-pointer dark:border-white/15 dark:bg-[#07070A] dark:text-zinc-300 dark:hover:border-[#FF3B2F]/40 dark:hover:text-[#FF3B2F]"
             >
               <XCircle className="h-3.5 w-3.5" aria-hidden="true" />
-              <span>سحب المقترح</span>
+              <span>سحب</span>
             </button>
           )}
 
           {canWithdraw && isConfirmingWithdraw && (
-            <div className="inline-flex items-center gap-1.5 rounded-lg border border-red-200 bg-red-50/80 p-1 dark:border-red-900/50 dark:bg-red-950/30">
+            <div className="inline-flex items-center gap-1.5 rounded-full border border-red-300 bg-red-50/80 p-1 dark:border-[#FF3B2F]/40 dark:bg-[#FF3B2F]/10">
               <button
                 type="button"
                 disabled={withdrawingId === sub.id}
                 onClick={() => handleConfirmWithdraw(sub)}
-                className="min-h-[30px] rounded-md bg-red-700 px-2.5 py-1 text-xs font-semibold text-white hover:bg-red-800 disabled:opacity-50 whitespace-nowrap cursor-pointer"
+                className="min-h-[30px] rounded-full bg-red-700 px-3 py-1 text-xs font-semibold text-white hover:bg-red-800 disabled:opacity-50 whitespace-nowrap cursor-pointer dark:bg-[#FF3B2F] dark:hover:bg-[#ff5247]"
               >
                 {withdrawingId === sub.id ? 'جارٍ السحب...' : 'تأكيد السحب'}
               </button>
               <button
                 type="button"
                 onClick={() => setConfirmWithdrawId(null)}
-                className="min-h-[30px] rounded-md px-2 py-1 text-xs font-medium text-stone-700 hover:text-stone-900 whitespace-nowrap cursor-pointer dark:text-stone-300"
+                className="min-h-[30px] rounded-full px-2.5 py-1 text-xs font-medium text-zinc-700 hover:text-zinc-950 whitespace-nowrap cursor-pointer dark:text-zinc-300 dark:hover:text-white"
               >
                 تراجع
               </button>
@@ -332,70 +382,144 @@ export function SubmissionsPanel({
   )
 
   return (
-    <div className="rounded-xl border border-[#E5DFD3] bg-white p-5 sm:p-8 space-y-10 dark:border-[#2E2B27] dark:bg-[#1C1A18]">
-      {/* Contributor Impact & Celebration Summary */}
-      <div className="rounded-xl border border-[#E5DFD3] bg-[#FBF9F5] p-4 sm:p-5 space-y-4 dark:border-[#2E2B27] dark:bg-[#141312]">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h3 className="font-display text-base font-bold text-stone-900 dark:text-stone-100">
-              أثر مساهماتك في توثيق المعجم المغربي
-            </h3>
-            <p className="mt-0.5 text-xs text-stone-600 dark:text-stone-400">
-              كل تأكيد أو مثال سياقي يساهم مباشرةً في بناء مرجع لغوي مفتوح ودقيق للدارجة المغربية.
-            </p>
-          </div>
+    <div className="rounded-2xl border border-zinc-200 bg-white p-5 sm:p-8 space-y-10 dark:border-white/10 dark:bg-[#0C0C10]">
+      {/* Contributor Impact Summary */}
+      <div className="rounded-2xl border border-zinc-200 bg-zinc-50 p-4 sm:p-5 space-y-4 dark:border-white/10 dark:bg-[#07070A]">
+        <div>
+          <p className="font-mono text-[11px] font-semibold uppercase tracking-wider text-emerald-700 dark:text-[#D9FF43]">
+            01 / سجل الأثر المعجمي
+          </p>
+          <h3 className="mt-1 font-display text-base font-bold text-zinc-950 dark:text-[#F5F5F7]">
+            أثرك في إثراء معجم الدارجة المغربية
+          </h3>
+          <p className="mt-0.5 text-xs text-zinc-600 dark:text-zinc-400">
+            كل كلمة تراجعها أو تضيفها تساعد في حفظ وتوثيق اللسان المغربي بدقة للأجيال والباحثين.
+          </p>
         </div>
 
-        <div className="grid grid-cols-2 gap-4 pt-3 border-t border-[#E5DFD3] sm:grid-cols-4 dark:border-[#2E2B27]">
+        <div className="grid grid-cols-2 gap-4 pt-3 border-t border-zinc-200 sm:grid-cols-4 dark:border-white/10">
           <div>
-            <p className="text-xs text-stone-500 dark:text-stone-400">تأكيدات المراجعة السريعة</p>
-            <p className="mt-1 font-mono text-2xl font-bold tabular-nums text-stone-900 dark:text-stone-100">
+            <p className="text-xs text-zinc-500 dark:text-zinc-400">مفردات راجعتها</p>
+            <p className="mt-1 font-mono text-2xl font-bold tabular-nums text-zinc-950 dark:text-[#F5F5F7]">
               {totalAttestationsCount.toLocaleString('en-US')}
             </p>
           </div>
           <div>
-            <p className="text-xs text-stone-500 dark:text-stone-400">مسودات قيد الاستكمال</p>
-            <p className="mt-1 font-mono text-2xl font-bold tabular-nums text-stone-900 dark:text-stone-100">
-              {draftsList.length.toLocaleString('en-US')}
+            <p className="text-xs text-zinc-500 dark:text-zinc-400">قيد المراجعة</p>
+            <p className="mt-1 font-mono text-2xl font-bold tabular-nums text-zinc-950 dark:text-[#F5F5F7]">
+              {impactMetrics.pendingCount.toLocaleString('en-US')}
             </p>
           </div>
           <div>
-            <p className="text-xs text-stone-500 dark:text-stone-400">مقترحات معتمدة</p>
-            <p className="mt-1 font-mono text-2xl font-bold tabular-nums text-[#0F5C4E] dark:text-[#4FD1C5]">
+            <p className="text-xs text-zinc-500 dark:text-zinc-400">مساهمات معتمدة</p>
+            <p className="mt-1 font-mono text-2xl font-bold tabular-nums text-emerald-700 dark:text-[#D9FF43]">
               {impactMetrics.approvedTotal.toLocaleString('en-US')}
             </p>
           </div>
           <div>
-            <p className="text-xs text-stone-500 dark:text-stone-400">مدمجة في إصدار رسمي</p>
-            <p className="mt-1 font-mono text-2xl font-bold tabular-nums text-[#0F5C4E] dark:text-[#4FD1C5]">
-              {impactMetrics.mergedCount.toLocaleString('en-US')}
+            <p className="text-xs text-zinc-500 dark:text-zinc-400">مسودات محفوظة</p>
+            <p className="mt-1 font-mono text-2xl font-bold tabular-nums text-zinc-950 dark:text-[#F5F5F7]">
+              {draftsList.length.toLocaleString('en-US')}
             </p>
           </div>
         </div>
 
         {impactMetrics.approvedTotal > 0 && (
-          <div className="flex items-start gap-2.5 rounded-lg border border-emerald-200 bg-emerald-50/80 px-3.5 py-2.5 text-xs text-emerald-950 dark:border-emerald-900/50 dark:bg-emerald-950/30 dark:text-emerald-200">
-            <Award className="mt-0.5 h-4 w-4 shrink-0 text-emerald-700 dark:text-emerald-400" aria-hidden="true" />
+          <div className="flex items-start gap-2.5 rounded-xl border border-emerald-300 bg-emerald-50/80 px-3.5 py-2.5 text-xs text-emerald-950 dark:border-[#D9FF43]/40 dark:bg-[#D9FF43]/10 dark:text-[#F5F5F7]">
+            <Award
+              className="mt-0.5 h-4 w-4 shrink-0 text-emerald-700 dark:text-[#D9FF43]"
+              aria-hidden="true"
+            />
             <p className="leading-relaxed">
-              <strong className="font-semibold">تقدير للمساهمة المعجمية:</strong> اعتمد المحررون{' '}
-              <span className="font-mono font-semibold tabular-nums">
+              اعتمد المحررون{' '}
+              <strong className="font-mono font-semibold tabular-nums">
                 {impactMetrics.approvedTotal}
-              </span>{' '}
-              من مساهماتك لإدراجها ضمن المتن الرسمي لمعجم الدارجة المغربية. شكراً لإثرائك المحتوى العربي المفتوح.
+              </strong>{' '}
+              من مساهماتك لإدراجها في المعجم الرسمي. شكراً لمساهمتك القيمة!
             </p>
           </div>
         )}
       </div>
 
-      {/* Section 1: Local Browser Drafts */}
+      {/* Section 1: Submitted Contributions */}
       <div>
-        <div className="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-[#E5DFD3] dark:border-[#2E2B27]">
+        <div className="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-zinc-200 dark:border-white/10">
           <div>
-            <h3 className="font-display text-lg font-bold text-stone-900 dark:text-stone-100">
-              المسودات المحفوظة على هذا الجهاز ({draftsList.length.toLocaleString('en-US')})
+            <h3 className="font-display text-lg font-bold text-zinc-950 dark:text-[#F5F5F7]">
+              مساهماتي المرسلة
             </h3>
-            <p className="mt-1 text-xs text-stone-600 dark:text-stone-400">
-              تُحفظ مسوداتك تلقائياً في متصفحك لتتمكن من إتمامها أو إرسالها متى شئت.
+            <p className="mt-1 text-xs text-zinc-600 dark:text-zinc-400">
+              تابع حالة الكلمات والتعديلات التي أرسلتها، واطّلع على ردود المحررين اللغويين.
+            </p>
+          </div>
+
+          {userEmail && (
+            <button
+              type="button"
+              onClick={loadSubmissions}
+              disabled={loading}
+              className="inline-flex min-h-[36px] items-center gap-1.5 rounded-full border border-zinc-300 bg-zinc-50 px-3.5 py-1.5 text-xs font-medium text-zinc-700 hover:bg-zinc-100 cursor-pointer dark:border-white/15 dark:bg-[#07070A] dark:text-zinc-300 dark:hover:bg-white/[0.06]"
+            >
+              <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
+              <span>تحديث القائمة</span>
+            </button>
+          )}
+        </div>
+
+        {syncMsg && (
+          <div
+            role="status"
+            className={`mt-4 rounded-xl border p-3 text-xs leading-relaxed ${
+              syncMsg.type === 'error'
+                ? 'border-red-300 bg-red-50 text-red-950 dark:border-[#FF3B2F]/40 dark:bg-[#FF3B2F]/10 dark:text-red-200'
+                : 'border-emerald-300 bg-emerald-50 text-emerald-950 dark:border-[#D9FF43]/40 dark:bg-[#D9FF43]/10 dark:text-[#F5F5F7]'
+            }`}
+          >
+            {syncMsg.text}
+          </div>
+        )}
+
+        {!userEmail ? (
+          <div className="py-8 text-center">
+            <p className="text-xs text-zinc-600 dark:text-zinc-400">
+              سجّل الدخول أو أنشئ حساباً مجانياً لحفظ مساهماتك باسمك ومتابعة اعتمادها في المعجم.
+            </p>
+            <button
+              type="button"
+              onClick={onOpenAuth}
+              className="mt-4 inline-flex min-h-[40px] items-center gap-2 rounded-full bg-zinc-950 px-5 py-2 text-xs font-semibold text-white hover:bg-zinc-800 cursor-pointer dark:bg-[#D9FF43] dark:text-[#050507] dark:hover:bg-[#e5ff73]"
+            >
+              <LogIn className="h-3.5 w-3.5" />
+              <span>دخول / إنشاء حساب</span>
+            </button>
+          </div>
+        ) : loading ? (
+          <div className="py-8 space-y-2">
+            <div className="h-14 rounded-xl bg-zinc-100 animate-pulse dark:bg-[#07070A]" />
+            <div className="h-14 rounded-xl bg-zinc-100 animate-pulse dark:bg-[#07070A]" />
+          </div>
+        ) : errorMsg ? (
+          <p className="py-6 text-xs text-red-700 dark:text-[#FF3B2F]">{errorMsg}</p>
+        ) : submissions.length === 0 ? (
+          <p className="py-8 text-center text-xs text-zinc-500 dark:text-zinc-400">
+            لم ترسل أي مفردات أو تعديلات بعد من هذا الحساب.
+          </p>
+        ) : (
+          <div className="divide-y divide-zinc-200 dark:divide-white/10">
+            {submissions.map((sub) => renderSubmissionRow(sub))}
+          </div>
+        )}
+      </div>
+
+      {/* Section 2: Local Browser Drafts (Shown prominently when drafts exist, or quietly below) */}
+      <div className="pt-8 border-t border-zinc-200 dark:border-white/10">
+        <div className="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-zinc-200 dark:border-white/10">
+          <div>
+            <h3 className="font-display text-base font-bold text-zinc-950 dark:text-[#F5F5F7]">
+              مسودات محفوظة على هذا الجهاز ({draftsList.length.toLocaleString('en-US')})
+            </h3>
+            <p className="mt-1 text-xs text-zinc-600 dark:text-zinc-400">
+              مسودات لم تُرسل بعد ويمكنك متابعة تحريرها أو إرسالها دفعة واحدة.
             </p>
           </div>
 
@@ -406,173 +530,91 @@ export function SubmissionsPanel({
                   type="button"
                   disabled={syncing}
                   onClick={handleSyncReadyDrafts}
-                  className="inline-flex min-h-[38px] items-center gap-2 rounded-lg bg-[#0F5C4E] px-3.5 py-2 text-xs font-semibold text-white hover:bg-[#0B463B] disabled:opacity-50 whitespace-nowrap shrink-0 cursor-pointer dark:bg-[#147A67]"
+                  className="inline-flex min-h-[38px] items-center gap-2 rounded-full bg-zinc-950 px-4 py-2 text-xs font-semibold text-white hover:bg-zinc-800 disabled:opacity-50 whitespace-nowrap shrink-0 cursor-pointer dark:bg-[#D9FF43] dark:text-[#050507] dark:hover:bg-[#e5ff73]"
                 >
                   <CloudUpload className="h-3.5 w-3.5" aria-hidden="true" />
                   <span>
-                    {syncing ? 'جارٍ الإرسال...' : `إرسال المسودات المكتملة (${readyDraftsCount})`}
+                    {syncing ? 'جارٍ الإرسال...' : `إرسال المسودات الجاهزة (${readyDraftsCount})`}
                   </span>
                 </button>
               )}
-              <button
-                type="button"
-                onClick={handleExportDraftsJson}
-                className="inline-flex min-h-[38px] items-center gap-2 rounded-lg border border-[#D6CEBE] bg-[#FBF9F5] px-3.5 py-2 text-xs font-semibold text-stone-800 hover:bg-[#EFECE4] whitespace-nowrap shrink-0 cursor-pointer dark:border-[#3A3530] dark:bg-[#141312] dark:text-stone-200"
-              >
-                <Download className="h-3.5 w-3.5" aria-hidden="true" />
-                <span>تنزيل نسخة احتياطية</span>
-              </button>
+              {canAccessEditorialTools && (
+                <button
+                  type="button"
+                  onClick={handleExportDraftsJson}
+                  className="inline-flex min-h-[38px] items-center gap-2 rounded-full border border-zinc-300 bg-zinc-50 px-4 py-2 text-xs font-semibold text-zinc-800 hover:bg-zinc-100 whitespace-nowrap shrink-0 cursor-pointer dark:border-white/15 dark:bg-[#07070A] dark:text-zinc-200 dark:hover:bg-white/[0.06]"
+                >
+                  <Download className="h-3.5 w-3.5" aria-hidden="true" />
+                  <span>تنزيل نسخة احتياطية</span>
+                </button>
+              )}
             </div>
           )}
         </div>
 
-        {syncMsg && (
-          <div
-            role="status"
-            className={`mt-4 rounded-lg border p-3 text-xs leading-relaxed ${
-              syncMsg.type === 'error'
-                ? 'border-red-200 bg-red-50 text-red-900 dark:border-red-900/50 dark:bg-red-950/40 dark:text-red-200'
-                : 'border-emerald-200 bg-emerald-50 text-emerald-900 dark:border-emerald-900/50 dark:bg-emerald-950/40 dark:text-emerald-200'
-            }`}
-          >
-            {syncMsg.text}
-          </div>
-        )}
-
         {draftsList.length === 0 ? (
-          <div className="py-8 text-center">
-            <p className="text-xs text-stone-500 dark:text-stone-400">
-              لا توجد مسودات محلية حالياً. يمكنك حفظ أي تعديل أو مفردة كمسودة والعودة إليها لاحقاً.
+          <div className="py-6 text-center">
+            <p className="text-xs text-zinc-500 dark:text-zinc-400">
+              لا توجد مسودات غير مرسلة على هذا الجهاز حالياً.
             </p>
           </div>
         ) : (
-          <div className="divide-y divide-[#E5DFD3] dark:divide-[#2E2B27]">
-            {draftsList.map((draft) => {
-              const modifiedKeys = Object.entries(draft.proposedData).filter(
-                ([k, val]) =>
-                  k !== 'submission_kind' &&
-                  k !== 'corpus_version' &&
-                  k !== 'baseline_fingerprint' &&
-                  typeof val === 'string' &&
-                  val.trim() !== '',
-              )
-              return (
-                <div
-                  key={draft.entryId}
-                  className="py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4"
-                >
-                  <div>
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="font-display text-base font-bold text-stone-900 dark:text-stone-100">
-                        {draft.headword}
-                      </span>
-                      <span className="text-xs text-stone-400" aria-hidden="true">·</span>
-                      <span className="text-xs text-stone-600 dark:text-stone-400">
-                        {draft.category}
-                      </span>
-                    </div>
-                    <p className="mt-1 text-xs text-stone-600 dark:text-stone-400">
-                      {modifiedKeys.length} حقول محررة · {draft.evidence.length} روابط شواهد · آخر تحديث{' '}
-                      <span className="font-mono tabular-nums">
-                        {new Date(draft.updatedAt).toLocaleDateString('ar-MA')}
-                      </span>
-                    </p>
+          <div className="divide-y divide-zinc-200 dark:divide-white/10">
+            {draftsList.map((draft) => (
+              <div
+                key={draft.entryId}
+                className="py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4"
+              >
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="font-display text-base font-bold text-zinc-950 dark:text-[#F5F5F7]">
+                      {draft.headword}
+                    </span>
+                    <span className="text-xs text-zinc-400" aria-hidden="true">
+                      ·
+                    </span>
+                    <span className="font-mono text-xs tabular-nums text-zinc-500 dark:text-zinc-400">
+                      {new Date(draft.updatedAt).toLocaleDateString('ar-MA')}
+                    </span>
                   </div>
-
-                  <div className="flex items-center gap-2 shrink-0">
-                    <button
-                      type="button"
-                      onClick={() => onResumeDraft(draft.entryId)}
-                      className="inline-flex min-h-[36px] items-center gap-1.5 rounded-lg bg-[#0F5C4E] px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-[#0B463B] whitespace-nowrap cursor-pointer dark:bg-[#147A67]"
-                    >
-                      <span>متابعة التحرير</span>
-                      <ArrowLeft className="h-3.5 w-3.5" />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => onDeleteDraft(draft.entryId)}
-                      aria-label="حذف المسودة"
-                      className="flex h-[36px] w-[36px] items-center justify-center rounded-lg border border-[#D6CEBE] text-stone-500 hover:text-red-700 hover:border-red-300 cursor-pointer dark:border-[#3A3530] dark:text-stone-400"
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </button>
-                  </div>
+                  <p className="mt-1 truncate text-xs text-zinc-600 dark:text-zinc-400">
+                    {summarizeDraftPreview(draft)}
+                  </p>
                 </div>
-              )
-            })}
+
+                <div className="flex items-center gap-2 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => onResumeDraft(draft.entryId)}
+                    className="inline-flex min-h-[36px] items-center gap-1.5 rounded-full bg-zinc-950 px-4 py-1.5 text-xs font-semibold text-white hover:bg-zinc-800 whitespace-nowrap cursor-pointer dark:bg-[#D9FF43] dark:text-[#050507] dark:hover:bg-[#e5ff73]"
+                  >
+                    <span>متابعة وإرسال</span>
+                    <ArrowLeft className="h-3.5 w-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onDeleteDraft(draft.entryId)}
+                    aria-label="حذف المسودة"
+                    className="flex h-[36px] w-[36px] items-center justify-center rounded-full border border-zinc-300 text-zinc-500 hover:text-red-700 hover:border-red-300 cursor-pointer dark:border-white/15 dark:text-zinc-400 dark:hover:text-[#FF3B2F] dark:hover:border-[#FF3B2F]/40"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              </div>
+            ))}
           </div>
         )}
       </div>
 
-      {/* Section 2: Account Submitted Contributions */}
-      <div className="pt-8 border-t border-[#E5DFD3] dark:border-[#2E2B27]">
-        <div className="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-[#E5DFD3] dark:border-[#2E2B27]">
-          <div>
-            <h3 className="font-display text-lg font-bold text-stone-900 dark:text-stone-100">
-              المقترحات المرسلة من حسابك
-            </h3>
-            <p className="mt-1 text-xs text-stone-600 dark:text-stone-400">
-              تابع حالة مقترحاتك وملاحظات المحررين، وقدّم نسخة منقحة عند طلب استكمال أي شاهد أو حقل.
-            </p>
-          </div>
-
-          {userEmail && (
-            <button
-              type="button"
-              onClick={loadSubmissions}
-              disabled={loading}
-              className="inline-flex min-h-[36px] items-center gap-1.5 rounded-lg border border-[#D6CEBE] bg-[#FBF9F5] px-3 py-1.5 text-xs font-medium text-stone-700 hover:bg-[#EFECE4] cursor-pointer dark:border-[#3A3530] dark:bg-[#141312] dark:text-stone-300"
-            >
-              <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
-              <span>تحديث</span>
-            </button>
-          )}
-        </div>
-
-        {!userEmail ? (
-          <div className="py-8 text-center">
-            <p className="text-xs text-stone-600 dark:text-stone-400">
-              سجّل الدخول أو أنشئ حساباً مجانياً لحفظ مساهماتك باسمك ومتابعة اعتمادها في إصدارات المعجم.
-            </p>
-            <button
-              type="button"
-              onClick={onOpenAuth}
-              className="mt-4 inline-flex min-h-[40px] items-center gap-2 rounded-lg bg-[#0F5C4E] px-5 py-2 text-xs font-semibold text-white hover:bg-[#0B463B] cursor-pointer dark:bg-[#147A67]"
-            >
-              <LogIn className="h-3.5 w-3.5" />
-              <span>دخول / إنشاء حساب</span>
-            </button>
-          </div>
-        ) : loading ? (
-          <div className="py-8 space-y-2">
-            <div className="h-14 rounded-lg bg-[#FBF9F5] animate-pulse dark:bg-[#141312]" />
-            <div className="h-14 rounded-lg bg-[#FBF9F5] animate-pulse dark:bg-[#141312]" />
-          </div>
-        ) : errorMsg ? (
-          <p className="py-6 text-xs text-red-700 dark:text-red-400">{errorMsg}</p>
-        ) : submissions.length === 0 ? (
-          <p className="py-8 text-center text-xs text-stone-500 dark:text-stone-400">
-            لم ترسل مقترحات تحريرية مسجلة بعد من هذا الحساب.
-          </p>
-        ) : (
-          <div className="divide-y divide-[#E5DFD3] dark:divide-[#2E2B27]">
-            {submissions.map((sub) => renderSubmissionRow(sub))}
-          </div>
-        )}
-      </div>
-
-      {/* Section 3: Sandbox Revisions Shortcut — Strictly Gated to Editorial Preview / Staff */}
+      {/* Section 3: Staff-Only Test Queue */}
       {canAccessEditorialTools && sandboxRevisableOrRecent.length > 0 && (
-        <div className="pt-8 border-t border-[#E5DFD3] dark:border-[#2E2B27]">
-          <div className="pb-3 border-b border-[#E5DFD3] dark:border-[#2E2B27]">
-            <h4 className="font-display text-sm font-bold text-stone-900 dark:text-stone-100">
-              مقترحات بيئة المحاكاة التحريرية ({sandboxRevisableOrRecent.length})
+        <div className="pt-8 border-t border-zinc-200 dark:border-white/10">
+          <div className="pb-3 border-b border-zinc-200 dark:border-white/10">
+            <h4 className="font-display text-sm font-bold text-zinc-950 dark:text-[#F5F5F7]">
+              طابور الاختبار للمحررين ({sandboxRevisableOrRecent.length})
             </h4>
-            <p className="mt-1 text-xs text-stone-500 dark:text-stone-400">
-              تظهر هذه القائمة فقط أثناء تفعيل معاينة أدوات المحررين:
-            </p>
           </div>
-          <div className="divide-y divide-[#E5DFD3] dark:divide-[#2E2B27]">
+          <div className="divide-y divide-zinc-200 dark:divide-white/10">
             {sandboxRevisableOrRecent.map((sub) => renderSubmissionRow(sub))}
           </div>
         </div>

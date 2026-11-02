@@ -458,16 +458,16 @@ export function DatasetExporterPanel({
   return (
     <div className="space-y-6">
       {/* Header & Source Controls */}
-      <div className="rounded-xl border border-[#E5DFD3] bg-white p-5 sm:p-8 dark:border-[#2E2B27] dark:bg-[#1C1A18]">
-        <div className="flex flex-wrap items-start justify-between gap-4 pb-6 border-b border-[#E5DFD3] dark:border-[#2E2B27]">
+      <div className="rounded-2xl border border-zinc-200 bg-white p-5 sm:p-8 dark:border-white/10 dark:bg-[#0C0C10]">
+        <div className="flex flex-wrap items-start justify-between gap-4 pb-6 border-b border-zinc-200 dark:border-white/10">
           <div>
-            <p className="text-xs font-semibold text-[#0F5C4E] dark:text-[#4FD1C5]">
+            <p className="font-mono text-[11px] font-semibold uppercase tracking-wider text-emerald-700 dark:text-[#D9FF43]">
               جسر التصدير إلى المعجم الرسمي · مدقق JSON Schema الفعلي (Ajv) وحقوق المصدر
             </p>
-            <h3 className="mt-1.5 font-display text-xl sm:text-2xl font-bold text-stone-900 dark:text-stone-100">
+            <h3 className="mt-1.5 font-display text-xl sm:text-2xl font-bold text-zinc-950 dark:text-white">
               مُصدِّر التعديلات المعتمدة إلى المعجم الرسمي
             </h3>
-            <p className="mt-1.5 max-w-[68ch] text-xs sm:text-sm leading-relaxed text-stone-600 dark:text-stone-400">
+            <p className="mt-1.5 max-w-[68ch] text-xs sm:text-sm leading-relaxed text-zinc-600 dark:text-zinc-400">
               يدمج المقترحات المعتمدة فوق نسخة المعجم الرسمية، ويعيد حساب الفهارس والمعرفات، ويشغّل مدقق JSON Schema الرسمي (<code className="font-mono">schema.json</code> و<code className="font-mono">context-schema.json</code>) مع فحص توثيق حقوق إعادة الاستخدام قبل السماح بالتنزيل.
             </p>
           </div>
@@ -476,15 +476,15 @@ export function DatasetExporterPanel({
             <div
               role="group"
               aria-label="مصدر المقترحات المعتمدة"
-              className="inline-flex items-center gap-1 rounded-lg border border-[#E5DFD3] bg-[#F3EFE6] p-1 dark:border-[#2E2B27] dark:bg-[#141312]"
+              className="inline-flex items-center gap-1 rounded-full border border-zinc-200 bg-zinc-100 p-1 dark:border-white/12 dark:bg-[#07070A]"
             >
               <button
                 type="button"
                 onClick={() => setExportSource('live')}
-                className={`min-h-[34px] rounded-md px-3 py-1.5 text-xs font-semibold transition-colors whitespace-nowrap cursor-pointer ${
+                className={`min-h-[34px] rounded-full px-3.5 py-1.5 text-xs font-semibold transition-colors whitespace-nowrap cursor-pointer ${
                   exportSource === 'live'
-                    ? 'bg-white text-stone-900 shadow-2xs dark:bg-[#2A2622] dark:text-stone-100'
-                    : 'text-stone-600 hover:text-stone-900 dark:text-stone-400'
+                    ? 'bg-zinc-950 text-white dark:bg-[#D9FF43] dark:text-[#050507]'
+                    : 'text-zinc-600 hover:text-zinc-950 dark:text-zinc-400 dark:hover:text-white'
                 }`}
               >
                 السجل الحي ({exportSource === 'live' ? candidateAccepted.length : liveAccepted.length})
@@ -492,10 +492,10 @@ export function DatasetExporterPanel({
               <button
                 type="button"
                 onClick={() => setExportSource('sandbox')}
-                className={`min-h-[34px] rounded-md px-3 py-1.5 text-xs font-semibold transition-colors whitespace-nowrap cursor-pointer ${
+                className={`min-h-[34px] rounded-full px-3.5 py-1.5 text-xs font-semibold transition-colors whitespace-nowrap cursor-pointer ${
                   exportSource === 'sandbox'
-                    ? 'bg-white text-stone-900 shadow-2xs dark:bg-[#2A2622] dark:text-stone-100'
-                    : 'text-stone-600 hover:text-stone-900 dark:text-stone-400'
+                    ? 'bg-zinc-950 text-white dark:bg-[#D9FF43] dark:text-[#050507]'
+                    : 'text-zinc-600 hover:text-zinc-950 dark:text-zinc-400 dark:hover:text-white'
                 }`}
               >
                 بيئة المحاكاة ({sandboxItems.filter((i) => i.status === 'accepted' && !archivedReleaseMap[i.id]).length})
@@ -507,7 +507,7 @@ export function DatasetExporterPanel({
                 type="button"
                 onClick={fetchLiveAccepted}
                 disabled={loadingLive}
-                className="inline-flex min-h-[36px] items-center gap-1.5 rounded-lg border border-[#D6CEBE] bg-[#FBF9F5] px-3 py-1.5 text-xs font-medium text-stone-700 hover:bg-[#EFECE4] cursor-pointer dark:border-[#3A3530] dark:bg-[#141312] dark:text-stone-300"
+                className="inline-flex min-h-[36px] items-center gap-1.5 rounded-full border border-zinc-300 bg-zinc-50 px-3.5 py-1.5 text-xs font-medium text-zinc-700 hover:bg-zinc-100 cursor-pointer dark:border-white/15 dark:bg-[#07070A] dark:text-zinc-300 dark:hover:border-white/30"
               >
                 <RefreshCw className={`h-3.5 w-3.5 ${loadingLive ? 'animate-spin' : ''}`} />
                 <span>تحديث</span>
@@ -520,7 +520,7 @@ export function DatasetExporterPanel({
         <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-12 items-center">
           <div className="lg:col-span-4">
             <label className="block">
-              <span className="block text-xs font-medium text-stone-600 dark:text-stone-400">
+              <span className="block text-xs font-medium text-zinc-600 dark:text-zinc-400">
                 رقم الإصدار الجديد المستهدف (meta.version)
               </span>
               <input
@@ -528,33 +528,33 @@ export function DatasetExporterPanel({
                 dir="ltr"
                 value={targetVersion}
                 onChange={(e) => setTargetVersion(e.target.value)}
-                className="mt-1.5 w-full max-w-[220px] min-h-[40px] rounded-lg border border-[#D6CEBE] bg-[#FBF9F5] px-3.5 py-2 font-mono text-xs text-left text-stone-900 focus:border-[#0F5C4E] focus:bg-white focus:outline-none dark:border-[#3A3530] dark:bg-[#141312] dark:text-stone-100"
+                className="mt-1.5 w-full max-w-[220px] min-h-[40px] rounded-xl border border-zinc-300 bg-zinc-50 px-3.5 py-2 font-mono text-xs text-left text-zinc-950 focus:border-zinc-900 focus:bg-white focus:outline-none dark:border-white/15 dark:bg-[#07070A] dark:text-white dark:focus:border-[#D9FF43]"
               />
             </label>
           </div>
 
-          <dl className="lg:col-span-8 grid grid-cols-2 sm:grid-cols-4 gap-4 border-t lg:border-t-0 lg:border-s border-[#E5DFD3] pt-4 lg:pt-0 lg:ps-6 dark:border-[#2E2B27]">
+          <dl className="lg:col-span-8 grid grid-cols-2 sm:grid-cols-4 gap-4 border-t lg:border-t-0 lg:border-s border-zinc-200 pt-4 lg:pt-0 lg:ps-6 dark:border-white/10">
             <div>
-              <dt className="text-xs text-stone-500 dark:text-stone-400">مداخل محدّثة</dt>
-              <dd className="mt-1 font-mono text-xl font-semibold tabular-nums text-stone-900 dark:text-stone-100">
+              <dt className="text-xs text-zinc-500 dark:text-zinc-400">مداخل محدّثة</dt>
+              <dd className="mt-1 font-mono text-xl font-semibold tabular-nums text-zinc-950 dark:text-white">
                 {bundle.stats.modifiedEntriesCount}
               </dd>
             </div>
             <div>
-              <dt className="text-xs text-stone-500 dark:text-stone-400">مفردات جديدة</dt>
-              <dd className="mt-1 font-mono text-xl font-semibold tabular-nums text-stone-900 dark:text-stone-100">
+              <dt className="text-xs text-zinc-500 dark:text-zinc-400">مفردات جديدة</dt>
+              <dd className="mt-1 font-mono text-xl font-semibold tabular-nums text-emerald-700 dark:text-[#D9FF43]">
                 {bundle.stats.addedEntriesCount}
               </dd>
             </div>
             <div>
-              <dt className="text-xs text-stone-500 dark:text-stone-400">شواهد سياقية مضافة</dt>
-              <dd className="mt-1 font-mono text-xl font-semibold tabular-nums text-stone-900 dark:text-stone-100">
+              <dt className="text-xs text-zinc-500 dark:text-zinc-400">شواهد سياقية مضافة</dt>
+              <dd className="mt-1 font-mono text-xl font-semibold tabular-nums text-zinc-950 dark:text-white">
                 {bundle.stats.addedExamplesCount}
               </dd>
             </div>
             <div>
-              <dt className="text-xs text-stone-500 dark:text-stone-400">إجمالي المتن الناتج</dt>
-              <dd className="mt-1 font-mono text-xl font-semibold tabular-nums text-stone-900 dark:text-stone-100">
+              <dt className="text-xs text-zinc-500 dark:text-zinc-400">إجمالي المتن الناتج</dt>
+              <dd className="mt-1 font-mono text-xl font-semibold tabular-nums text-zinc-950 dark:text-white">
                 {bundle.lexiconJson.entries.length.toLocaleString('en-US')}
               </dd>
             </div>
@@ -564,10 +564,10 @@ export function DatasetExporterPanel({
         {/* Structural + Provenance + Official Ajv JSON Schema Status */}
         <div className="mt-6 space-y-3">
           {errorIssues.length > 0 ? (
-            <div className="rounded-lg border border-red-300 bg-red-50 p-4 space-y-3 dark:border-red-900/60 dark:bg-red-950/40">
+            <div className="rounded-xl border border-red-300 bg-red-50 p-4 space-y-3 dark:border-[#FF3B2F]/40 dark:bg-[#FF3B2F]/10">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="flex items-center gap-2 text-xs font-bold text-red-900 dark:text-red-200">
-                  <AlertCircle className="h-4 w-4 shrink-0" />
+                  <AlertCircle className="h-4 w-4 shrink-0 text-red-700 dark:text-[#FF3B2F]" />
                   <span>
                     أوقف نظام التحقق عملية التصدير لوجود {errorIssues.length} خطأ تعارض أو نقص في توثيق الحقوق:
                   </span>
@@ -577,7 +577,7 @@ export function DatasetExporterPanel({
                   <button
                     type="button"
                     onClick={handleAutoExcludeBlocking}
-                    className="inline-flex min-h-[34px] items-center gap-1.5 rounded-lg border border-red-400 bg-white px-3 py-1.5 text-xs font-semibold text-red-900 hover:bg-red-100/60 whitespace-nowrap shrink-0 cursor-pointer dark:border-red-700 dark:bg-[#1C1A18] dark:text-red-200"
+                    className="inline-flex min-h-[34px] items-center gap-1.5 rounded-full border border-red-400 bg-white px-3.5 py-1.5 text-xs font-semibold text-red-900 hover:bg-red-100/60 whitespace-nowrap shrink-0 cursor-pointer dark:border-[#FF3B2F]/50 dark:bg-[#07070A] dark:text-red-200"
                   >
                     <FilterX className="h-3.5 w-3.5" aria-hidden="true" />
                     <span>
@@ -596,15 +596,15 @@ export function DatasetExporterPanel({
               </ul>
             </div>
           ) : selectedSubmissions.length > 0 ? (
-            <div className="rounded-lg border border-emerald-200 bg-emerald-50/80 p-4 space-y-2 dark:border-emerald-900/50 dark:bg-emerald-950/30">
-              <div className="flex items-center gap-2 text-xs font-semibold text-emerald-950 dark:text-emerald-200">
-                <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-700 dark:text-emerald-400" />
+            <div className="rounded-xl border border-emerald-200 bg-emerald-50/80 p-4 space-y-2 dark:border-[#D9FF43]/30 dark:bg-[#D9FF43]/10">
+              <div className="flex items-center gap-2 text-xs font-semibold text-emerald-950 dark:text-zinc-100">
+                <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-700 dark:text-[#D9FF43]" />
                 <span>
                   اجتازت الدفعة فحص عدم التعارض واكتملت حقول الملكية الفكرية ورخص إعادة الاستخدام لجميع السجلات المشمولة.
                 </span>
               </div>
               {warningIssues.length > 0 && (
-                <ul className="pt-2 border-t border-emerald-200/70 space-y-1 text-xs text-amber-900 dark:border-emerald-800/50 dark:text-amber-300">
+                <ul className="pt-2 border-t border-emerald-200/70 space-y-1 text-xs text-amber-900 dark:border-white/10 dark:text-amber-300">
                   {warningIssues.map((w, i) => (
                     <li key={i} className="flex items-start gap-1.5">
                       <AlertTriangle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
@@ -617,7 +617,7 @@ export function DatasetExporterPanel({
               )}
             </div>
           ) : (
-            <div className="rounded-lg border border-[#D6CEBE] bg-[#FBF9F5] p-4 text-xs text-stone-600 dark:border-[#3A3530] dark:bg-[#141312] dark:text-stone-400">
+            <div className="rounded-xl border border-zinc-200 bg-zinc-50 p-4 text-xs text-zinc-600 dark:border-white/10 dark:bg-[#07070A] dark:text-zinc-400">
               لا توجد مقترحات مشمولة في الدفعة حالياً. اعتمد مقترحاً من «لوحة تحكيم المحررين» أو أعد تضمين المقترحات المستثناة أدناه.
             </div>
           )}
@@ -625,30 +625,30 @@ export function DatasetExporterPanel({
           {/* Official Ajv JSON Schema Validation Status */}
           {selectedSubmissions.length > 0 && (
             <div
-              className={`rounded-lg border p-3.5 text-xs ${
+              className={`rounded-xl border p-3.5 text-xs ${
                 validatingSchema
-                  ? 'border-[#D6CEBE] bg-[#FBF9F5] text-stone-700 dark:border-[#3A3530] dark:bg-[#141312] dark:text-stone-300'
+                  ? 'border-zinc-200 bg-zinc-50 text-zinc-700 dark:border-white/12 dark:bg-[#07070A] dark:text-zinc-300'
                   : schemaReport?.valid
-                    ? 'border-[#D6CEBE] bg-[#FBF9F5] text-stone-800 dark:border-[#3A3530] dark:bg-[#141312] dark:text-stone-200'
-                    : 'border-red-300 bg-red-50 text-red-900 dark:border-red-900/60 dark:bg-red-950/40 dark:text-red-200'
+                    ? 'border-zinc-200 bg-zinc-50 text-zinc-800 dark:border-white/12 dark:bg-[#07070A] dark:text-zinc-200'
+                    : 'border-red-300 bg-red-50 text-red-900 dark:border-[#FF3B2F]/40 dark:bg-[#FF3B2F]/10 dark:text-red-200'
               }`}
             >
               {validatingSchema ? (
                 <div className="flex items-center gap-2">
-                  <RefreshCw className="h-3.5 w-3.5 animate-spin text-[#0F5C4E] dark:text-[#4FD1C5]" />
+                  <RefreshCw className="h-3.5 w-3.5 animate-spin text-emerald-700 dark:text-[#D9FF43]" />
                   <span>جارٍ مطابقة الحزمة الناتجة مع مخططي JSON Schema الرسميين عبر محرك Ajv...</span>
                 </div>
               ) : schemaReport?.valid ? (
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <div className="flex items-center gap-2 font-semibold">
-                    <ShieldCheck className="h-4 w-4 shrink-0 text-[#0F5C4E] dark:text-[#4FD1C5]" />
+                    <ShieldCheck className="h-4 w-4 shrink-0 text-emerald-700 dark:text-[#D9FF43]" />
                     <span>
                       مدقق JSON Schema الرسمي (Ajv): مطابق 100% لمخططي{' '}
                       <code className="font-mono">schema.json</code> و
                       <code className="font-mono">context-schema.json</code>
                     </span>
                   </div>
-                  <span className="font-mono text-[11px] text-stone-500 dark:text-stone-400">
+                  <span className="font-mono text-[11px] text-zinc-500 dark:text-zinc-400">
                     المصدر:{' '}
                     {schemaReport.schemaSource === 'official_github'
                       ? 'مستودع ArCode-Standard الحي'
@@ -658,7 +658,7 @@ export function DatasetExporterPanel({
               ) : schemaReport?.schemaSource === 'unavailable' ? (
                 <div className="space-y-1.5">
                   <div className="flex items-center gap-2 font-bold">
-                    <AlertCircle className="h-4 w-4 shrink-0" />
+                    <AlertCircle className="h-4 w-4 shrink-0 text-red-700 dark:text-[#FF3B2F]" />
                     <span>تعذر الوصول إلى المخطط الرسمي — التنزيل معطّل تلقائياً (إغلاق آمن):</span>
                   </div>
                   <p className="ps-6 leading-relaxed">
@@ -669,7 +669,7 @@ export function DatasetExporterPanel({
               ) : schemaReport ? (
                 <div className="space-y-2">
                   <div className="flex items-center gap-2 font-bold">
-                    <AlertCircle className="h-4 w-4 shrink-0" />
+                    <AlertCircle className="h-4 w-4 shrink-0 text-red-700 dark:text-[#FF3B2F]" />
                     <span>رفض مدقق JSON Schema الرسمي (Ajv) الحزمة للأسباب التالية:</span>
                   </div>
                   <ul className="space-y-1 ps-5 list-disc font-mono text-[11px]" dir="ltr">
@@ -687,17 +687,17 @@ export function DatasetExporterPanel({
         </div>
 
         {/* Deterministic SHA-256 Checksums + Download & Release Archival Actions */}
-        <div className="mt-6 pt-5 border-t border-[#E5DFD3] space-y-5 dark:border-[#2E2B27]">
+        <div className="mt-6 pt-5 border-t border-zinc-200 space-y-5 dark:border-white/10">
           {/* Deterministic SHA-256 Digest Strip */}
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <div className="flex items-center justify-between gap-3 rounded-lg border border-[#E5DFD3] bg-[#FBF9F5] px-3.5 py-2.5 dark:border-[#2E2B27] dark:bg-[#141312]">
+            <div className="flex items-center justify-between gap-3 rounded-xl border border-zinc-200 bg-zinc-50 px-3.5 py-2.5 dark:border-white/10 dark:bg-[#07070A]">
               <div className="min-w-0">
-                <p className="text-[11px] text-stone-500 dark:text-stone-400">
+                <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
                   بصمة SHA-256 لملف <code className="font-mono">moroccan-darija.json</code>
                 </p>
                 <p
                   dir="ltr"
-                  className="mt-0.5 truncate font-mono text-xs tabular-nums text-stone-900 dark:text-stone-100"
+                  className="mt-0.5 truncate font-mono text-xs tabular-nums text-zinc-950 dark:text-white"
                   title={bundle.checksums.lexiconSha256}
                 >
                   {bundle.checksums.lexiconSha256}
@@ -706,11 +706,11 @@ export function DatasetExporterPanel({
               <button
                 type="button"
                 onClick={() => handleCopyChecksum('lexicon', bundle.checksums.lexiconSha256)}
-                className="inline-flex min-h-[32px] items-center gap-1 rounded-md border border-[#D6CEBE] bg-white px-2.5 py-1 text-[11px] font-medium text-stone-700 hover:bg-[#EFECE4] whitespace-nowrap shrink-0 cursor-pointer dark:border-[#3A3530] dark:bg-[#1C1A18] dark:text-stone-300"
+                className="inline-flex min-h-[32px] items-center gap-1 rounded-full border border-zinc-300 bg-white px-3 py-1 text-[11px] font-medium text-zinc-700 hover:bg-zinc-100 whitespace-nowrap shrink-0 cursor-pointer dark:border-white/15 dark:bg-[#0C0C10] dark:text-zinc-300 dark:hover:border-white/30"
               >
                 {copiedChecksumKey === 'lexicon' ? (
                   <>
-                    <Check className="h-3 w-3 text-emerald-700" />
+                    <Check className="h-3 w-3 text-emerald-700 dark:text-[#D9FF43]" />
                     <span>نُسخ</span>
                   </>
                 ) : (
@@ -722,14 +722,14 @@ export function DatasetExporterPanel({
               </button>
             </div>
 
-            <div className="flex items-center justify-between gap-3 rounded-lg border border-[#E5DFD3] bg-[#FBF9F5] px-3.5 py-2.5 dark:border-[#2E2B27] dark:bg-[#141312]">
+            <div className="flex items-center justify-between gap-3 rounded-xl border border-zinc-200 bg-zinc-50 px-3.5 py-2.5 dark:border-white/10 dark:bg-[#07070A]">
               <div className="min-w-0">
-                <p className="text-[11px] text-stone-500 dark:text-stone-400">
+                <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
                   بصمة SHA-256 لملف <code className="font-mono">context-examples.json</code>
                 </p>
                 <p
                   dir="ltr"
-                  className="mt-0.5 truncate font-mono text-xs tabular-nums text-stone-900 dark:text-stone-100"
+                  className="mt-0.5 truncate font-mono text-xs tabular-nums text-zinc-950 dark:text-white"
                   title={bundle.checksums.examplesSha256}
                 >
                   {bundle.checksums.examplesSha256}
@@ -738,11 +738,11 @@ export function DatasetExporterPanel({
               <button
                 type="button"
                 onClick={() => handleCopyChecksum('examples', bundle.checksums.examplesSha256)}
-                className="inline-flex min-h-[32px] items-center gap-1 rounded-md border border-[#D6CEBE] bg-white px-2.5 py-1 text-[11px] font-medium text-stone-700 hover:bg-[#EFECE4] whitespace-nowrap shrink-0 cursor-pointer dark:border-[#3A3530] dark:bg-[#1C1A18] dark:text-stone-300"
+                className="inline-flex min-h-[32px] items-center gap-1 rounded-full border border-zinc-300 bg-white px-3 py-1 text-[11px] font-medium text-zinc-700 hover:bg-zinc-100 whitespace-nowrap shrink-0 cursor-pointer dark:border-white/15 dark:bg-[#0C0C10] dark:text-zinc-300 dark:hover:border-white/30"
               >
                 {copiedChecksumKey === 'examples' ? (
                   <>
-                    <Check className="h-3 w-3 text-emerald-700" />
+                    <Check className="h-3 w-3 text-emerald-700 dark:text-[#D9FF43]" />
                     <span>نُسخ</span>
                   </>
                 ) : (
@@ -758,7 +758,7 @@ export function DatasetExporterPanel({
           {canDownload && (
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <label className="block space-y-1">
-                <span className="text-xs font-medium text-stone-600 dark:text-stone-400">
+                <span className="text-xs font-medium text-zinc-600 dark:text-zinc-400">
                   رابط طلب الدمج في GitHub لتوثيقه في سجل الإصدارات (اختياري)
                 </span>
                 <input
@@ -767,12 +767,12 @@ export function DatasetExporterPanel({
                   value={githubPrUrl}
                   onChange={(e) => setGithubPrUrl(e.target.value)}
                   placeholder="https://github.com/ArCode-Standard/moroccan-darija-lexicon/pull/..."
-                  className="w-full min-h-[38px] rounded-lg border border-[#D6CEBE] bg-[#FBF9F5] px-3 py-1.5 font-mono text-xs text-left text-stone-900 focus:border-[#0F5C4E] focus:bg-white focus:outline-none dark:border-[#3A3530] dark:bg-[#141312] dark:text-stone-100"
+                  className="w-full min-h-[38px] rounded-xl border border-zinc-300 bg-zinc-50 px-3 py-1.5 font-mono text-xs text-left text-zinc-950 focus:border-zinc-900 focus:bg-white focus:outline-none dark:border-white/15 dark:bg-[#07070A] dark:text-white dark:focus:border-[#D9FF43]"
                 />
               </label>
 
               <label className="block space-y-1">
-                <span className="text-xs font-medium text-stone-600 dark:text-stone-400">
+                <span className="text-xs font-medium text-zinc-600 dark:text-zinc-400">
                   مذكرة توثيقية لهذا الإصدار (اختياري)
                 </span>
                 <input
@@ -780,7 +780,7 @@ export function DatasetExporterPanel({
                   value={releaseNotes}
                   onChange={(e) => setReleaseNotes(e.target.value)}
                   placeholder="مثال: دفعة تصحيحات الدار البيضاء والشمال..."
-                  className="w-full min-h-[38px] rounded-lg border border-[#D6CEBE] bg-[#FBF9F5] px-3 py-1.5 text-xs text-stone-900 focus:border-[#0F5C4E] focus:bg-white focus:outline-none dark:border-[#3A3530] dark:bg-[#141312] dark:text-stone-100"
+                  className="w-full min-h-[38px] rounded-xl border border-zinc-300 bg-zinc-50 px-3 py-1.5 text-xs text-zinc-950 focus:border-zinc-900 focus:bg-white focus:outline-none dark:border-white/15 dark:bg-[#07070A] dark:text-white dark:focus:border-[#D9FF43]"
                 />
               </label>
             </div>
@@ -792,7 +792,7 @@ export function DatasetExporterPanel({
                 type="button"
                 disabled={!canDownload}
                 onClick={() => downloadJsonFile('moroccan-darija.json', bundle.lexiconJson)}
-                className="inline-flex min-h-[42px] items-center gap-2 rounded-lg bg-[#0F5C4E] px-5 py-2.5 text-xs font-semibold text-white hover:bg-[#0B463B] disabled:opacity-45 whitespace-nowrap shrink-0 cursor-pointer dark:bg-[#147A67]"
+                className="inline-flex min-h-[42px] items-center gap-2 rounded-full bg-zinc-950 px-5 py-2.5 text-xs font-semibold text-white hover:bg-zinc-800 disabled:opacity-45 whitespace-nowrap shrink-0 cursor-pointer dark:bg-[#D9FF43] dark:text-[#050507] dark:hover:bg-[#e5ff73]"
               >
                 <Download className="h-4 w-4" />
                 <span>تنزيل moroccan-darija.json</span>
@@ -802,7 +802,7 @@ export function DatasetExporterPanel({
                 type="button"
                 disabled={!canDownload}
                 onClick={() => downloadJsonFile('context-examples.json', bundle.examplesJson)}
-                className="inline-flex min-h-[42px] items-center gap-2 rounded-lg border border-[#D6CEBE] bg-[#FBF9F5] px-4 py-2.5 text-xs font-semibold text-stone-800 hover:bg-[#EFECE4] disabled:opacity-45 whitespace-nowrap shrink-0 cursor-pointer dark:border-[#3A3530] dark:bg-[#141312] dark:text-stone-200"
+                className="inline-flex min-h-[42px] items-center gap-2 rounded-full border border-zinc-300 bg-zinc-50 px-4 py-2.5 text-xs font-semibold text-zinc-800 hover:bg-zinc-100 disabled:opacity-45 whitespace-nowrap shrink-0 cursor-pointer dark:border-white/15 dark:bg-[#07070A] dark:text-zinc-200 dark:hover:border-white/30"
               >
                 <Download className="h-4 w-4" />
                 <span>تنزيل context-examples.json</span>
@@ -817,7 +817,7 @@ export function DatasetExporterPanel({
                     bundle.patchSummary,
                   )
                 }
-                className="inline-flex min-h-[42px] items-center gap-2 rounded-lg border border-[#D6CEBE] bg-[#FBF9F5] px-4 py-2.5 text-xs font-semibold text-stone-800 hover:bg-[#EFECE4] disabled:opacity-45 whitespace-nowrap shrink-0 cursor-pointer dark:border-[#3A3530] dark:bg-[#141312] dark:text-stone-200"
+                className="inline-flex min-h-[42px] items-center gap-2 rounded-full border border-zinc-300 bg-zinc-50 px-4 py-2.5 text-xs font-semibold text-zinc-800 hover:bg-zinc-100 disabled:opacity-45 whitespace-nowrap shrink-0 cursor-pointer dark:border-white/15 dark:bg-[#07070A] dark:text-zinc-200 dark:hover:border-white/30"
               >
                 <Download className="h-4 w-4" />
                 <span>تنزيل ملف الفروقات فقط (Patch)</span>
@@ -829,10 +829,10 @@ export function DatasetExporterPanel({
                 type="button"
                 disabled={archivingRelease}
                 onClick={handleArchiveExportedBatch}
-                className={`inline-flex min-h-[42px] items-center gap-2 rounded-lg border px-4 py-2.5 text-xs font-semibold transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
+                className={`inline-flex min-h-[42px] items-center gap-2 rounded-full border px-4 py-2.5 text-xs font-semibold transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
                   hasDownloadedCurrentBatch
-                    ? 'border-[#0F5C4E] bg-[#0F5C4E] text-white hover:bg-[#0B463B] dark:border-[#147A67] dark:bg-[#147A67]'
-                    : 'border-[#D6CEBE] bg-white text-stone-800 hover:bg-[#F3EFE6] dark:border-[#3A3530] dark:bg-[#141312] dark:text-stone-200'
+                    ? 'border-zinc-950 bg-zinc-950 text-white hover:bg-zinc-800 dark:border-[#D9FF43] dark:bg-[#D9FF43] dark:text-[#050507] dark:hover:bg-[#e5ff73]'
+                    : 'border-zinc-300 bg-white text-zinc-800 hover:bg-zinc-100 dark:border-white/15 dark:bg-[#07070A] dark:text-zinc-200 dark:hover:border-white/30'
                 }`}
               >
                 <Archive className="h-4 w-4" />
@@ -845,12 +845,12 @@ export function DatasetExporterPanel({
             )}
           </div>
 
-          <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-stone-500 dark:text-stone-400">
+          <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-zinc-500 dark:text-zinc-400">
             <span>
               بعد تنزيل ملفات الإصدار ورفع طلب الدمج في GitHub، استخدم «تثبيت وأرشفة الدفعة كمدمجة» لتوثيق بصمة SHA-256 في سجل الإصدارات ومنع تكرار تصديرها.
             </span>
             {(Object.keys(archivedReleaseMap).length > 0 || mergedSandboxCount > 0) && (
-              <span className="font-mono tabular-nums text-[#0F5C4E] dark:text-[#4FD1C5]">
+              <span className="font-mono tabular-nums text-emerald-700 dark:text-[#D9FF43]">
                 سجلات مؤرشفة في إصدارات سابقة:{' '}
                 {exportSource === 'sandbox'
                   ? Math.max(mergedSandboxCount, Object.keys(archivedReleaseMap).length)
@@ -862,10 +862,10 @@ export function DatasetExporterPanel({
           {archiveFeedback && (
             <div
               role="status"
-              className={`rounded-lg border p-3.5 text-xs leading-relaxed ${
+              className={`rounded-xl border p-3.5 text-xs leading-relaxed ${
                 archiveFeedback.type === 'error'
-                  ? 'border-red-200 bg-red-50 text-red-900 dark:border-red-900/50 dark:bg-red-950/40 dark:text-red-200'
-                  : 'border-emerald-200 bg-emerald-50 text-emerald-950 dark:border-emerald-900/50 dark:bg-emerald-950/40 dark:text-emerald-200'
+                  ? 'border-red-200 bg-red-50 text-red-900 dark:border-[#FF3B2F]/40 dark:bg-[#FF3B2F]/10 dark:text-red-200'
+                  : 'border-emerald-200 bg-emerald-50 text-emerald-950 dark:border-[#D9FF43]/35 dark:bg-[#D9FF43]/10 dark:text-zinc-100'
               }`}
             >
               {archiveFeedback.text}
@@ -878,9 +878,9 @@ export function DatasetExporterPanel({
       {candidateAccepted.length > 0 && (
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-12 items-start">
           {/* Accepted Submissions Selection */}
-          <div className="lg:col-span-5 rounded-xl border border-[#E5DFD3] bg-white p-5 dark:border-[#2E2B27] dark:bg-[#1C1A18]">
-            <div className="flex items-center justify-between gap-2 pb-3 border-b border-[#E5DFD3] dark:border-[#2E2B27]">
-              <h4 className="font-display text-sm font-bold text-stone-900 dark:text-stone-100">
+          <div className="lg:col-span-5 rounded-2xl border border-zinc-200 bg-white p-5 dark:border-white/10 dark:bg-[#0C0C10]">
+            <div className="flex items-center justify-between gap-2 pb-3 border-b border-zinc-200 dark:border-white/10">
+              <h4 className="font-display text-sm font-bold text-zinc-950 dark:text-white">
                 المقترحات المعتمدة المشمولة في الدفعة ({selectedSubmissions.length} /{' '}
                 {candidateAccepted.length})
               </h4>
@@ -888,13 +888,13 @@ export function DatasetExporterPanel({
                 <button
                   type="button"
                   onClick={() => setExcludedIds(new Set())}
-                  className="text-xs font-medium text-[#0F5C4E] hover:underline whitespace-nowrap cursor-pointer dark:text-[#4FD1C5]"
+                  className="text-xs font-medium text-emerald-700 hover:underline whitespace-nowrap cursor-pointer dark:text-[#D9FF43]"
                 >
                   إعادة تضمين الكل
                 </button>
               )}
             </div>
-            <div className="mt-3 divide-y divide-[#E5DFD3] max-h-[420px] overflow-y-auto dark:divide-[#2E2B27]">
+            <div className="mt-3 divide-y divide-zinc-200 max-h-[420px] overflow-y-auto dark:divide-white/10">
               {candidateAccepted.map((sub) => {
                 const included = !excludedIds.has(sub.id)
                 const isNew = isNewEntrySubmission(sub)
@@ -912,15 +912,15 @@ export function DatasetExporterPanel({
                       type="checkbox"
                       checked={included}
                       onChange={() => toggleInclude(sub.id)}
-                      className="mt-1 h-4 w-4 accent-[#0F5C4E] shrink-0"
+                      className="mt-1 h-4 w-4 accent-zinc-950 shrink-0 dark:accent-[#D9FF43]"
                     />
                     <div className="text-xs">
-                      <p className="font-semibold text-stone-900 dark:text-stone-100">{label}</p>
-                      <p className="mt-0.5 text-stone-500 font-mono tabular-nums dark:text-stone-400">
+                      <p className="font-semibold text-zinc-950 dark:text-white">{label}</p>
+                      <p className="mt-0.5 text-zinc-500 font-mono tabular-nums dark:text-zinc-400">
                         اعتماد: {new Date(sub.updated_at).toLocaleString('ar-MA')}
                       </p>
                       {sub.editor_note && (
-                        <p className="mt-1 text-stone-600 dark:text-stone-400">
+                        <p className="mt-1 text-zinc-600 dark:text-zinc-400">
                           مذكرة المحرر: {sub.editor_note}
                         </p>
                       )}
@@ -932,16 +932,16 @@ export function DatasetExporterPanel({
           </div>
 
           {/* JSON Delta & PR Markdown Preview */}
-          <div className="lg:col-span-7 rounded-xl border border-[#E5DFD3] bg-white p-5 dark:border-[#2E2B27] dark:bg-[#1C1A18]">
-            <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-[#E5DFD3] dark:border-[#2E2B27]">
-              <div className="inline-flex items-center gap-1 rounded-lg bg-[#F3EFE6] p-1 dark:bg-[#141312]">
+          <div className="lg:col-span-7 rounded-2xl border border-zinc-200 bg-white p-5 dark:border-white/10 dark:bg-[#0C0C10]">
+            <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-zinc-200 dark:border-white/10">
+              <div className="inline-flex items-center gap-1 rounded-full border border-zinc-200 bg-zinc-100 p-1 dark:border-white/12 dark:bg-[#07070A]">
                 <button
                   type="button"
                   onClick={() => setPreviewTab('patch')}
-                  className={`min-h-[32px] rounded-md px-3 py-1 text-xs font-semibold cursor-pointer ${
+                  className={`min-h-[30px] rounded-full px-3 py-1 text-xs font-semibold cursor-pointer ${
                     previewTab === 'patch'
-                      ? 'bg-white text-stone-900 shadow-2xs dark:bg-[#2A2622] dark:text-stone-100'
-                      : 'text-stone-600 dark:text-stone-400'
+                      ? 'bg-zinc-950 text-white dark:bg-[#D9FF43] dark:text-[#050507]'
+                      : 'text-zinc-600 hover:text-zinc-950 dark:text-zinc-400 dark:hover:text-white'
                   }`}
                 >
                   معاينة سجلات JSON الناتجة
@@ -949,10 +949,10 @@ export function DatasetExporterPanel({
                 <button
                   type="button"
                   onClick={() => setPreviewTab('pr')}
-                  className={`min-h-[32px] rounded-md px-3 py-1 text-xs font-semibold cursor-pointer ${
+                  className={`min-h-[30px] rounded-full px-3 py-1 text-xs font-semibold cursor-pointer ${
                     previewTab === 'pr'
-                      ? 'bg-white text-stone-900 shadow-2xs dark:bg-[#2A2622] dark:text-stone-100'
-                      : 'text-stone-600 dark:text-stone-400'
+                      ? 'bg-zinc-950 text-white dark:bg-[#D9FF43] dark:text-[#050507]'
+                      : 'text-zinc-600 hover:text-zinc-950 dark:text-zinc-400 dark:hover:text-white'
                   }`}
                 >
                   وصف طلب الدمج (GitHub PR)
@@ -963,11 +963,11 @@ export function DatasetExporterPanel({
                 <button
                   type="button"
                   onClick={handleCopyPrMarkdown}
-                  className="inline-flex min-h-[32px] items-center gap-1.5 rounded-lg border border-[#D6CEBE] bg-[#FBF9F5] px-3 py-1 text-xs font-medium text-stone-800 hover:bg-[#EFECE4] cursor-pointer dark:border-[#3A3530] dark:bg-[#141312] dark:text-stone-200"
+                  className="inline-flex min-h-[32px] items-center gap-1.5 rounded-full border border-zinc-300 bg-zinc-50 px-3 py-1 text-xs font-medium text-zinc-800 hover:bg-zinc-100 cursor-pointer dark:border-white/15 dark:bg-[#07070A] dark:text-zinc-200 dark:hover:border-white/30"
                 >
                   {copiedPr ? (
                     <>
-                      <Check className="h-3.5 w-3.5 text-emerald-700" />
+                      <Check className="h-3.5 w-3.5 text-emerald-700 dark:text-[#D9FF43]" />
                       <span>تم النسخ</span>
                     </>
                   ) : (
@@ -983,12 +983,12 @@ export function DatasetExporterPanel({
             {previewTab === 'patch' ? (
               <pre
                 dir="ltr"
-                className="mt-4 max-h-[380px] overflow-auto rounded-lg border border-[#E5DFD3] bg-[#FBF9F5] p-4 font-mono text-xs leading-relaxed text-left text-stone-800 dark:border-[#2E2B27] dark:bg-[#141312] dark:text-stone-200"
+                className="mt-4 max-h-[380px] overflow-auto rounded-xl border border-zinc-200 bg-zinc-50 p-4 font-mono text-xs leading-relaxed text-left text-zinc-800 dark:border-white/10 dark:bg-[#07070A] dark:text-zinc-200"
               >
                 {JSON.stringify(bundle.patchSummary, null, 2)}
               </pre>
             ) : (
-              <pre className="mt-4 max-h-[380px] overflow-auto whitespace-pre-wrap rounded-lg border border-[#E5DFD3] bg-[#FBF9F5] p-4 font-sans text-xs leading-relaxed text-stone-800 dark:border-[#2E2B27] dark:bg-[#141312] dark:text-stone-200">
+              <pre className="mt-4 max-h-[380px] overflow-auto whitespace-pre-wrap rounded-xl border border-zinc-200 bg-zinc-50 p-4 font-sans text-xs leading-relaxed text-zinc-800 dark:border-white/10 dark:bg-[#07070A] dark:text-zinc-200">
                 {bundle.prMarkdown}
               </pre>
             )}
@@ -997,32 +997,32 @@ export function DatasetExporterPanel({
       )}
 
       {/* Official Release Manifests Ledger (SHA-256 Reproducibility History) */}
-      <div className="rounded-xl border border-[#E5DFD3] bg-white p-5 sm:p-6 dark:border-[#2E2B27] dark:bg-[#1C1A18]">
-        <div className="flex flex-wrap items-center justify-between gap-2 pb-4 border-b border-[#E5DFD3] dark:border-[#2E2B27]">
+      <div className="rounded-2xl border border-zinc-200 bg-white p-5 sm:p-6 dark:border-white/10 dark:bg-[#0C0C10]">
+        <div className="flex flex-wrap items-center justify-between gap-2 pb-4 border-b border-zinc-200 dark:border-white/10">
           <div>
-            <h4 className="font-display text-base font-bold text-stone-900 dark:text-stone-100">
+            <h4 className="font-display text-base font-bold text-zinc-950 dark:text-white">
               سجل الإصدارات الرسمية المؤرشفة وبصمات SHA-256
             </h4>
-            <p className="mt-0.5 text-xs text-stone-500 dark:text-stone-400">
+            <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
               يوثق كل دفعة مدمجة برقم إصدارها وعدد المداخل وبصمتي التكامل الرقمي للملفين المصدّرين للتحقق المرجعي في GitHub.
             </p>
           </div>
-          <span className="font-mono text-xs tabular-nums text-stone-500 dark:text-stone-400">
+          <span className="font-mono text-xs tabular-nums text-zinc-500 dark:text-zinc-400">
             الإصدارات المسجلة: {displayedManifests.length}
           </span>
         </div>
 
         {displayedManifests.length === 0 ? (
-          <p className="pt-4 text-xs text-stone-500 dark:text-stone-400">
+          <p className="pt-4 text-xs text-zinc-500 dark:text-zinc-400">
             لم تُؤرشف أي دفعة تصدير بعد في هذا المصدر. بمجرد تنزيل حزمة معتمدة وتثبيتها ستظهر بصمتها المرجعية هنا.
           </p>
         ) : (
-          <div className="mt-3 divide-y divide-[#E5DFD3] dark:divide-[#2E2B27]">
+          <div className="mt-3 divide-y divide-zinc-200 dark:divide-white/10">
             {displayedManifests.map((rel) => (
               <div key={rel.id} className="py-3.5 space-y-2 text-xs">
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <div className="flex flex-wrap items-center gap-2 text-stone-700 dark:text-stone-300">
-                    <strong className="font-mono text-sm font-bold text-stone-900 dark:text-stone-100">
+                  <div className="flex flex-wrap items-center gap-2 text-zinc-700 dark:text-zinc-300">
+                    <strong className="font-mono text-sm font-bold text-emerald-700 dark:text-[#D9FF43]">
                       v{rel.version}
                     </strong>
                     <span aria-hidden="true">·</span>
@@ -1042,7 +1042,7 @@ export function DatasetExporterPanel({
                     )}
                   </div>
 
-                  <div className="flex flex-wrap items-center gap-3 text-stone-500 dark:text-stone-400">
+                  <div className="flex flex-wrap items-center gap-3 text-zinc-500 dark:text-zinc-400">
                     <span className="font-mono tabular-nums">
                       {new Date(rel.created_at).toLocaleString('ar-MA')}
                     </span>
@@ -1051,7 +1051,7 @@ export function DatasetExporterPanel({
                         href={rel.github_pr_url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1 font-semibold text-[#0F5C4E] hover:underline whitespace-nowrap dark:text-[#4FD1C5]"
+                        className="inline-flex items-center gap-1 font-semibold text-emerald-700 hover:underline whitespace-nowrap dark:text-[#D9FF43]"
                       >
                         <span>طلب الدمج PR</span>
                         <ExternalLink className="h-3 w-3" aria-hidden="true" />
@@ -1061,19 +1061,19 @@ export function DatasetExporterPanel({
                 </div>
 
                 {rel.notes && (
-                  <p className="text-stone-600 dark:text-stone-400">مذكرة الإصدار: {rel.notes}</p>
+                  <p className="text-zinc-600 dark:text-zinc-400">مذكرة الإصدار: {rel.notes}</p>
                 )}
 
-                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 font-mono text-[11px] tabular-nums text-stone-500 dark:text-stone-400" dir="ltr">
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 font-mono text-[11px] tabular-nums text-zinc-500 dark:text-zinc-400" dir="ltr">
                   <button
                     type="button"
                     onClick={() => handleCopyChecksum(`rel-lex-${rel.id}`, rel.lexicon_sha256)}
-                    className="inline-flex items-center gap-1.5 hover:text-stone-900 cursor-pointer dark:hover:text-stone-200"
+                    className="inline-flex items-center gap-1.5 hover:text-zinc-950 cursor-pointer dark:hover:text-white"
                     title="نسخ بصمة moroccan-darija.json"
                   >
                     <span>moroccan-darija.json: {rel.lexicon_sha256.slice(0, 16)}…</span>
                     {copiedChecksumKey === `rel-lex-${rel.id}` ? (
-                      <Check className="h-3 w-3 text-emerald-700" />
+                      <Check className="h-3 w-3 text-emerald-700 dark:text-[#D9FF43]" />
                     ) : (
                       <Copy className="h-3 w-3" />
                     )}
@@ -1082,12 +1082,12 @@ export function DatasetExporterPanel({
                   <button
                     type="button"
                     onClick={() => handleCopyChecksum(`rel-ex-${rel.id}`, rel.examples_sha256)}
-                    className="inline-flex items-center gap-1.5 hover:text-stone-900 cursor-pointer dark:hover:text-stone-200"
+                    className="inline-flex items-center gap-1.5 hover:text-zinc-950 cursor-pointer dark:hover:text-white"
                     title="نسخ بصمة context-examples.json"
                   >
                     <span>context-examples.json: {rel.examples_sha256.slice(0, 16)}…</span>
                     {copiedChecksumKey === `rel-ex-${rel.id}` ? (
-                      <Check className="h-3 w-3 text-emerald-700" />
+                      <Check className="h-3 w-3 text-emerald-700 dark:text-[#D9FF43]" />
                     ) : (
                       <Copy className="h-3 w-3" />
                     )}

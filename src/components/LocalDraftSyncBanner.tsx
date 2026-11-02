@@ -92,23 +92,23 @@ export function LocalDraftSyncBanner({
   }
 
   return (
-    <div className="mb-6 rounded-xl border border-[#B8D4CE] bg-[#F2F8F6] p-4 sm:p-5 dark:border-[#1E4D43] dark:bg-[#11221F]">
+    <div className="mb-6 rounded-2xl border border-zinc-200 bg-white p-4 sm:p-5 dark:border-white/15 dark:bg-[#0D0D12]">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="flex items-start gap-3 max-w-[74ch]">
           <CloudUpload
-            className="h-5 w-5 shrink-0 mt-0.5 text-[#0F5C4E] dark:text-[#4FD1C5]"
+            className="h-5 w-5 shrink-0 mt-0.5 text-zinc-900 dark:text-[#D9FF43]"
             aria-hidden="true"
           />
           <div>
-            <h3 className="font-display text-sm font-bold text-stone-900 dark:text-stone-100">
+            <h3 className="font-display text-sm font-bold text-zinc-950 dark:text-white">
               {draftsList.length > 0
                 ? `مزامنة المسودات المحلية مع حسابك (${draftsList.length.toLocaleString('en-US')})`
                 : 'اكتملت مزامنة المسودات المحلية'}
             </h3>
             {draftsList.length > 0 && (
-              <p className="mt-1 text-xs leading-relaxed text-stone-700 dark:text-stone-300">
+              <p className="mt-1 text-xs leading-relaxed text-zinc-600 dark:text-zinc-300">
                 رصدت المنصة مسودات محفوظة في متصفحك قبل الدخول ({' '}
-                <span className="font-semibold text-[#0F5C4E] dark:text-[#4FD1C5]">
+                <span className="font-semibold text-zinc-950 dark:text-[#D9FF43]">
                   {readyCount.toLocaleString('en-US')} جاهزة للإرسال المباشر
                 </span>
                 {incompleteCount > 0
@@ -121,7 +121,7 @@ export function LocalDraftSyncBanner({
             {syncReport && (
               <div
                 role="status"
-                className={`mt-2.5 flex items-start gap-2 rounded-lg border p-2.5 text-xs leading-relaxed ${
+                className={`mt-2.5 flex items-start gap-2 rounded-xl border p-2.5 text-xs leading-relaxed ${
                   syncReport.type === 'error'
                     ? 'border-red-300 bg-red-50 text-red-900 dark:border-red-800/60 dark:bg-red-950/40 dark:text-red-200'
                     : syncReport.type === 'warning'
@@ -146,7 +146,7 @@ export function LocalDraftSyncBanner({
               type="button"
               disabled={syncing}
               onClick={handleSyncReadyDrafts}
-              className="inline-flex min-h-[38px] items-center gap-2 rounded-lg bg-[#0F5C4E] px-4 py-2 text-xs font-semibold text-white hover:bg-[#0B463B] disabled:opacity-50 whitespace-nowrap cursor-pointer dark:bg-[#147A67]"
+              className="inline-flex min-h-[38px] items-center gap-2 rounded-full bg-zinc-950 px-4 py-2 text-xs font-semibold text-white hover:bg-zinc-800 disabled:opacity-50 whitespace-nowrap cursor-pointer dark:bg-[#D9FF43] dark:text-[#050507] dark:hover:bg-[#e5ff73]"
             >
               <CloudUpload className="h-3.5 w-3.5" aria-hidden="true" />
               <span>
@@ -161,7 +161,7 @@ export function LocalDraftSyncBanner({
             <button
               type="button"
               onClick={() => setExpanded((v) => !v)}
-              className="inline-flex min-h-[38px] items-center gap-1.5 rounded-lg border border-[#B8D4CE] bg-white px-3 py-2 text-xs font-semibold text-stone-800 hover:bg-[#EFECE4] whitespace-nowrap cursor-pointer dark:border-[#2E4F47] dark:bg-[#1C1A18] dark:text-stone-200"
+              className="inline-flex min-h-[38px] items-center gap-1.5 rounded-full border border-zinc-300 bg-zinc-50 px-3.5 py-2 text-xs font-semibold text-zinc-800 hover:bg-zinc-100 whitespace-nowrap cursor-pointer dark:border-white/15 dark:bg-white/[0.04] dark:text-zinc-200 dark:hover:bg-white/[0.08]"
             >
               <span>{expanded ? 'إخفاء التفاصيل' : 'معاينة الجاهزية'}</span>
               {expanded ? (
@@ -179,7 +179,7 @@ export function LocalDraftSyncBanner({
               setDismissedCount(draftsList.length)
             }}
             aria-label="إغلاق تنبيه مزامنة المسودات"
-            className="flex h-[38px] w-[38px] items-center justify-center rounded-lg text-stone-500 hover:bg-white/70 hover:text-stone-900 cursor-pointer dark:text-stone-400 dark:hover:bg-[#1C1A18] dark:hover:text-stone-100"
+            className="flex h-[38px] w-[38px] items-center justify-center rounded-full text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900 cursor-pointer dark:text-zinc-400 dark:hover:bg-white/[0.06] dark:hover:text-white"
           >
             <X className="h-4 w-4" />
           </button>
@@ -187,7 +187,7 @@ export function LocalDraftSyncBanner({
       </div>
 
       {expanded && audits.length > 0 && (
-        <div className="mt-4 divide-y divide-[#D5E6E1] rounded-lg border border-[#D5E6E1] bg-white px-4 dark:divide-[#243D38] dark:border-[#243D38] dark:bg-[#161817]">
+        <div className="mt-4 divide-y divide-zinc-200 rounded-xl border border-zinc-200 bg-zinc-50 px-4 dark:divide-white/10 dark:border-white/10 dark:bg-[#08080B]">
           {audits.map((item) => (
             <div
               key={item.draft.entryId}
@@ -195,18 +195,18 @@ export function LocalDraftSyncBanner({
             >
               <div>
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className="font-display font-bold text-stone-900 dark:text-stone-100">
+                  <span className="font-display font-bold text-zinc-950 dark:text-white">
                     {item.draft.headword}
                   </span>
-                  <span className="text-stone-400" aria-hidden="true">·</span>
-                  <span className="font-mono tabular-nums text-stone-500 dark:text-stone-400">
+                  <span className="text-zinc-400" aria-hidden="true">·</span>
+                  <span className="text-zinc-500 dark:text-zinc-400">
                     {item.draft.entryId.startsWith('NEW')
                       ? 'مفردة جديدة'
-                      : `#${item.draft.entryId}`}
+                      : 'تعديل مفردة قائمة'}
                   </span>
-                  <span className="text-stone-400" aria-hidden="true">·</span>
+                  <span className="text-zinc-400" aria-hidden="true">·</span>
                   {item.ready ? (
-                    <span className="font-semibold text-emerald-700 dark:text-emerald-400">
+                    <span className="font-semibold text-emerald-700 dark:text-[#D9FF43]">
                       مكتملة وجاهزة للمزامنة
                     </span>
                   ) : (
@@ -220,7 +220,7 @@ export function LocalDraftSyncBanner({
               <button
                 type="button"
                 onClick={() => onResumeDraft(item.draft.entryId)}
-                className="inline-flex min-h-[32px] items-center gap-1.5 rounded-md border border-[#D6CEBE] bg-[#FBF9F5] px-3 py-1 text-xs font-semibold text-stone-800 hover:bg-[#EFECE4] whitespace-nowrap shrink-0 cursor-pointer dark:border-[#3A3530] dark:bg-[#1C1A18] dark:text-stone-200"
+                className="inline-flex min-h-[32px] items-center gap-1.5 rounded-full border border-zinc-300 bg-white px-3.5 py-1 text-xs font-semibold text-zinc-800 hover:bg-zinc-100 whitespace-nowrap shrink-0 cursor-pointer dark:border-white/15 dark:bg-white/[0.04] dark:text-white dark:hover:bg-white/[0.1]"
               >
                 <span>{item.ready ? 'مراجعة المسودة' : 'استكمال الحقول'}</span>
                 <ArrowLeft className="h-3 w-3" aria-hidden="true" />
