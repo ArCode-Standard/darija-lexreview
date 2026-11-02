@@ -5,7 +5,7 @@ import { discoverVariantCandidates, normalizeDarijaSearchKey, transliterateArabi
 const expectedPairs = new Set<string>()
 for (let i=0;i<GOLD_FORMS.length;i++) for(let j=i+1;j<GOLD_FORMS.length;j++) {
   const a=GOLD_FORMS[i], b=GOLD_FORMS[j]
-  if(a.senseId===b.senseId) expectedPairs.add([a.id,b.id].sort().join('|'))
+  if(a.senseId===b.senseId && a.script===b.script) expectedPairs.add([a.id,b.id].sort().join('|'))
 }
 function metrics(tp:number,fp:number,fn:number) {
   const precision=tp+fp===0?0:tp/(tp+fp)
