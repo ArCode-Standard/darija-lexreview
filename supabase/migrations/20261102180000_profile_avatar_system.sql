@@ -4,7 +4,7 @@ alter table public.reviewer_profiles
     check (avatar_source in ('upload', 'github', 'dicebear', 'arcode'));
 alter table public.reviewer_profiles
   add column if not exists avatar_path text
-    check (avatar_path is null or (char_length(avatar_path) <= 240 and avatar_path !~ '(^/|\\.\\.)'));
+    check (avatar_path is null or (char_length(avatar_path) <= 240 and left(avatar_path, 1) <> '/' and position('..' in avatar_path) = 0));
 alter table public.reviewer_profiles
   add column if not exists avatar_seed text
     check (avatar_seed is null or char_length(avatar_seed) <= 80);
@@ -60,7 +60,9 @@ grant update (avatar_source, avatar_path, avatar_seed)
 
 -- Keep the public directory sanitized: avatar details are returned only for
 -- profiles that explicitly opted into the public contributors directory.
-create or replace function public.get_public_contributors_directory()
+drop function if exists public.get_public_contributors_directory();
+
+create function public.get_public_contributors_directory()
 returns table (
   public_slug text,
   display_name text,
