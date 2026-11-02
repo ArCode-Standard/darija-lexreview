@@ -48,3 +48,12 @@ export const GOLD_FORMS: GoldForm[] = [
   {id:'today-lat-1',form:'lyom',script:'arabizi',senseId:'today',regionTags:['center','south'],expectedArabic:'اليوم'},
 ]
 export const GOLD_ARABIZI = GOLD_FORMS.filter((x): x is GoldForm & {expectedArabic:string} => Boolean(x.expectedArabic))
+
+/** Explicit orthographic-only cases; do not infer these from shared lexical meaning. */
+export const NORMALIZATION_GOLD_PAIRS: Array<{left:string;right:string;equivalent:boolean}> = [
+  {left:'أشنو',right:'اشنو',equivalent:true},
+  {left:'آش',right:'اش',equivalent:true},
+  {left:'دَابَا',right:'دابا',equivalent:true},
+  {left:'دابا',right:'دروك',equivalent:false},
+  {left:'شنو',right:'علاش',equivalent:false},
+]
