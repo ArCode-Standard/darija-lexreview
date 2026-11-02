@@ -420,7 +420,7 @@ export function ContributorProfilePanel({
               <button
                 type="button"
                 onClick={saveProfile}
-                disabled={saving}
+                disabled={saving || avatarUploading}
                 className="inline-flex min-h-10 items-center gap-2 rounded-full bg-zinc-950 px-5 py-2 text-xs sm:text-sm font-semibold text-white transition hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-60 cursor-pointer dark:bg-[#D9FF43] dark:text-[#050507] dark:hover:bg-[#e5ff73]"
               >
                 <Save className="h-4 w-4" />
