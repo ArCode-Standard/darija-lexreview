@@ -142,6 +142,18 @@ export function ContributorProfilePanel({
   const googleIdentity = identities.find((id) => id.provider === 'google')
   const canUnlinkIdentity = identities.length > 1
 
+  async function handleAvatarUpload(file: File) {
+    if (!supabase || !profile) return
+    if (file.size > 2097152 || !file.type.startsWith('image/')) {
+      setError('اختر صورة لا يتجاوز حجمها 2 ميغابايت.')
+      return
+    }
+    const path = profile.id + '/profile-avatar.webp'
+    const { error: uploadError } = await supabase.storage.from('avatars').upload(path, file, { upsert: true })
+    if (uploadError) setError('تعذر رفع الصورة.')
+    else { setAvatarPath(path); setAvatarSource('upload') }
+  }
+
   async function saveProfile() {
     if (!supabase || !profile) return
     setSaving(true)
