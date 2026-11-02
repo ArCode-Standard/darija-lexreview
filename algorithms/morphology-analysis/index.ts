@@ -16,7 +16,7 @@ export interface MorphologyAnalysis {
 }
 
 const PREFIXES = ['غادي', 'كن', 'كت', 'كي', 'كا', 'ما']
-const SUFFIXES = ['يات', 'يات', 'هم', 'ها', 'هما', 'كم', 'نا', 'ني', 'ك', 'ه', 'و']
+const SUFFIXES = ['يات', 'هم', 'ها', 'هما', 'كم', 'نا', 'ني', 'ك', 'ه', 'و']
 
 /**
  * A deliberately conservative affix scanner. It reports possible surface markers;
