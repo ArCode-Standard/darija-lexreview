@@ -1073,6 +1073,10 @@ export default function App() {
           onExitFocusMode={() => setFocusMode(false)}
           isAuthenticated={Boolean(userEmail)}
           userDisplayName={resolvedUserDisplayName}
+          userAvatarSource={reviewerProfile?.avatar_source}
+          userAvatarPath={reviewerProfile?.avatar_path}
+          userAvatarSeed={reviewerProfile?.avatar_seed}
+          userGithubHandle={reviewerProfile?.github_handle}
           userRole={reviewerProfile?.role ?? null}
           canAccessEditorialTools={canAccessEditorialTools}
           isStaffRole={isStaffRole}
