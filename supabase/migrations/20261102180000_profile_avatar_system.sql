@@ -18,11 +18,8 @@ on conflict (id) do update set
   file_size_limit = excluded.file_size_limit,
   allowed_mime_types = excluded.allowed_mime_types;
 
-drop policy if exists "Avatar images are publicly readable" on storage.objects;
-create policy "Avatar images are publicly readable"
-on storage.objects for select
-to public
-using (bucket_id = 'avatars');
+-- Public buckets serve known object URLs without granting bucket listing.
+-- Do not add a public SELECT policy: it would expose every member's object path.
 
 drop policy if exists "Members upload their own avatar images" on storage.objects;
 create policy "Members upload their own avatar images"
