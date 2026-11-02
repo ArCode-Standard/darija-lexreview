@@ -55,6 +55,7 @@ export function ContributorProfilePanel({
   const [avatarSource, setAvatarSource] = useState<AvatarSource>(profile?.avatar_source ?? 'arcode')
   const [avatarPath, setAvatarPath] = useState<string | null>(profile?.avatar_path ?? null)
   const [avatarSeed, setAvatarSeed] = useState(profile?.avatar_seed || profile?.id || 'darija-lexreview')
+  const [avatarUploading, setAvatarUploading] = useState(false)
   const [publicListed, setPublicListed] = useState<boolean>(
     profile?.public_listed ?? getLocalPublicListedFallback(profile?.id),
   )
@@ -147,10 +148,12 @@ export function ContributorProfilePanel({
       setError('اختر صورة لا يتجاوز حجمها 2 ميغابايت.')
       return
     }
+    setAvatarUploading(true)
     const path = profile.id + '/profile-avatar.webp'
     const { error: uploadError } = await supabase.storage.from('avatars').upload(path, file, { upsert: true })
-    if (uploadError) setError('تعذر رفع الصورة.')
-    else { setAvatarPath(path); setAvatarSource('upload') }
+    setAvatarUploading(false)
+    if (uploadError) setError('تعذر رفع الصورة. تحقق من إعدادات تخزين الصور في Supabase.')
+    else { setAvatarPath(path); setAvatarSource('upload'); setMessage('تم رفع الصورة. اضغط حفظ التغييرات لاعتمادها.') }
   }
 
   async function saveProfile() {
@@ -390,7 +393,7 @@ export function ContributorProfilePanel({
                     إظهار اسمي وأوسمتي في «لوحة المساهمين العامة»
                   </strong>
                   <span className="text-[11px] text-zinc-500 dark:text-zinc-400">
-                    لا يُعرض بريدك الإلكتروني أبداً؛ يظهر فقط الاسم المعروض، المنطقة اللهجية، التخصص، وأوسمتك العلمية.
+                    لا يُعرض بريدك الإلكتروني أبداً؛ تظهر بياناتك التعريفية وأوسمتك وصورتك الشخصية التي اخترتها.
                   </span>
                 </span>
               </label>
