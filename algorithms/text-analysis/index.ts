@@ -1,9 +1,9 @@
 import type { Script, TextAnalysis } from '../shared/types'
-import { normalizeForComparison, tokenize } from '../shared/normalize'
+import { hasArabicScript, hasLatinScript, normalizeForComparison, tokenize } from '../shared/normalize'
 
 function detectScript(input: string): Script {
-  const arabic = /[\u0600-\u06FF]/u.test(input)
-  const latin = /[A-Za-z]/u.test(input)
+  const arabic = hasArabicScript(input)
+  const latin = hasLatinScript(input)
   if (arabic && latin) return 'mixed'
   if (arabic) return 'arabic'
   if (latin) return 'latin'
