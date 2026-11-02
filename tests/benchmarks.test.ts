@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { GOLD_FORMS, GOLD_ARABIZI } from '../benchmarks/dataset'
+import { GOLD_FORMS, GOLD_ARABIZI, NORMALIZATION_GOLD_PAIRS } from '../benchmarks/dataset'
 import { discoverVariantCandidates, normalizeDarijaSearchKey, transliterateArabizi, findDuplicateCandidates } from '../algorithms'
 
 const expectedPairs = new Set<string>()
@@ -54,17 +54,15 @@ describe('Darija benchmark quality baseline (provisional fixtures)',()=>{
     console.info('[Darija benchmark] Arabizi exact-match metrics',result)
     expect(result.tp+result.fn).toBe(GOLD_ARABIZI.length)
   })
-  it('reports normalization pair classification metrics',()=>{
+  it('reports normalization pair classification metrics against orthographic gold pairs',()=>{
     let tp=0,fp=0,fn=0
-    for(let i=0;i<GOLD_FORMS.length;i++) for(let j=i+1;j<GOLD_FORMS.length;j++) {
-      const a=GOLD_FORMS[i],b=GOLD_FORMS[j]
-      const actual=normalizeDarijaSearchKey(a.form)===normalizeDarijaSearchKey(b.form)
-      const expected=a.senseId===b.senseId && a.script===b.script
-      if(actual&&expected)tp++; else if(actual&&!expected)fp++; else if(!actual&&expected)fn++
+    for(const pair of NORMALIZATION_GOLD_PAIRS) {
+      const actual=normalizeDarijaSearchKey(pair.left)===normalizeDarijaSearchKey(pair.right)
+      if(actual&&pair.equivalent)tp++; else if(actual&&!pair.equivalent)fp++; else if(!actual&&pair.equivalent)fn++
     }
     const result=metrics(tp,fp,fn)
-    console.info('[Darija benchmark] same-script normalization metrics',result)
-    expect(result.tp+result.fn).toBeGreaterThan(0)
+    console.info('[Darija benchmark] orthographic normalization metrics',result)
+    expect(result.tp+result.fn).toBe(NORMALIZATION_GOLD_PAIRS.filter(x=>x.equivalent).length)
   })
   it('measures linear workloads at 1k, 10k and 50k; records quadratic pairwise risk',()=>{
     const report=[]
