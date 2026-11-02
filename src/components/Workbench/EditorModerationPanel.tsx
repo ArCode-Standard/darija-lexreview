@@ -663,6 +663,20 @@ export function EditorModerationPanel({
           </div>
         </div>
 
+        <div className="mt-5 grid grid-cols-2 gap-3 border-t border-stone-100 pt-4 sm:grid-cols-4 dark:border-stone-800">
+          {[
+            { label: 'إجمالي السجلات', value: activePool.length },
+            { label: 'بانتظار القرار', value: activePool.filter((item) => item.status === 'pending').length },
+            { label: 'تحتاج تعديلاً', value: activePool.filter((item) => item.status === 'needs_changes').length },
+            { label: 'جاهزة للتصدير', value: acceptedCountInSource },
+          ].map((metric) => (
+            <div key={metric.label} className="rounded-xl bg-[#F7F6F2] px-4 py-3 dark:bg-[#141312]">
+              <p className="text-[11px] font-medium text-stone-500 dark:text-stone-400">{metric.label}</p>
+              <p className="mt-1 text-2xl font-semibold tracking-tight tabular-nums text-stone-900 dark:text-stone-100">{metric.value.toLocaleString('en-US')}</p>
+            </div>
+          ))}
+        </div>
+
         {/* Permission notice when Live Supabase selected without editor role */}
         {queueSource === 'live' && !isAuthorizedLiveEditor && (
           <div className="mt-4 flex flex-wrap items-center justify-between gap-4 rounded-lg border border-amber-300 bg-amber-50/80 p-4 text-xs text-amber-950 dark:border-amber-800/60 dark:bg-amber-950/30 dark:text-amber-200">

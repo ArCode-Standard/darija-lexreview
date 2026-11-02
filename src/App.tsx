@@ -35,6 +35,7 @@ const CorpusOverview = lazy(() => import('./components/Workbench/CorpusOverview'
 const SubmissionsPanel = lazy(() => import('./components/Workbench/SubmissionsPanel').then((module) => ({ default: module.SubmissionsPanel })))
 const EditorModerationPanel = lazy(() => import('./components/Workbench/EditorModerationPanel').then((module) => ({ default: module.EditorModerationPanel })))
 const DatasetExporterPanel = lazy(() => import('./components/Workbench/DatasetExporterPanel').then((module) => ({ default: module.DatasetExporterPanel })))
+const ContributorProfilePanel = lazy(() => import('./components/Workbench/ContributorProfilePanel').then((module) => ({ default: module.ContributorProfilePanel })))
 const MethodologySection = lazy(() => import('./components/MethodologySection').then((module) => ({ default: module.MethodologySection })))
 const AuthDialog = lazy(() => import('./components/AuthDialog').then((module) => ({ default: module.AuthDialog })))
 import { Footer } from './components/Footer'
@@ -65,6 +66,9 @@ export default function App() {
   const [query, setQuery] = useState(initialUrlState.query)
   const [selectedCategory, setSelectedCategory] = useState(initialUrlState.category)
   const [exampleFilter, setExampleFilter] = useState<ExampleFilter>(initialUrlState.exampleFilter)
+  const [selectedEntryType, setSelectedEntryType] = useState('all')
+  const [selectedRegister, setSelectedRegister] = useState('all')
+  const [selectedRegion, setSelectedRegion] = useState('all')
   const [activeId, setActiveId] = useState<string>(initialUrlState.entryId ?? DEMO_ENTRIES[0].id)
 
   const [resumedNewDraft, setResumedNewDraft] = useState<LocalDraft | null>(null)
@@ -284,12 +288,13 @@ export default function App() {
       if (exampleFilter === 'needs_examples' && entry.examples.length > 0) {
         return false
       }
-      if (exampleFilter === 'priority_enrichment' && !isPriorityEnrichmentEntry(entry)) {
-        return false
-      }
+      if (exampleFilter === 'priority_enrichment' && !isPriorityEnrichmentEntry(entry)) return false
+      if (selectedEntryType !== 'all' && (entry.entryType ?? 'unknown') !== selectedEntryType) return false
+      if (selectedRegister !== 'all' && (entry.register ?? 'unknown') !== selectedRegister) return false
+      if (selectedRegion !== 'all' && !(entry.region ?? []).includes(selectedRegion)) return false
       return matchesDarijaQuery(entry, query)
     })
-  }, [entries, query, selectedCategory, exampleFilter])
+  }, [entries, query, selectedCategory, exampleFilter, selectedEntryType, selectedRegister, selectedRegion])
 
   const activeEntry = useMemo(() => {
     return (
@@ -313,12 +318,14 @@ export default function App() {
   useEffect(() => {
     if (
       authInitialized &&
-      !canAccessEditorialTools &&
-      (workbenchTab === 'moderation' || workbenchTab === 'exporter')
+      (
+        (!canAccessEditorialTools && (workbenchTab === 'moderation' || workbenchTab === 'exporter')) ||
+        (workbenchTab === 'profile' && !userEmail)
+      )
     ) {
       setWorkbenchTab('rapid_review')
     }
-  }, [authInitialized, canAccessEditorialTools, workbenchTab])
+  }, [authInitialized, canAccessEditorialTools, workbenchTab, userEmail])
 
   // Sync workbench state to URL query parameters for shareable deep-links
   useEffect(() => {
@@ -360,6 +367,9 @@ export default function App() {
     setQuery('')
     setSelectedCategory('all')
     setExampleFilter('all')
+    setSelectedEntryType('all')
+    setSelectedRegister('all')
+    setSelectedRegion('all')
   }
 
   function handleStartRapidReview() {
@@ -461,6 +471,7 @@ export default function App() {
       id: 'submissions',
       label: `مساهماتي${draftsList.length > 0 ? ` (${draftsList.length})` : ''}`,
     },
+    ...(userEmail ? [{ id: 'profile' as WorkbenchTab, label: 'ملفي الشخصي' }] : []),
     ...(canAccessEditorialTools
       ? ([
           {
@@ -857,11 +868,18 @@ export default function App() {
                       query={query}
                       selectedCategory={selectedCategory}
                       exampleFilter={exampleFilter}
+                      selectedEntryType={selectedEntryType}
+                      selectedRegister={selectedRegister}
+                      selectedRegion={selectedRegion}
+                      regions={Array.from(new Set(entries.flatMap((entry) => entry.region ?? []))).sort()}
                       dataMode={dataMode}
                       drafts={drafts}
                       onQueryChange={setQuery}
                       onCategoryChange={setSelectedCategory}
                       onExampleFilterChange={setExampleFilter}
+                      onEntryTypeChange={setSelectedEntryType}
+                      onRegisterChange={setSelectedRegister}
+                      onRegionChange={setSelectedRegion}
                       onSelectEntry={(entry) => setActiveId(entry.id)}
                       onResetFilters={handleResetFilters}
                     />
@@ -951,6 +969,10 @@ export default function App() {
               onRemoveMultipleDrafts={removeMultipleDrafts}
               onOpenAuth={() => setAuthDialogOpen(true)}
             />
+          )}
+
+          {workbenchTab === 'profile' && userEmail && (
+            <ContributorProfilePanel profile={reviewerProfile} userEmail={userEmail} onProfileSaved={syncUserSession} />
           )}
 
           {workbenchTab === 'moderation' && canAccessEditorialTools && (

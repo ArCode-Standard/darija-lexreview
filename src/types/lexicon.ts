@@ -301,6 +301,7 @@ export type WorkbenchTab =
   | 'submissions'
   | 'moderation'
   | 'exporter'
+  | 'profile'
 export type ExampleFilter =
   | 'all'
   | 'with_examples'

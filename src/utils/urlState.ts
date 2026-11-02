@@ -8,6 +8,7 @@ const VALID_TABS = new Set<WorkbenchTab>([
   'submissions',
   'moderation',
   'exporter',
+  'profile',
 ])
 
 const VALID_EXAMPLE_FILTERS = new Set<ExampleFilter>([
