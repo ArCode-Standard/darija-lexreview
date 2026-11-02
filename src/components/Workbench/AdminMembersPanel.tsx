@@ -21,6 +21,7 @@ import {
   X,
 } from 'lucide-react'
 import { isSupabaseConfigured } from '../../lib/supabase'
+import { Avatar } from '../Avatar'
 import type {
   AccountStatus,
   MemberMessageCategory,
@@ -706,11 +707,13 @@ export function AdminMembersPanel({
                         className="rounded-2xl border border-zinc-200 bg-white p-5 dark:border-white/10 dark:bg-[#0B0B10]"
                       >
                         <div className="flex flex-wrap items-start justify-between gap-4">
-                          <div className="space-y-2 min-w-0">
-                            <div className="flex flex-wrap items-center gap-2">
-                              <h3 className="font-display text-base font-bold text-zinc-950 dark:text-white">
-                                {member.display_name || 'عضو بدون اسم معلَن'}
-                              </h3>
+                          <div className="flex min-w-0 items-start gap-3">
+                            <Avatar source={member.avatar_source} path={member.avatar_path} seed={member.avatar_seed || member.id} githubHandle={member.github_handle} displayName={member.display_name} size={44} />
+                            <div className="space-y-2 min-w-0">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <h3 className="font-display text-base font-bold text-zinc-950 dark:text-white">
+                                  {member.display_name || 'عضو بدون اسم معلَن'}
+                                </h3>
                               <span
                                 className={`inline-flex items-center rounded-md border px-2 py-0.5 text-[11px] font-semibold ${statusMeta.badgeClass}`}
                               >
@@ -761,6 +764,7 @@ export function AdminMembersPanel({
                                 <strong>السبب المسجّل:</strong> {member.status_reason}
                               </p>
                             )}
+                            </div>
                           </div>
 
                           {/* Governance Controls */}

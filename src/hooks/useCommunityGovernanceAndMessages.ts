@@ -301,6 +301,9 @@ export function useCommunityGovernanceAndMessages({
             dialect_region: currentProfile.dialect_region ?? null,
             specialty: currentProfile.specialty ?? null,
             github_handle: currentProfile.github_handle ?? null,
+            avatar_source: currentProfile.avatar_source ?? 'arcode',
+            avatar_path: currentProfile.avatar_path ?? null,
+            avatar_seed: currentProfile.avatar_seed ?? currentProfile.id,
             role: currentProfile.role,
             accepted_count: currentProfile.accepted_count ?? 0,
             attestations_count: Math.max(

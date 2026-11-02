@@ -164,6 +164,9 @@ export interface ReviewerProfile {
   dialect_region?: string | null
   specialty?: string | null
   github_handle?: string | null
+  avatar_source?: 'upload' | 'github' | 'dicebear' | 'arcode' | null
+  avatar_path?: string | null
+  avatar_seed?: string | null
   public_listed?: boolean
   role: UserRole
   account_status?: AccountStatus
@@ -182,6 +185,9 @@ export interface PublicContributorRecord {
   dialect_region: string | null
   specialty: string | null
   github_handle: string | null
+  avatar_source?: 'upload' | 'github' | 'dicebear' | 'arcode' | null
+  avatar_path?: string | null
+  avatar_seed?: string | null
   role: UserRole
   accepted_count: number
   attestations_count: number

@@ -14,6 +14,7 @@ import {
   UserRound,
 } from 'lucide-react'
 import { isSupabaseConfigured, supabase } from '../../lib/supabase'
+import { Avatar, type AvatarSource } from '../Avatar'
 import type { ReviewerProfile, SubmissionRecord } from '../../types/lexicon'
 import { humanizeSystemError } from '../../utils/humanizeError'
 import { computeContributorBadges, getBadgeClasses } from '../../utils/meritBadges'
@@ -52,6 +53,10 @@ export function ContributorProfilePanel({
   const [region, setRegion] = useState(profile?.dialect_region ?? '')
   const [specialty, setSpecialty] = useState(profile?.specialty ?? '')
   const [github, setGithub] = useState(profile?.github_handle ?? '')
+  const [avatarSource, setAvatarSource] = useState<AvatarSource>(profile?.avatar_source ?? 'arcode')
+  const [avatarPath, setAvatarPath] = useState<string | null>(profile?.avatar_path ?? null)
+  const [avatarSeed, setAvatarSeed] = useState(profile?.avatar_seed || profile?.id || 'darija-lexreview')
+  const [avatarUploading, setAvatarUploading] = useState(false)
   const [publicListed, setPublicListed] = useState<boolean>(
     profile?.public_listed ?? getLocalPublicListedFallback(profile?.id),
   )
@@ -70,6 +75,9 @@ export function ContributorProfilePanel({
     setRegion(profile?.dialect_region ?? '')
     setSpecialty(profile?.specialty ?? '')
     setGithub(profile?.github_handle ?? '')
+    setAvatarSource(profile?.avatar_source ?? 'arcode')
+    setAvatarPath(profile?.avatar_path ?? null)
+    setAvatarSeed(profile?.avatar_seed || profile?.id || 'darija-lexreview')
     setPublicListed(profile?.public_listed ?? getLocalPublicListedFallback(profile?.id))
   }, [profile])
 
@@ -135,6 +143,25 @@ export function ContributorProfilePanel({
   const googleIdentity = identities.find((id) => id.provider === 'google')
   const canUnlinkIdentity = identities.length > 1
 
+  async function handleAvatarUpload(file: File) {
+    if (!supabase || !profile) return
+    if (file.size > 2097152 || !['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
+      setError('استخدم صورة PNG أو JPG أو WebP لا يتجاوز حجمها 2 ميغابايت.')
+      return
+    }
+    setAvatarUploading(true)
+    const extension = file.type === 'image/png' ? 'png' : file.type === 'image/webp' ? 'webp' : 'jpg'
+    const path = profile.id + '/' + crypto.randomUUID() + '.' + extension
+    const { error: uploadError } = await supabase.storage.from('avatars').upload(path, file, {
+      contentType: file.type,
+      cacheControl: '3600',
+      upsert: false,
+    })
+    setAvatarUploading(false)
+    if (uploadError) setError('تعذر رفع الصورة. تحقق من إعدادات تخزين الصور في Supabase.')
+    else { setAvatarPath(path); setAvatarSource('upload'); setMessage('تم رفع الصورة. اضغط حفظ التغييرات لاعتمادها.') }
+  }
+
   async function saveProfile() {
     if (!supabase || !profile) return
     setSaving(true)
@@ -147,6 +174,9 @@ export function ContributorProfilePanel({
       dialect_region: region.trim() || null,
       specialty: specialty.trim() || null,
       github_handle: github.trim().replace(/^@/, '') || null,
+      avatar_source: avatarSource,
+      avatar_path: avatarSource === 'upload' ? avatarPath : null,
+      avatar_seed: avatarSeed.trim().slice(0, 80) || profile.id,
     }
 
     let result = await supabase
@@ -168,6 +198,9 @@ export function ContributorProfilePanel({
     if (result.error) {
       setError('تعذر حفظ الملف الشخصي. تحقق من الاتصال ثم أعد المحاولة.')
       return
+    }
+    if (profile.avatar_path && profile.avatar_path !== (avatarSource === 'upload' ? avatarPath : null)) {
+      await supabase.storage.from('avatars').remove([profile.avatar_path])
     }
     setMessage('تم حفظ بيانات الملف الشخصي وتحديث إعدادات الظهور العام.')
     onProfileSaved()
@@ -270,9 +303,7 @@ export function ContributorProfilePanel({
           {/* Identity Metadata Card */}
           <div className="rounded-2xl border border-zinc-200 bg-white p-6 dark:border-white/10 dark:bg-[#0C0C10]">
             <div className="flex items-center gap-3.5 border-b border-zinc-200 pb-4 dark:border-white/10">
-              <div className="grid h-12 w-12 place-items-center rounded-full bg-zinc-950 text-white dark:bg-[#D9FF43] dark:text-[#050507]">
-                <UserRound className="h-6 w-6" />
-              </div>
+              <Avatar source={avatarSource} path={avatarPath} seed={avatarSeed} githubHandle={github} displayName={name} size={52} />
               <div className="min-w-0">
                 <h3 className="font-display text-base font-bold text-zinc-950 dark:text-white">
                   {profile.display_name || 'مساهم جديد'}
@@ -281,6 +312,32 @@ export function ContributorProfilePanel({
                   {userEmail}
                 </p>
               </div>
+            </div>
+
+            <div className="mt-5 rounded-xl border border-zinc-200 bg-zinc-50/70 p-4 dark:border-white/10 dark:bg-[#07070A]">
+              <div className="flex flex-wrap items-center gap-4">
+                <Avatar source={avatarSource} path={avatarPath} seed={avatarSeed} githubHandle={github} displayName={name} size={76} />
+                <div className="min-w-0 flex-1">
+                  <h4 className="text-sm font-bold text-zinc-950 dark:text-white">الصورة الشخصية</h4>
+                  <p className="mt-1 text-xs leading-5 text-zinc-500 dark:text-zinc-400">اختر مصدر الصورة أو أنشئ شخصية رمزية خاصة بك.</p>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <label className="min-h-9 cursor-pointer rounded-lg bg-zinc-950 px-3 py-2 text-xs font-semibold text-white dark:bg-[#D9FF43] dark:text-[#050507]">
+                      رفع صورة
+                      <input type="file" accept="image/png,image/jpeg,image/webp" className="sr-only" onChange={(event) => { const file = event.target.files?.[0]; if (file) void handleAvatarUpload(file); event.currentTarget.value = '' }} />
+                    </label>
+                    <button type="button" onClick={() => { setAvatarSource('github'); setAvatarPath(null) }} className="min-h-9 rounded-lg border border-zinc-300 px-3 text-xs font-semibold text-zinc-700 dark:border-white/15 dark:text-zinc-300">GitHub</button>
+                    <button type="button" onClick={() => { setAvatarSource('dicebear'); setAvatarPath(null) }} className="min-h-9 rounded-lg border border-zinc-300 px-3 text-xs font-semibold text-zinc-700 dark:border-white/15 dark:text-zinc-300">DiceBear</button>
+                    <button type="button" onClick={() => { setAvatarSource('arcode'); setAvatarPath(null) }} className="min-h-9 rounded-lg border border-zinc-300 px-3 text-xs font-semibold text-zinc-700 dark:border-white/15 dark:text-zinc-300">شخصيات ArCode</button>
+                  </div>
+                </div>
+              </div>
+              {(avatarSource === 'dicebear' || avatarSource === 'arcode') && (
+                <label className="mt-4 block space-y-1.5 text-xs font-semibold text-zinc-700 dark:text-zinc-300">
+                  <span>معرّف الشخصية</span>
+                  <input value={avatarSeed} onChange={(event) => setAvatarSeed(event.target.value)} maxLength={80} dir="ltr" className={inputClass + ' text-left font-mono'} />
+                </label>
+              )}
+              {avatarSource === 'github' && !github.trim() && <p className="mt-3 text-xs text-amber-700 dark:text-amber-300">أضف معرّف GitHub في الحقل أدناه لعرض صورته.</p>}
             </div>
 
             <div className="mt-5 grid gap-4 sm:grid-cols-2">
@@ -342,7 +399,7 @@ export function ContributorProfilePanel({
                     إظهار اسمي وأوسمتي في «لوحة المساهمين العامة»
                   </strong>
                   <span className="text-[11px] text-zinc-500 dark:text-zinc-400">
-                    لا يُعرض بريدك الإلكتروني أبداً؛ يظهر فقط الاسم المعروض، المنطقة اللهجية، التخصص، وأوسمتك العلمية.
+                    لا يُعرض بريدك الإلكتروني أبداً؛ تظهر بياناتك التعريفية وأوسمتك وصورتك الشخصية التي اخترتها.
                   </span>
                 </span>
               </label>
@@ -363,7 +420,7 @@ export function ContributorProfilePanel({
               <button
                 type="button"
                 onClick={saveProfile}
-                disabled={saving}
+                disabled={saving || avatarUploading}
                 className="inline-flex min-h-10 items-center gap-2 rounded-full bg-zinc-950 px-5 py-2 text-xs sm:text-sm font-semibold text-white transition hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-60 cursor-pointer dark:bg-[#D9FF43] dark:text-[#050507] dark:hover:bg-[#e5ff73]"
               >
                 <Save className="h-4 w-4" />
