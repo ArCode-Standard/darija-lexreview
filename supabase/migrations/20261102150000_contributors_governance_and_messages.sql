@@ -427,7 +427,7 @@ as $$
     rp.role,
     coalesce(sc.accepted_count, 0) as accepted_count,
     coalesce(ac.attestations_count, 0) as attestations_count,
-    pg_catalog.extract(year from rp.created_at)::integer as joined_year
+    extract(year from rp.created_at)::integer as joined_year
   from public.reviewer_profiles rp
   left join sub_counts sc on sc.reviewer_id = rp.id
   left join att_counts ac on ac.reviewer_id = rp.id
