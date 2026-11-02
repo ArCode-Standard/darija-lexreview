@@ -14,6 +14,7 @@ import {
   UserRound,
 } from 'lucide-react'
 import { isSupabaseConfigured, supabase } from '../../lib/supabase'
+import { Avatar, type AvatarSource } from '../Avatar'
 import type { ReviewerProfile, SubmissionRecord } from '../../types/lexicon'
 import { humanizeSystemError } from '../../utils/humanizeError'
 import { computeContributorBadges, getBadgeClasses } from '../../utils/meritBadges'
@@ -52,6 +53,9 @@ export function ContributorProfilePanel({
   const [region, setRegion] = useState(profile?.dialect_region ?? '')
   const [specialty, setSpecialty] = useState(profile?.specialty ?? '')
   const [github, setGithub] = useState(profile?.github_handle ?? '')
+  const [avatarSource, setAvatarSource] = useState<AvatarSource>(profile?.avatar_source ?? 'arcode')
+  const [avatarPath, setAvatarPath] = useState<string | null>(profile?.avatar_path ?? null)
+  const [avatarSeed, setAvatarSeed] = useState(profile?.avatar_seed || profile?.id || 'darija-lexreview')
   const [publicListed, setPublicListed] = useState<boolean>(
     profile?.public_listed ?? getLocalPublicListedFallback(profile?.id),
   )
@@ -70,6 +74,9 @@ export function ContributorProfilePanel({
     setRegion(profile?.dialect_region ?? '')
     setSpecialty(profile?.specialty ?? '')
     setGithub(profile?.github_handle ?? '')
+    setAvatarSource(profile?.avatar_source ?? 'arcode')
+    setAvatarPath(profile?.avatar_path ?? null)
+    setAvatarSeed(profile?.avatar_seed || profile?.id || 'darija-lexreview')
     setPublicListed(profile?.public_listed ?? getLocalPublicListedFallback(profile?.id))
   }, [profile])
 
