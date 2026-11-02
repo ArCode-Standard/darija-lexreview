@@ -11,6 +11,7 @@ import {
   LogOut,
   Save,
   Unlink,
+  UserRound,
 } from 'lucide-react'
 import { isSupabaseConfigured, supabase } from '../../lib/supabase'
 import { Avatar, type AvatarSource } from '../Avatar'
