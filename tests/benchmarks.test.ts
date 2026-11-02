@@ -30,6 +30,19 @@ describe('Darija benchmark quality baseline (provisional fixtures)',()=>{
     expect(result.precision).toBeGreaterThanOrEqual(0)
     expect(result.recall).toBeGreaterThanOrEqual(0)
   })
+  it('reports duplicate-detection precision/recall/F1 per query over the fixture set',()=>{
+    let tp=0,fp=0,fn=0
+    for(const query of GOLD_FORMS) {
+      const candidates=GOLD_FORMS.filter(x=>x.id!==query.id).map(x=>({id:x.id,text:x.form}))
+      const predicted=new Set(findDuplicateCandidates(query.form,candidates,0.72).map(x=>x.id))
+      const expected=new Set(GOLD_FORMS.filter(x=>x.id!==query.id&&x.senseId===query.senseId).map(x=>x.id))
+      for(const id of predicted) expected.has(id)?tp++:fp++
+      for(const id of expected) if(!predicted.has(id)) fn++
+    }
+    const result=metrics(tp,fp,fn)
+    console.info('[Darija benchmark] duplicate-detection provisional metrics',result)
+    expect(result.tp+result.fn).toBeGreaterThan(0)
+  })
   it('reports Arabizi transliteration exact-match metrics',()=>{
     let tp=0,fp=0,fn=0
     for(const item of GOLD_ARABIZI) {
