@@ -154,6 +154,9 @@ export function ContributorProfilePanel({
       dialect_region: region.trim() || null,
       specialty: specialty.trim() || null,
       github_handle: github.trim().replace(/^@/, '') || null,
+      avatar_source: avatarSource,
+      avatar_path: avatarSource === 'upload' ? avatarPath : null,
+      avatar_seed: avatarSeed.trim().slice(0, 80) || profile.id,
     }
 
     let result = await supabase
@@ -277,9 +280,7 @@ export function ContributorProfilePanel({
           {/* Identity Metadata Card */}
           <div className="rounded-2xl border border-zinc-200 bg-white p-6 dark:border-white/10 dark:bg-[#0C0C10]">
             <div className="flex items-center gap-3.5 border-b border-zinc-200 pb-4 dark:border-white/10">
-              <div className="grid h-12 w-12 place-items-center rounded-full bg-zinc-950 text-white dark:bg-[#D9FF43] dark:text-[#050507]">
-                <UserRound className="h-6 w-6" />
-              </div>
+              <Avatar source={avatarSource} path={avatarPath} seed={avatarSeed} githubHandle={github} displayName={name} size={52} />
               <div className="min-w-0">
                 <h3 className="font-display text-base font-bold text-zinc-950 dark:text-white">
                   {profile.display_name || 'مساهم جديد'}
