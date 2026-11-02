@@ -145,13 +145,18 @@ export function ContributorProfilePanel({
 
   async function handleAvatarUpload(file: File) {
     if (!supabase || !profile) return
-    if (file.size > 2097152 || !file.type.startsWith('image/')) {
-      setError('اختر صورة لا يتجاوز حجمها 2 ميغابايت.')
+    if (file.size > 2097152 || !['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
+      setError('استخدم صورة PNG أو JPG أو WebP لا يتجاوز حجمها 2 ميغابايت.')
       return
     }
     setAvatarUploading(true)
-    const path = profile.id + '/profile-avatar.webp'
-    const { error: uploadError } = await supabase.storage.from('avatars').upload(path, file, { upsert: true })
+    const extension = file.type === 'image/png' ? 'png' : file.type === 'image/webp' ? 'webp' : 'jpg'
+    const path = profile.id + '/' + crypto.randomUUID() + '.' + extension
+    const { error: uploadError } = await supabase.storage.from('avatars').upload(path, file, {
+      contentType: file.type,
+      cacheControl: '3600',
+      upsert: false,
+    })
     setAvatarUploading(false)
     if (uploadError) setError('تعذر رفع الصورة. تحقق من إعدادات تخزين الصور في Supabase.')
     else { setAvatarPath(path); setAvatarSource('upload'); setMessage('تم رفع الصورة. اضغط حفظ التغييرات لاعتمادها.') }
