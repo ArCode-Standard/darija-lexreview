@@ -309,6 +309,10 @@ export function ContributorProfilePanel({
                   <h4 className="text-sm font-bold text-zinc-950 dark:text-white">الصورة الشخصية</h4>
                   <p className="mt-1 text-xs leading-5 text-zinc-500 dark:text-zinc-400">اختر مصدر الصورة أو أنشئ شخصية رمزية خاصة بك.</p>
                   <div className="mt-3 flex flex-wrap gap-2">
+                    <label className="min-h-9 cursor-pointer rounded-lg bg-zinc-950 px-3 py-2 text-xs font-semibold text-white dark:bg-[#D9FF43] dark:text-[#050507]">
+                      رفع صورة
+                      <input type="file" accept="image/png,image/jpeg,image/webp" className="sr-only" onChange={(event) => { const file = event.target.files?.[0]; if (file) void handleAvatarUpload(file); event.currentTarget.value = '' }} />
+                    </label>
                     <button type="button" onClick={() => { setAvatarSource('github'); setAvatarPath(null) }} className="min-h-9 rounded-lg border border-zinc-300 px-3 text-xs font-semibold text-zinc-700 dark:border-white/15 dark:text-zinc-300">GitHub</button>
                     <button type="button" onClick={() => { setAvatarSource('dicebear'); setAvatarPath(null) }} className="min-h-9 rounded-lg border border-zinc-300 px-3 text-xs font-semibold text-zinc-700 dark:border-white/15 dark:text-zinc-300">DiceBear</button>
                     <button type="button" onClick={() => { setAvatarSource('arcode'); setAvatarPath(null) }} className="min-h-9 rounded-lg border border-zinc-300 px-3 text-xs font-semibold text-zinc-700 dark:border-white/15 dark:text-zinc-300">شخصيات ArCode</button>
