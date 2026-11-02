@@ -11,7 +11,6 @@ export function normalizeForComparison(input: string): string {
     .replace(/[أإآٱ]/gu, 'ا')
     .replace(/[ىی]/gu, 'ي')
     .replace(/ک/gu, 'ك')
-    .replace(/ة/gu, 'ه')
     .toLocaleLowerCase('ar')
     .replace(/[^\p{L}\p{N}]+/gu, ' ')
     .trim()
