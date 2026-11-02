@@ -1,7 +1,7 @@
 begin;
 
 create extension if not exists pgtap with schema extensions;
-select plan(31);
+select plan(34);
 
 -- All fixtures are synthetic and live only in this disposable CI database.
 insert into auth.users (
@@ -11,7 +11,8 @@ insert into auth.users (
 ) values
   ('10000000-0000-4000-8000-000000000001','00000000-0000-0000-0000-000000000000','authenticated','authenticated','contributor@example.invalid','',now(),'{"provider":"email","providers":["email"]}','{"name":"CI Contributor"}',now(),now()),
   ('10000000-0000-4000-8000-000000000002','00000000-0000-0000-0000-000000000000','authenticated','authenticated','editor@example.invalid','',now(),'{"provider":"email","providers":["email"]}','{"name":"CI Editor"}',now(),now()),
-  ('10000000-0000-4000-8000-000000000003','00000000-0000-0000-0000-000000000000','authenticated','authenticated','admin@example.invalid','',now(),'{"provider":"email","providers":["email"]}','{"name":"CI Admin"}',now(),now());
+  ('10000000-0000-4000-8000-000000000003','00000000-0000-0000-0000-000000000000','authenticated','authenticated','admin@example.invalid','',now(),'{"provider":"email","providers":["email"]}','{"name":"CI Admin"}',now(),now()),
+  ('10000000-0000-4000-8000-000000000004','00000000-0000-0000-0000-000000000000','authenticated','authenticated','rate-limit@example.invalid','',now(),'{"provider":"email","providers":["email"]}','{"name":"CI Rate Limit"}',now(),now());
 
 -- Bootstrap the first CI admin using the same one-time privileged provisioning
 -- boundary documented for production. The auth trigger initially creates a reviewer
@@ -133,6 +134,17 @@ select ok(
   'authenticated cannot update audit events directly'
 );
 
+-- Submission inserts are guarded by the server-side rate/bounds trigger.
+select ok(
+  exists (
+    select 1 from pg_trigger
+    where tgrelid = 'public.review_submissions'::regclass
+      and tgname = 'review_submissions_rate_and_bounds_trg'
+      and not tgisinternal
+  ),
+  'review_submissions has a BEFORE INSERT rate/bounds trigger'
+);
+
 -- Contributor creates a submission; Auth trigger provisions the reviewer profile.
 set local role authenticated;
 select set_config('request.jwt.claim.sub','10000000-0000-4000-8000-000000000001',true);
@@ -147,6 +159,37 @@ select is(
   1,
   'contributor submission is persisted'
 );
+
+-- Client-supplied reviewer IDs cannot spoof another contributor.
+set local role authenticated;
+select set_config('request.jwt.claim.sub','10000000-0000-4000-8000-000000000001',true);
+select set_config('request.jwt.claim.role','authenticated',true);
+select throws_ok(
+  $test$ insert into public.review_submissions(entry_id, proposed_data, evidence, reviewer_id)
+     values ('ci-entry-spoof','{"lemma":"مزور"}','[]','10000000-0000-4000-8000-000000000002') $test$,
+  '42501',
+  'Authenticated contributor required',
+  'submission reviewer_id cannot be spoofed'
+);
+reset role;
+
+-- Use a dedicated synthetic actor so this rate-limit test cannot exhaust
+-- the editor fixture needed by later lifecycle tests.
+-- Twenty inserts are accepted in the rolling hour; the twenty-first is rejected.
+set local role authenticated;
+select set_config('request.jwt.claim.sub','10000000-0000-4000-8000-000000000004',true);
+select set_config('request.jwt.claim.role','authenticated',true);
+insert into public.review_submissions(entry_id, proposed_data, evidence)
+select 'ci-rate-' || g, '{"lemma":"اختبار"}'::jsonb, '[]'::jsonb
+from generate_series(1,20) as g;
+select throws_ok(
+  $test$ insert into public.review_submissions(entry_id, proposed_data, evidence)
+     values ('ci-rate-21','{"lemma":"اختبار"}','[]') $test$,
+  '42501',
+  'Rate limit exceeded: maximum 20 submissions per hour',
+  'twenty-first submission in one hour is rejected'
+);
+reset role;
 
 -- A different authenticated user cannot read another contributor's private profile.
 set local role authenticated;

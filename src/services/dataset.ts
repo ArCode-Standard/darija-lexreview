@@ -9,9 +9,9 @@ import type {
 } from '../types/lexicon'
 
 const LEXICON_URL =
-  'https://raw.githubusercontent.com/ArCode-Standard/moroccan-darija-dataset/main/data/moroccan-darija.json'
+  'https://raw.githubusercontent.com/ArCode-Standard/moroccan-darija-dataset/4b8c0618a11578915360468cb8dc17e230691b18/data/moroccan-darija.json'
 const EXAMPLES_URL =
-  'https://raw.githubusercontent.com/ArCode-Standard/moroccan-darija-dataset/main/data/context-examples.json'
+  'https://raw.githubusercontent.com/ArCode-Standard/moroccan-darija-dataset/4b8c0618a11578915360468cb8dc17e230691b18/data/context-examples.json'
 
 const DEFAULT_PROVENANCE: ProvenanceInfo = {
   sourceType: 'original',
