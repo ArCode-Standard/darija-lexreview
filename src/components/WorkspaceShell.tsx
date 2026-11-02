@@ -30,6 +30,7 @@ import {
 import type { DataMode } from '../types/lexicon'
 import type { AppPage } from '../utils/urlState'
 import { PWAInstallButton } from './PWAInstallButton'
+import { Avatar, type AvatarSource } from './Avatar'
 
 interface WorkspaceShellProps {
   activePage: AppPage
@@ -38,6 +39,10 @@ interface WorkspaceShellProps {
   onExitFocusMode: () => void
   isAuthenticated: boolean
   userDisplayName: string | null
+  userAvatarSource?: AvatarSource | null
+  userAvatarPath?: string | null
+  userAvatarSeed?: string | null
+  userGithubHandle?: string | null
   userRole?: 'reviewer' | 'editor' | 'admin' | null
   canAccessEditorialTools: boolean
   isStaffRole: boolean
@@ -82,6 +87,10 @@ export function WorkspaceShell({
   onExitFocusMode,
   isAuthenticated,
   userDisplayName,
+  userAvatarSource,
+  userAvatarPath,
+  userAvatarSeed,
+  userGithubHandle,
   userRole,
   canAccessEditorialTools,
   isStaffRole,
@@ -623,7 +632,7 @@ export function WorkspaceShell({
             >
               {isAuthenticated ? (
                 <>
-                  <UserRound className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                  <Avatar source={userAvatarSource} path={userAvatarPath} seed={userAvatarSeed} githubHandle={userGithubHandle} displayName={userDisplayName} size={25} />
                   <span className="max-w-[116px] truncate">{userDisplayName || 'حسابي'}</span>
                 </>
               ) : (
