@@ -1,3 +1,5 @@
+import { normalizeForComparison, tokenize } from '../shared/normalize'
+
 export interface RegionalLexiconEntry {
   term: string
   region: string
@@ -9,24 +11,37 @@ export interface RegionHint {
   matchedTerms: string[]
   sourceIds: string[]
   confidence: 'low' | 'medium'
+  evidenceCount: number
 }
 
-/** Region hints are possible only from an explicitly supplied, sourced lexicon. */
+/** Region hints require sourced entries and exact token/phrase matches. */
 export function inferRegionHints(text: string, lexicon: RegionalLexiconEntry[]): RegionHint[] {
-  const lower = text.normalize('NFKC').toLocaleLowerCase('ar')
-  const grouped = new Map<string, { terms: string[]; sources: string[] }>()
+  const textTokens = tokenize(text)
+  const textSet = new Set(textTokens)
+  const grouped = new Map<string, { terms: Set<string>; sources: Set<string> }>()
+
   for (const entry of lexicon) {
-    if (!entry.term.trim() || !entry.region.trim() || !entry.sourceId.trim()) continue
-    if (!lower.includes(entry.term.normalize('NFKC').toLocaleLowerCase('ar'))) continue
-    const current = grouped.get(entry.region) ?? { terms: [], sources: [] }
-    current.terms.push(entry.term)
-    current.sources.push(entry.sourceId)
-    grouped.set(entry.region, current)
+    const term = normalizeForComparison(entry.term)
+    const region = entry.region.trim()
+    const sourceId = entry.sourceId.trim()
+    if (!term || !region || !sourceId) continue
+    const termTokens = term.split(' ')
+    const isPhrase = termTokens.length > 1
+      ? textTokens.some((_, index) => termTokens.every((part, offset) => textTokens[index + offset] === part))
+      : textSet.has(term)
+    if (!isPhrase) continue
+
+    const current = grouped.get(region) ?? { terms: new Set<string>(), sources: new Set<string>() }
+    current.terms.add(entry.term)
+    current.sources.add(sourceId)
+    grouped.set(region, current)
   }
+
   return [...grouped.entries()].map(([region, data]) => ({
     region,
-    matchedTerms: [...new Set(data.terms)],
-    sourceIds: [...new Set(data.sources)],
-    confidence: data.terms.length > 1 ? 'medium' : 'low',
-  })).sort((a, b) => b.matchedTerms.length - a.matchedTerms.length)
+    matchedTerms: [...data.terms],
+    sourceIds: [...data.sources],
+    confidence: data.terms.size >= 3 && data.sources.size >= 2 ? 'medium' : 'low',
+    evidenceCount: data.terms.size,
+  })).sort((a, b) => b.evidenceCount - a.evidenceCount)
 }
