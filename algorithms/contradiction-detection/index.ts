@@ -7,13 +7,10 @@ const NEGATION_MARKERS = new Set([
 const POSITIVE_MARKERS = new Set([
   'كاين', 'موجود', 'صحيح', 'نعم', 'اييه', 'ايه', 'بصح',
 ])
-const NEGATION_PREFIX = /^ما/u
-const NEGATION_SUFFIX = /ش$/u
 
 export interface ClaimLike {
   id: string
   text: string
-  /** Optional normalized subject supplied by a reviewer or upstream parser. */
   subject?: string
 }
 
@@ -25,12 +22,17 @@ interface Polarity {
 
 function inspectClaim(text: string): Polarity {
   const tokens = tokenize(text)
-  const negative = tokens.some((token) =>
-    NEGATION_MARKERS.has(token) || (NEGATION_PREFIX.test(token) && NEGATION_SUFFIX.test(token)),
+  const splitNegation = tokens.some((token, index) =>
+    token === 'ما' && Boolean(tokens[index + 1]?.endsWith('ش')),
   )
+  const negative = splitNegation || tokens.some((token) => NEGATION_MARKERS.has(token))
   const positive = tokens.some((token) => POSITIVE_MARKERS.has(token))
   const stop = new Set([...NEGATION_MARKERS, ...POSITIVE_MARKERS, 'ما', 'ش', 'و'])
-  return { negative, positive, content: new Set(tokens.filter((token) => token.length > 1 && !stop.has(token))) }
+  return {
+    negative,
+    positive,
+    content: new Set(tokens.filter((token) => token.length > 1 && !stop.has(token))),
+  }
 }
 
 function sharesTopic(a: ClaimLike, b: ClaimLike, left: Polarity, right: Polarity): boolean {
@@ -41,10 +43,7 @@ function sharesTopic(a: ClaimLike, b: ClaimLike, left: Polarity, right: Polarity
   return false
 }
 
-/**
- * Detects only explicit polarity markers on claims with a shared subject/content term.
- * It deliberately does not infer semantic contradiction from unrelated sentences.
- */
+/** Surface-polarity alert only; it is not a semantic contradiction classifier. */
 export function detectPolarityConflicts(claims: ClaimLike[]): AlgorithmSignal[] {
   const signals: AlgorithmSignal[] = []
   for (let i = 0; i < claims.length; i += 1) {
