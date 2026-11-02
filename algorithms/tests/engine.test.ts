@@ -9,6 +9,7 @@ import {
   scoreEntryCompleteness,
   analyzeMorphology,
   cosineSimilarity,
+  rankVectorCandidates,
 } from '../index'
 
 describe('Darija algorithm engine', () => {
@@ -23,6 +24,7 @@ describe('Darija algorithm engine', () => {
     const result = analyzeLexicalForm('أهلاً')
     expect(result.original).toBe('أهلاً')
     expect(result.comparisonForm).toBe('اهلا')
+    expect(analyzeLexicalForm('مدرسة').comparisonForm).toBe('مدرسة')
   })
 
   it('transliterates common Darija Arabizi digraphs and digits', () => {
@@ -84,5 +86,10 @@ describe('Darija algorithm engine', () => {
     expect(cosineSimilarity([1, 0], [1, 0])).toBe(1)
     expect(cosineSimilarity([1, 0], [0, 1])).toBe(0)
     expect(() => cosineSimilarity([1], [1, 2])).toThrow(RangeError)
+    const ranked = rankVectorCandidates([1, 0], [
+      { id: 'close', vector: [0.9, 0.1] },
+      { id: 'far', vector: [0, 1] },
+    ])
+    expect(ranked[0]?.id).toBe('close')
   })
 })
