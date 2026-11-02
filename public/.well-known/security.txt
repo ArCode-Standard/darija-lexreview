@@ -1,5 +1,0 @@
-Contact: https://github.com/ArCode-Standard/darija-lexreview/security/advisories/new
-Expires: 2027-11-02T00:00:00.000Z
-Preferred-Languages: ar, fr, en
-Canonical: https://darija-lexreview.pages.dev/.well-known/security.txt
-Policy: https://darija-lexreview.pages.dev/reporting/#security
