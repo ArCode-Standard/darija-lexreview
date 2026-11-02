@@ -27,6 +27,7 @@ import type {
 import { MOROCCAN_REGIONS, sanitizeExternalUrl } from '../utils/validation'
 import { auditDraftForSync, syncLocalDraftsToAccount } from '../utils/draftSync'
 import { humanizeSystemError } from '../utils/humanizeError'
+import { getGitHubLogin } from '../utils/githubIdentity'
 import { TurnstileWidget } from './TurnstileWidget'
 import { DarijaDotMatrixLogo } from './DarijaDotMatrixLogo'
 
@@ -223,6 +224,37 @@ export function AuthDialog({
       }
     }
   }, [open, userEmail, profile?.id, loadIdentities, loadMyPromotionContext])
+
+  useEffect(() => {
+    const githubIdentity = identities.find((identity) => identity.provider === 'github')
+    const linkedGithubHandle = getGitHubLogin(githubIdentity)
+    if (!linkedGithubHandle || !profile?.id || !supabase) return
+
+    setEditGithub(linkedGithubHandle)
+    if (profile.github_handle === linkedGithubHandle) return
+
+    let active = true
+    void supabase
+      .from('reviewer_profiles')
+      .update({ github_handle: linkedGithubHandle })
+      .eq('id', profile.id)
+      .then(({ error: syncError }) => {
+        if (!active) return
+        if (syncError) {
+          setFeedback({
+            type: 'error',
+            text: 'تم ربط GitHub، لكن تعذر حفظ المعرّف تلقائياً. أعد المحاولة لاحقاً.',
+          })
+          return
+        }
+        setFeedback({ type: 'success', text: 'تم جلب معرّف GitHub العام وحفظه تلقائياً.' })
+        onAuthChanged()
+      })
+
+    return () => {
+      active = false
+    }
+  }, [identities, profile?.id, profile?.github_handle, onAuthChanged])
 
   if (!open) return null
 
@@ -1170,9 +1202,16 @@ export function AuthDialog({
                             dir="ltr"
                             value={editGithub}
                             onChange={(e) => setEditGithub(e.target.value)}
+                            readOnly={Boolean(getGitHubLogin(identities.find((identity) => identity.provider === 'github')))}
                             placeholder="username"
+                            aria-describedby="auth-github-handle-help"
                             className={`${inputBaseClass} text-left font-mono`}
                           />
+                          <p id="auth-github-handle-help" className="mt-1 text-[11px] text-zinc-500 dark:text-zinc-400">
+                            {getGitHubLogin(identities.find((identity) => identity.provider === 'github'))
+                              ? 'تم جلب المعرّف من حساب GitHub المرتبط تلقائياً.'
+                              : 'اربط حساب GitHub ليتم جلب المعرّف العام تلقائياً.'}
+                          </p>
                         </div>
                       </div>
 

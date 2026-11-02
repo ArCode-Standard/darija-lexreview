@@ -17,6 +17,7 @@ import { isSupabaseConfigured, supabase } from '../../lib/supabase'
 import { Avatar, type AvatarSource } from '../Avatar'
 import type { ReviewerProfile, SubmissionRecord } from '../../types/lexicon'
 import { humanizeSystemError } from '../../utils/humanizeError'
+import { getGitHubLogin } from '../../utils/githubIdentity'
 import { computeContributorBadges, getBadgeClasses } from '../../utils/meritBadges'
 import {
   getLocalPublicListedFallback,
@@ -140,8 +141,34 @@ export function ContributorProfilePanel({
   )
 
   const githubIdentity = identities.find((id) => id.provider === 'github')
+  const linkedGithubHandle = getGitHubLogin(githubIdentity)
   const googleIdentity = identities.find((id) => id.provider === 'google')
   const canUnlinkIdentity = identities.length > 1
+
+  useEffect(() => {
+    if (!linkedGithubHandle || !profile?.id || !supabase) return
+    setGithub(linkedGithubHandle)
+    if (profile.github_handle === linkedGithubHandle) return
+
+    let active = true
+    void supabase
+      .from('reviewer_profiles')
+      .update({ github_handle: linkedGithubHandle })
+      .eq('id', profile.id)
+      .then(({ error: syncError }) => {
+        if (!active) return
+        if (syncError) {
+          setError('تم ربط GitHub، لكن تعذر حفظ المعرّف تلقائياً. أعد المحاولة لاحقاً.')
+          return
+        }
+        setMessage('تم جلب معرّف GitHub العام وحفظه تلقائياً.')
+        onProfileSaved()
+      })
+
+    return () => {
+      active = false
+    }
+  }, [linkedGithubHandle, profile?.id, profile?.github_handle, onProfileSaved])
 
   async function handleAvatarUpload(file: File) {
     if (!supabase || !profile) return
@@ -377,11 +404,18 @@ export function ContributorProfilePanel({
                 <input
                   value={github}
                   onChange={(e) => setGithub(e.target.value)}
+                  readOnly={Boolean(linkedGithubHandle)}
                   maxLength={80}
                   dir="ltr"
                   placeholder="username"
+                  aria-describedby="github-handle-help"
                   className={`${inputClass} text-left font-mono`}
                 />
+                <span id="github-handle-help" className="mt-1 block text-[11px] font-normal text-zinc-500 dark:text-zinc-400">
+                  {linkedGithubHandle
+                    ? 'تم جلب المعرّف من حساب GitHub المرتبط ولا يحتاج إلى إدخال يدوي.'
+                    : 'اربط حساب GitHub ليتم جلب المعرّف العام تلقائياً.'}
+                </span>
               </label>
             </div>
 
