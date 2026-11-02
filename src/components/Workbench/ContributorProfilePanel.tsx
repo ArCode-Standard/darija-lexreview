@@ -190,6 +190,9 @@ export function ContributorProfilePanel({
       setError('تعذر حفظ الملف الشخصي. تحقق من الاتصال ثم أعد المحاولة.')
       return
     }
+    if (profile.avatar_path && profile.avatar_path !== (avatarSource === 'upload' ? avatarPath : null)) {
+      await supabase.storage.from('avatars').remove([profile.avatar_path])
+    }
     setMessage('تم حفظ بيانات الملف الشخصي وتحديث إعدادات الظهور العام.')
     onProfileSaved()
   }
