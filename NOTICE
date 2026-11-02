@@ -1,0 +1,31 @@
+THIRD-PARTY DATA ATTRIBUTION AND LICENSE NOTICE
+=================================================
+
+Application code
+----------------
+The Darija LexReview application code in this repository is licensed under
+the MIT License. See LICENSE.
+
+Moroccan Darija Dataset
+-----------------------
+Attribution: ArCode Standard — Moroccan Darija Lexicon
+Source: https://github.com/ArCode-Standard/moroccan-darija-dataset
+Declared dataset license: Creative Commons Attribution-NonCommercial 4.0
+International (CC BY-NC 4.0).
+License text: https://creativecommons.org/licenses/by-nc/4.0/
+
+The dataset license is separate from the MIT license for this application.
+The dataset contains source-level and third-party materials. Check each
+record's source, rights, and license metadata before reuse. This notice does
+not grant rights in third-party material or replace any attribution required
+by the original source.
+
+Commercial use
+--------------
+CC BY-NC 4.0 does not authorize commercial use of material covered by that
+license. A separate permission from the relevant rights holder is required.
+A licensing inquiry may be opened at:
+https://github.com/ArCode-Standard/moroccan-darija-dataset/issues/new
+
+An inquiry is not a license or permission. Do not assume that ArCode Standard
+can grant rights owned by third parties.
