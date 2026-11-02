@@ -11,7 +11,6 @@ import {
   LogOut,
   Save,
   Unlink,
-  UserRound,
 } from 'lucide-react'
 import { isSupabaseConfigured, supabase } from '../../lib/supabase'
 import { Avatar, type AvatarSource } from '../Avatar'
@@ -301,6 +300,28 @@ export function ContributorProfilePanel({
                   {userEmail}
                 </p>
               </div>
+            </div>
+
+            <div className="mt-5 rounded-xl border border-zinc-200 bg-zinc-50/70 p-4 dark:border-white/10 dark:bg-[#07070A]">
+              <div className="flex flex-wrap items-center gap-4">
+                <Avatar source={avatarSource} path={avatarPath} seed={avatarSeed} githubHandle={github} displayName={name} size={76} />
+                <div className="min-w-0 flex-1">
+                  <h4 className="text-sm font-bold text-zinc-950 dark:text-white">الصورة الشخصية</h4>
+                  <p className="mt-1 text-xs leading-5 text-zinc-500 dark:text-zinc-400">اختر مصدر الصورة أو أنشئ شخصية رمزية خاصة بك.</p>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <button type="button" onClick={() => { setAvatarSource('github'); setAvatarPath(null) }} className="min-h-9 rounded-lg border border-zinc-300 px-3 text-xs font-semibold text-zinc-700 dark:border-white/15 dark:text-zinc-300">GitHub</button>
+                    <button type="button" onClick={() => { setAvatarSource('dicebear'); setAvatarPath(null) }} className="min-h-9 rounded-lg border border-zinc-300 px-3 text-xs font-semibold text-zinc-700 dark:border-white/15 dark:text-zinc-300">DiceBear</button>
+                    <button type="button" onClick={() => { setAvatarSource('arcode'); setAvatarPath(null) }} className="min-h-9 rounded-lg border border-zinc-300 px-3 text-xs font-semibold text-zinc-700 dark:border-white/15 dark:text-zinc-300">شخصيات ArCode</button>
+                  </div>
+                </div>
+              </div>
+              {(avatarSource === 'dicebear' || avatarSource === 'arcode') && (
+                <label className="mt-4 block space-y-1.5 text-xs font-semibold text-zinc-700 dark:text-zinc-300">
+                  <span>معرّف الشخصية</span>
+                  <input value={avatarSeed} onChange={(event) => setAvatarSeed(event.target.value)} maxLength={80} dir="ltr" className={inputClass + ' text-left font-mono'} />
+                </label>
+              )}
+              {avatarSource === 'github' && !github.trim() && <p className="mt-3 text-xs text-amber-700 dark:text-amber-300">أضف معرّف GitHub في الحقل أدناه لعرض صورته.</p>}
             </div>
 
             <div className="mt-5 grid gap-4 sm:grid-cols-2">
