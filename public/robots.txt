@@ -1,0 +1,54 @@
+# Public search discovery and user-requested page fetches are allowed.
+# Known model-training / dataset-collection crawlers are disallowed.
+User-agent: *
+Allow: /
+
+# OpenAI: search discovery is allowed; training crawler is blocked.
+User-agent: OAI-SearchBot
+Allow: /
+
+User-agent: GPTBot
+Disallow: /
+
+# OpenAI user-triggered fetches (not automatic training crawls).
+# OpenAI notes robots.txt rules may not apply to these user-initiated requests.
+User-agent: ChatGPT-User
+Allow: /
+
+# Anthropic: search and user-requested fetches are allowed.
+User-agent: Claude-SearchBot
+Allow: /
+
+User-agent: Claude-User
+Allow: /
+
+# Anthropic training/data crawler is blocked.
+User-agent: ClaudeBot
+Disallow: /
+
+# Perplexity: search discovery and user-requested fetches are allowed.
+User-agent: PerplexityBot
+Allow: /
+
+User-agent: Perplexity-User
+Allow: /
+
+# Google Search remains allowed by the general rule above.
+# Google-Extended is a control token for generative-AI use, not Googlebot search.
+User-agent: Google-Extended
+Disallow: /
+
+# Other known dataset / model-training collection crawlers.
+User-agent: Applebot-Extended
+Disallow: /
+
+User-agent: CCBot
+Disallow: /
+
+User-agent: Bytespider
+Disallow: /
+
+User-agent: Meta-ExternalAgent
+Disallow: /
+
+Sitemap: https://darija-lexreview.pages.dev/sitemap.xml
