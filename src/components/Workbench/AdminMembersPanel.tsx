@@ -764,6 +764,7 @@ export function AdminMembersPanel({
                                 <strong>السبب المسجّل:</strong> {member.status_reason}
                               </p>
                             )}
+                            </div>
                           </div>
 
                           {/* Governance Controls */}
