@@ -12,6 +12,7 @@ import {
   Users,
 } from 'lucide-react'
 import type { PublicContributorRecord, UserRole } from '../../types/lexicon'
+import { Avatar } from '../Avatar'
 import { computeContributorBadges, getBadgeClasses } from '../../utils/meritBadges'
 
 interface PublicContributorsPageProps {
@@ -215,13 +216,6 @@ export function PublicContributorsPage({
               dialectRegion: person.dialect_region,
               githubHandle: person.github_handle,
             })
-            const initials = person.display_name
-              .trim()
-              .split(/\s+/)
-              .slice(0, 2)
-              .map((part) => part[0] ?? '')
-              .join('')
-
             return (
               <article
                 key={person.public_slug}
@@ -231,15 +225,15 @@ export function PublicContributorsPage({
                   {/* Top Identity Row */}
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex items-center gap-3 min-w-0">
-                      <div
-                        className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl font-display text-sm font-bold ${
-                          person.role !== 'reviewer'
-                            ? 'bg-zinc-950 text-white dark:bg-[#D9FF43] dark:text-[#050507]'
-                            : 'border border-zinc-200 bg-zinc-100 text-zinc-900 dark:border-white/12 dark:bg-[#07070A] dark:text-white'
-                        }`}
-                      >
-                        {initials || 'م'}
-                      </div>
+                      <Avatar
+                        source={person.avatar_source}
+                        path={person.avatar_path}
+                        seed={person.avatar_seed || person.public_slug}
+                        githubHandle={person.github_handle}
+                        displayName={person.display_name}
+                        size={44}
+                        className="rounded-xl border border-zinc-200 dark:border-white/10"
+                      />
                       <div className="min-w-0">
                         <div className="flex flex-wrap items-center gap-1.5">
                           <h3 className="truncate font-display text-base font-bold text-zinc-950 dark:text-white">
