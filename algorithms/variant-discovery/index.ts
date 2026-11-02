@@ -4,7 +4,7 @@ export interface VariantCandidate { id:string; form:string; script?:'arabic'|'ar
 export interface VariantMatch { leftId:string; rightId:string; leftForm:string; rightForm:string; score:number; signals:string[] }
 /** Candidate pairs only. Never asserts equivalence and never merges records. */
 export function discoverVariantCandidates(items:VariantCandidate[],threshold=0.82):VariantMatch[] {
-  if(threshold<0||threshold>1)throw new RangeError('threshold must be between 0 and 1')
+  if(!Number.isFinite(threshold)||threshold<0||threshold>1)throw new RangeError('threshold must be a finite number between 0 and 1')
   const out:VariantMatch[]=[]
   for(let i=0;i<items.length;i++)for(let j=i+1;j<items.length;j++){
     const a=items[i],b=items[j];if(!a.form.trim()||!b.form.trim()||a.id===b.id)continue
