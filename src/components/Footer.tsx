@@ -37,6 +37,14 @@ export function Footer({
             المعجم الرسمي
           </a>
           <span aria-hidden="true">·</span>
+          <a href="/about/" className="hover:text-stone-900 hover:underline whitespace-nowrap dark:hover:text-stone-100">عن المنصة</a>
+          <span aria-hidden="true">·</span>
+          <a href="/methodology/" className="hover:text-stone-900 hover:underline whitespace-nowrap dark:hover:text-stone-100">المنهجية</a>
+          <span aria-hidden="true">·</span>
+          <a href="/privacy/" className="hover:text-stone-900 hover:underline whitespace-nowrap dark:hover:text-stone-100">الخصوصية</a>
+          <span aria-hidden="true">·</span>
+          <a href="/terms/" className="hover:text-stone-900 hover:underline whitespace-nowrap dark:hover:text-stone-100">الشروط</a>
+          <span aria-hidden="true">·</span>
           <a
             href="https://github.com/ArCode-Standard/darija-lexreview"
             target="_blank"
