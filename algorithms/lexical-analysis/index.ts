@@ -1,4 +1,4 @@
-import { normalizeForComparison, tokenize } from '../shared/normalize'
+import { hasArabicScript, hasLatinScript, normalizeForComparison, tokenize } from '../shared/normalize'
 
 export interface LexicalForm {
   original: string
@@ -15,8 +15,8 @@ export function analyzeLexicalForm(input: string): LexicalForm {
     original: input,
     comparisonForm: normalizeForComparison(input),
     tokens: tokenize(input),
-    hasArabicDiacritics: /[\u064B-\u065F\u0670]/u.test(input),
+    hasArabicDiacritics: /[\u0610-\u061A\u064B-\u065F\u0670\u06D6-\u06ED]/u.test(input),
     hasTatweel: /\u0640/u.test(input),
-    hasMixedScripts: /[\u0600-\u06FF]/u.test(input) && /[A-Za-z]/u.test(input),
+    hasMixedScripts: hasArabicScript(input) && hasLatinScript(input),
   }
 }
