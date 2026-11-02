@@ -1,4 +1,5 @@
-import { Bell, ChevronLeft, Search, UserRound } from 'lucide-react'
+import { Bell, ChevronLeft, Search } from 'lucide-react'
+import { Avatar, type AvatarSource } from './Avatar'
 import type { UserRole, WorkbenchTab } from '../types/lexicon'
 import type { AppPage } from '../utils/urlState'
 import { PWAInstallButton } from './PWAInstallButton'
@@ -6,6 +7,10 @@ import { PWAInstallButton } from './PWAInstallButton'
 interface NavbarProps {
   isAuthenticated: boolean
   userDisplayName?: string | null
+  userAvatarSource?: AvatarSource | null
+  userAvatarPath?: string | null
+  userAvatarSeed?: string | null
+  userGithubHandle?: string | null
   userRole?: UserRole | null
   canAccessEditorialTools: boolean
   unreadMessagesCount?: number
@@ -20,6 +25,10 @@ interface NavbarProps {
 export function Navbar({
   isAuthenticated,
   userDisplayName,
+  userAvatarSource,
+  userAvatarPath,
+  userAvatarSeed,
+  userGithubHandle,
   userRole,
   canAccessEditorialTools,
   unreadMessagesCount = 0,
@@ -236,7 +245,7 @@ export function Navbar({
           >
             {isAuthenticated ? (
               <>
-                <UserRound className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                <Avatar source={userAvatarSource} path={userAvatarPath} seed={userAvatarSeed} githubHandle={userGithubHandle} displayName={userDisplayName} size={25} className="border border-white/20" />
                 <span className="max-w-[120px] truncate">{userDisplayName || 'حسابي'}</span>
               </>
             ) : (
