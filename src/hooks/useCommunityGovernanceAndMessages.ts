@@ -21,52 +21,8 @@ const LOCAL_DISMISSED_BROADCASTS_KEY = 'arcode_lexreview_dismissed_broadcasts_v1
 const LOCAL_PUBLIC_LISTED_PREF_KEY = 'arcode_lexreview_public_listed_pref_v1'
 
 function createInitialSandboxMembers(): ReviewerProfile[] {
-  return [
-    {
-      id: 'sandbox-member-1',
-      display_name: 'د. سلمى الإدريسي',
-      dialect_region: 'فاس - مكناس',
-      specialty: 'اللسانيات المقارنة والدلالة',
-      github_handle: 'salma-ling',
-      public_listed: true,
-      role: 'editor',
-      account_status: 'active',
-      accepted_count: 18,
-      attestations_count: 64,
-      created_at: '2026-02-14T10:00:00.000Z',
-      is_sandbox: true,
-    },
-    {
-      id: 'sandbox-member-2',
-      display_name: 'ياسين آيت بها',
-      dialect_region: 'سوس - ماسة',
-      specialty: 'توثيق التعابير الشفوية والامثال',
-      github_handle: 'yassine-darija',
-      public_listed: true,
-      role: 'reviewer',
-      account_status: 'active',
-      accepted_count: 7,
-      attestations_count: 31,
-      created_at: '2026-04-02T14:20:00.000Z',
-      is_sandbox: true,
-    },
-    {
-      id: 'sandbox-member-3',
-      display_name: 'هدى بنجلون',
-      dialect_region: 'طنجة - تطوان - الحسيمة',
-      specialty: 'المعالجة الآلية للغات الطبيعية NLP',
-      github_handle: 'houda-nlp',
-      public_listed: true,
-      role: 'reviewer',
-      account_status: 'warned',
-      status_reason: 'إرسال شواهد منقولة دون توثيق مصدرها الأصلي.',
-      status_updated_at: '2026-10-28T09:15:00.000Z',
-      accepted_count: 2,
-      attestations_count: 12,
-      created_at: '2026-07-19T11:00:00.000Z',
-      is_sandbox: true,
-    },
-  ]
+  // Sandbox state starts empty; never fabricate contributor identities or moderation history.
+  return []
 }
 
 function createWelcomeMessage(recipientId: string | null): MemberMessageRecord {
@@ -136,9 +92,15 @@ export function useCommunityGovernanceAndMessages({
   const [loadingDirectory, setLoadingDirectory] = useState(false)
   const [loadingMembers, setLoadingMembers] = useState(false)
 
-  const [sandboxMembers, setSandboxMembers] = useState<ReviewerProfile[]>(() =>
-    safeReadJson<ReviewerProfile[]>(SANDBOX_MEMBERS_KEY, createInitialSandboxMembers()),
-  )
+  const [sandboxMembers, setSandboxMembers] = useState<ReviewerProfile[]>(() => {
+    // Clear any previously persisted seeded/demo identities from this feature rollout.
+    try {
+      localStorage.removeItem(SANDBOX_MEMBERS_KEY)
+    } catch {
+      // Ignore storage errors
+    }
+    return []
+  })
   const [sandboxMessages, setSandboxMessages] = useState<MemberMessageRecord[]>(() =>
     safeReadJson<MemberMessageRecord[]>(SANDBOX_MESSAGES_KEY, []),
   )
@@ -353,7 +315,7 @@ export function useCommunityGovernanceAndMessages({
       }
     }
 
-    if (editorialPreviewMode || !supabase) {
+    if (editorialPreviewMode) {
       for (const sm of sandboxMembers) {
         const status = sm.account_status ?? 'active'
         if ((sm.public_listed ?? true) && status !== 'suspended' && status !== 'banned') {
