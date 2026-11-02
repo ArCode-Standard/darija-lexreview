@@ -4,10 +4,14 @@ export type AppPage =
   | 'home'
   | 'review'
   | 'lexicon'
+  | 'insights'
+  | 'contributors'
   | 'contribute'
   | 'submissions'
+  | 'messages'
   | 'profile'
   | 'editorial'
+  | 'members'
   | 'export'
   | 'auth'
 
@@ -74,14 +78,18 @@ export function pageToWorkbenchTab(page: AppPage): WorkbenchTab {
     case 'review':
       return 'rapid_review'
     case 'lexicon':
+    case 'insights':
       return 'explorer'
     case 'contribute':
       return 'new_entry'
     case 'submissions':
       return 'submissions'
     case 'profile':
+    case 'messages':
+    case 'contributors':
       return 'profile'
     case 'editorial':
+    case 'members':
       return 'moderation'
     case 'export':
       return 'exporter'
@@ -189,7 +197,6 @@ export function parseAppRoute(pathname: string, search: string): AppRouteState {
   const viewParam = params.get('view')
   const queryEntry = params.get('entry')?.trim() || null
 
-  // 1. Clean dedicated SPA paths
   if (cleanPath === '/review') {
     return {
       page: 'review',
@@ -218,6 +225,17 @@ export function parseAppRoute(pathname: string, search: string): AppRouteState {
       category: rawCat.length <= 120 ? rawCat : 'all',
       exampleFilter,
       query,
+    }
+  }
+
+  if (cleanPath === '/insights') {
+    return {
+      page: 'insights',
+      explorerSubView: 'entries',
+      entryId: null,
+      category: 'all',
+      exampleFilter: 'all',
+      query: '',
     }
   }
 
@@ -276,6 +294,39 @@ export function parseAppRoute(pathname: string, search: string): AppRouteState {
     }
   }
 
+  if (cleanPath === '/contributors') {
+    return {
+      page: 'contributors',
+      explorerSubView: 'entries',
+      entryId: null,
+      category: 'all',
+      exampleFilter: 'all',
+      query: '',
+    }
+  }
+
+  if (cleanPath === '/messages') {
+    return {
+      page: 'messages',
+      explorerSubView: 'entries',
+      entryId: null,
+      category: 'all',
+      exampleFilter: 'all',
+      query: '',
+    }
+  }
+
+  if (cleanPath === '/members' || cleanPath === '/admin/members') {
+    return {
+      page: 'members',
+      explorerSubView: 'entries',
+      entryId: null,
+      category: 'all',
+      exampleFilter: 'all',
+      query: '',
+    }
+  }
+
   if (cleanPath === '/auth') {
     return {
       page: 'auth',
@@ -287,7 +338,6 @@ export function parseAppRoute(pathname: string, search: string): AppRouteState {
     }
   }
 
-  // 2. Root path `/` with legacy `?tab=...` or `?entry=...` deep-links -> automatic route upgrade
   const hasLegacyTab = VALID_TABS.has((params.get('tab') ?? '') as WorkbenchTab)
   if (hasLegacyTab || queryEntry || viewParam === 'categories') {
     const legacy = parseWorkbenchUrlState(search)
@@ -301,7 +351,6 @@ export function parseAppRoute(pathname: string, search: string): AppRouteState {
     }
   }
 
-  // 3. Pure Landing Page `/`
   return {
     page: 'home',
     explorerSubView: 'entries',
@@ -318,14 +367,22 @@ export function buildAppRouteUrl(state: AppRouteState): string {
       return '/'
     case 'review':
       return '/review'
+    case 'insights':
+      return '/insights'
+    case 'contributors':
+      return '/contributors'
     case 'contribute':
       return '/contribute'
     case 'submissions':
       return '/submissions'
+    case 'messages':
+      return '/messages'
     case 'profile':
       return '/profile'
     case 'editorial':
       return '/editorial'
+    case 'members':
+      return '/members'
     case 'export':
       return '/export'
     case 'auth':

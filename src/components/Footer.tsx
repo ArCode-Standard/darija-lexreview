@@ -6,6 +6,7 @@ interface FooterProps {
   isStaffRole: boolean
   editorialPreviewMode: boolean
   onToggleEditorialPreview: () => void
+  onOpenContributors?: () => void
 }
 
 export function Footer({
@@ -14,6 +15,7 @@ export function Footer({
   isStaffRole,
   editorialPreviewMode,
   onToggleEditorialPreview,
+  onOpenContributors,
 }: FooterProps) {
   return (
     <footer className="border-t border-zinc-200 bg-zinc-50/70 dark:border-white/10 dark:bg-[#050507]">
@@ -28,6 +30,19 @@ export function Footer({
         </div>
 
         <div className="flex flex-wrap items-center gap-4 text-xs text-zinc-600 dark:text-zinc-400 shrink-0">
+          <a
+            href="/contributors"
+            onClick={(e) => {
+              if (onOpenContributors) {
+                e.preventDefault()
+                onOpenContributors()
+              }
+            }}
+            className="font-medium text-emerald-800 hover:text-zinc-950 hover:underline whitespace-nowrap dark:text-[#D9FF43] dark:hover:text-white"
+          >
+            لوحة المساهمين
+          </a>
+          <span aria-hidden="true">·</span>
           <a href="https://github.com/ArCode-Standard/moroccan-darija-dataset" target="_blank" rel="noreferrer" className="hover:text-zinc-950 hover:underline whitespace-nowrap dark:hover:text-white">المعجم الرسمي</a>
           <span aria-hidden="true">·</span>
           <a href="/about/" className="hover:text-zinc-950 hover:underline whitespace-nowrap dark:hover:text-white">عن المنصة</a>
@@ -43,13 +58,15 @@ export function Footer({
           <a href="/attribution/" className="hover:text-zinc-950 hover:underline whitespace-nowrap dark:hover:text-white">الإسناد والترخيص</a>
           <span aria-hidden="true">·</span>
           <a href="https://github.com/ArCode-Standard/darija-lexreview" target="_blank" rel="noreferrer" className="hover:text-zinc-950 hover:underline whitespace-nowrap dark:hover:text-white">مستودع المنصة</a>
-          {!isStaffRole && (
+          {!isStaffRole && editorialPreviewMode && (
             <>
               <span aria-hidden="true">·</span>
-              <button type="button" onClick={onToggleEditorialPreview} className={`hover:underline whitespace-nowrap cursor-pointer ${
-                editorialPreviewMode ? 'font-semibold text-emerald-700 dark:text-[#D9FF43]' : 'text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white'
-              }`}>
-                {editorialPreviewMode ? 'إغلاق معاينة بيئة المحررين' : 'معاينة بيئة المحررين'}
+              <button
+                type="button"
+                onClick={onToggleEditorialPreview}
+                className="font-semibold text-amber-700 hover:underline whitespace-nowrap cursor-pointer dark:text-[#D9FF43]"
+              >
+                إغلاق وضع المعاينة التجريبية
               </button>
             </>
           )}

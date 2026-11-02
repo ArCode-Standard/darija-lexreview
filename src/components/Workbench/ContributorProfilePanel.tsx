@@ -2,8 +2,10 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { UserIdentity } from '@supabase/supabase-js'
 import {
   Activity,
+  Award,
   BadgeCheck,
   BookOpen,
+  Eye,
   Github,
   Link2,
   LogOut,
@@ -14,11 +16,17 @@ import {
 import { isSupabaseConfigured, supabase } from '../../lib/supabase'
 import type { ReviewerProfile, SubmissionRecord } from '../../types/lexicon'
 import { humanizeSystemError } from '../../utils/humanizeError'
+import { computeContributorBadges, getBadgeClasses } from '../../utils/meritBadges'
+import {
+  getLocalPublicListedFallback,
+  saveLocalPublicListedFallback,
+} from '../../hooks/useCommunityGovernanceAndMessages'
 
 interface ContributorProfilePanelProps {
   profile: ReviewerProfile | null
   userEmail: string | null
   onProfileSaved: () => void
+  onOpenContributorsDirectory?: () => void
 }
 
 const roleLabels = { reviewer: 'مراجع مساهم', editor: 'محرر معتمد', admin: 'مشرف عام' } as const
@@ -38,11 +46,15 @@ export function ContributorProfilePanel({
   profile,
   userEmail,
   onProfileSaved,
+  onOpenContributorsDirectory,
 }: ContributorProfilePanelProps) {
   const [name, setName] = useState(profile?.display_name ?? '')
   const [region, setRegion] = useState(profile?.dialect_region ?? '')
   const [specialty, setSpecialty] = useState(profile?.specialty ?? '')
   const [github, setGithub] = useState(profile?.github_handle ?? '')
+  const [publicListed, setPublicListed] = useState<boolean>(
+    profile?.public_listed ?? getLocalPublicListedFallback(profile?.id),
+  )
   const [submissions, setSubmissions] = useState<SubmissionRecord[]>([])
   const [attestationsCount, setAttestationsCount] = useState(0)
   const [identities, setIdentities] = useState<UserIdentity[]>([])
@@ -58,6 +70,7 @@ export function ContributorProfilePanel({
     setRegion(profile?.dialect_region ?? '')
     setSpecialty(profile?.specialty ?? '')
     setGithub(profile?.github_handle ?? '')
+    setPublicListed(profile?.public_listed ?? getLocalPublicListedFallback(profile?.id))
   }, [profile])
 
   const loadIdentities = useCallback(async () => {
@@ -127,21 +140,36 @@ export function ContributorProfilePanel({
     setSaving(true)
     setError(null)
     setMessage(null)
-    const result = await supabase
+    saveLocalPublicListedFallback(profile.id, publicListed)
+
+    const basePayload = {
+      display_name: name.trim() || null,
+      dialect_region: region.trim() || null,
+      specialty: specialty.trim() || null,
+      github_handle: github.trim().replace(/^@/, '') || null,
+    }
+
+    let result = await supabase
       .from('reviewer_profiles')
       .update({
-        display_name: name.trim() || null,
-        dialect_region: region.trim() || null,
-        specialty: specialty.trim() || null,
-        github_handle: github.trim().replace(/^@/, '') || null,
+        ...basePayload,
+        public_listed: publicListed,
       })
       .eq('id', profile.id)
+
+    if (result.error) {
+      result = await supabase
+        .from('reviewer_profiles')
+        .update(basePayload)
+        .eq('id', profile.id)
+    }
+
     setSaving(false)
     if (result.error) {
       setError('تعذر حفظ الملف الشخصي. تحقق من الاتصال ثم أعد المحاولة.')
       return
     }
-    setMessage('تم حفظ بيانات الملف الشخصي.')
+    setMessage('تم حفظ بيانات الملف الشخصي وتحديث إعدادات الظهور العام.')
     onProfileSaved()
   }
 
@@ -300,6 +328,37 @@ export function ContributorProfilePanel({
               </label>
             </div>
 
+            {/* Public Honor Roll Visibility Toggle */}
+            <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-zinc-200 bg-zinc-50/70 p-3.5 dark:border-white/10 dark:bg-[#07070A]">
+              <label className="flex items-start gap-2.5 text-xs cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={publicListed}
+                  onChange={(e) => setPublicListed(e.target.checked)}
+                  className="mt-0.5 h-4 w-4 rounded accent-emerald-600"
+                />
+                <span>
+                  <strong className="block font-bold text-zinc-950 dark:text-white">
+                    إظهار اسمي وأوسمتي في «لوحة المساهمين العامة»
+                  </strong>
+                  <span className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                    لا يُعرض بريدك الإلكتروني أبداً؛ يظهر فقط الاسم المعروض، المنطقة اللهجية، التخصص، وأوسمتك العلمية.
+                  </span>
+                </span>
+              </label>
+
+              {onOpenContributorsDirectory && (
+                <button
+                  type="button"
+                  onClick={onOpenContributorsDirectory}
+                  className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700 hover:underline cursor-pointer dark:text-[#D9FF43]"
+                >
+                  <Eye className="h-3.5 w-3.5" />
+                  <span>معاينة لوحة الشرف</span>
+                </button>
+              )}
+            </div>
+
             <div className="mt-5 flex flex-wrap items-center gap-3">
               <button
                 type="button"
@@ -322,7 +381,7 @@ export function ContributorProfilePanel({
               )}
             </div>
             <p className="mt-3 text-[11px] leading-5 text-zinc-500 dark:text-zinc-400">
-              يمكنك تعديل بياناتك التعريفية فقط. لا يمكن تغيير الدور أو الصلاحيات التحريرية إلا عبر حوكمة الإدارة.
+              يمكنك تعديل بياناتك التعريفية وإعداد ظهورك العلني فقط. لا يمكن تغيير الدور أو الصلاحيات التحريرية إلا عبر حوكمة الإدارة.
             </p>
           </div>
 
@@ -448,6 +507,40 @@ export function ContributorProfilePanel({
               {activityError}
             </p>
           )}
+
+          <div className="rounded-2xl border border-zinc-200 bg-white p-6 dark:border-white/10 dark:bg-[#0C0C10]">
+            <div className="flex items-center gap-2 text-sm font-bold text-zinc-950 dark:text-white">
+              <Award className="h-4 w-4 text-emerald-700 dark:text-[#D9FF43]" />
+              <span>أوسمة الجدارة المعجمية</span>
+            </div>
+            {(() => {
+              const earnedBadges = computeContributorBadges({
+                role: profile.role,
+                acceptedCount: counts.accepted,
+                attestationsCount,
+                dialectRegion: region || profile.dialect_region,
+                githubHandle: github || profile.github_handle,
+              })
+              return earnedBadges.length === 0 ? (
+                <p className="mt-3 text-xs leading-6 text-zinc-500 dark:text-zinc-400">
+                  تُمنح الأوسمة تلقائياً فور اعتماد أول مساهمة لك أو إنجاز تصديقات ميدانية أو ربط هوية GitHub.
+                </p>
+              ) : (
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {earnedBadges.map((b) => (
+                    <span
+                      key={b.id}
+                      title={b.description}
+                      className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs font-semibold ${getBadgeClasses(b.tone)}`}
+                    >
+                      <Award className="h-3.5 w-3.5" />
+                      <span>{b.label}</span>
+                    </span>
+                  ))}
+                </div>
+              )
+            })()}
+          </div>
 
           <div className="rounded-2xl border border-zinc-200 bg-white p-6 dark:border-white/10 dark:bg-[#0C0C10]">
             <div className="flex items-center gap-2 text-sm font-bold text-zinc-950 dark:text-white">

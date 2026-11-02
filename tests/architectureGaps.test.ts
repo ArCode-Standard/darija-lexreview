@@ -15,6 +15,7 @@ import {
 } from '../src/services/corpusCache'
 import { DEMO_ENTRIES, DEMO_RAW_CORPUS, formatStatusLabel } from '../src/services/dataset'
 import { buildOfficialExportBundle } from '../src/services/exporter'
+import { computeContributorBadges } from '../src/utils/meritBadges'
 import type { SubmissionRecord } from '../src/types/lexicon'
 
 describe('SHA-256 checksums & Release Manifest integrity', () => {
@@ -111,6 +112,11 @@ describe('URL deep-linking state sync', () => {
     expect(parseAppRoute('/profile', '').page).toBe('profile')
     expect(parseAppRoute('/editorial', '').page).toBe('editorial')
     expect(parseAppRoute('/export', '').page).toBe('export')
+    expect(parseAppRoute('/insights', '').page).toBe('insights')
+    expect(parseAppRoute('/contributors', '').page).toBe('contributors')
+    expect(parseAppRoute('/messages', '').page).toBe('messages')
+    expect(parseAppRoute('/members', '').page).toBe('members')
+    expect(parseAppRoute('/admin/members', '').page).toBe('members')
 
     const wordRoute = parseAppRoute('/lexicon/108', '?cat=ظرف&q=بزاف')
     expect(wordRoute).toEqual({
@@ -122,6 +128,10 @@ describe('URL deep-linking state sync', () => {
       query: 'بزاف',
     })
     expect(buildAppRouteUrl(wordRoute)).toBe('/lexicon/108?cat=%D8%B8%D8%B1%D9%81&q=%D8%A8%D8%B2%D8%A7%D9%81')
+    expect(buildAppRouteUrl({ ...wordRoute, page: 'insights' })).toBe('/insights')
+    expect(buildAppRouteUrl({ ...wordRoute, page: 'contributors' })).toBe('/contributors')
+    expect(buildAppRouteUrl({ ...wordRoute, page: 'messages' })).toBe('/messages')
+    expect(buildAppRouteUrl({ ...wordRoute, page: 'members' })).toBe('/members')
 
     const legacyUpgrade = parseAppRoute('/', '?tab=explorer&entry=108')
     expect(legacyUpgrade.page).toBe('lexicon')
@@ -181,5 +191,21 @@ describe('Streamlined 3-field contributor draft validation & silent Arabizi', ()
     expect(audit.cleanedProposedData.arabizi).toBeTruthy()
     expect(audit.cleanedProposedData.example_arabizi).toBeTruthy()
     expect(audit.cleanedProposedData.category).toBe('التواصل')
+  })
+
+  it('computes contributor merit badges deterministically based on role and verified activity', () => {
+    const badges = computeContributorBadges({
+      role: 'editor',
+      acceptedCount: 12,
+      attestationsCount: 25,
+      dialectRegion: 'فاس - مكناس',
+      githubHandle: 'salma-ling',
+    })
+    const ids = badges.map((b) => b.id)
+    expect(ids).toContain('certified_editor')
+    expect(ids).toContain('senior_lexicographer')
+    expect(ids).toContain('attestation_guardian')
+    expect(ids).toContain('regional_specialist')
+    expect(ids).toContain('github_verified')
   })
 })

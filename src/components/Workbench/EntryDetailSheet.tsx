@@ -22,6 +22,7 @@ import {
   Link2,
   Edit3,
   SlidersHorizontal,
+  BookOpen,
 } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import type {
@@ -60,6 +61,7 @@ interface EntryDetailSheetProps {
   entry: LexicalEntry
   allEntries: LexicalEntry[]
   corpusVersion: string
+  isAuthenticated?: boolean
   canAccessEditorialTools: boolean
   currentIndex: number
   totalFiltered: number
@@ -90,6 +92,9 @@ interface EntryDetailSheetProps {
   onOpenModerationSandbox: () => void
   onRequireLogin: () => void
   onSubmissionSuccess: () => void
+  initialOpenEdit?: boolean
+  focusExampleOnOpen?: boolean
+  onSwitchToReference?: () => void
 }
 
 const EDITABLE_FIELD_GROUPS: Array<{
@@ -176,6 +181,7 @@ export function EntryDetailSheet({
   entry,
   allEntries,
   corpusVersion,
+  isAuthenticated = false,
   canAccessEditorialTools,
   currentIndex,
   totalFiltered,
@@ -195,6 +201,9 @@ export function EntryDetailSheet({
   onOpenModerationSandbox,
   onRequireLogin,
   onSubmissionSuccess,
+  initialOpenEdit = false,
+  focusExampleOnOpen = false,
+  onSwitchToReference,
 }: EntryDetailSheetProps) {
   const phoneticAnalysis = useMemo(
     () => analyzeDarijaPhoneticsAndHomographs(entry, allEntries),
@@ -209,7 +218,7 @@ export function EntryDetailSheet({
     revisionTarget && revisionTarget.entry_id === entry.id ? revisionTarget : null
 
   const [isEditOpen, setIsEditOpen] = useState<boolean>(
-    Boolean(activeRevision || existingDraft),
+    Boolean(activeRevision || existingDraft || initialOpenEdit),
   )
   const [showAdvancedEvidence, setShowAdvancedEvidence] = useState(false)
   const [showPrefsEditor, setShowPrefsEditor] = useState(false)
@@ -253,7 +262,7 @@ export function EntryDetailSheet({
       setShowAdvancedEvidence(Boolean(ev[0]?.url || existingDraft.reviewerNote))
       setReviewerNote(existingDraft.reviewerNote ?? '')
     } else {
-      setIsEditOpen(false)
+      setIsEditOpen(Boolean(initialOpenEdit))
       setForm({})
       setArabiziManuallyEdited(false)
       setExampleArabiziManuallyEdited(false)
@@ -262,7 +271,21 @@ export function EntryDetailSheet({
       setReviewerNote('')
     }
     setFeedback(null)
-  }, [entry.id, existingDraft, activeRevision])
+  }, [entry.id, existingDraft, activeRevision, initialOpenEdit])
+
+  useEffect(() => {
+    if (focusExampleOnOpen) {
+      setIsEditOpen(true)
+      const t = window.setTimeout(() => {
+        const el = document.getElementById('detail-field-example_darija')
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+          el.focus()
+        }
+      }, 80)
+      return () => window.clearTimeout(t)
+    }
+  }, [focusExampleOnOpen, entry.id])
 
   const accessionCode = formatAccessionCode(entry.id, entry.numericId)
 
@@ -609,13 +632,13 @@ export function EntryDetailSheet({
   }
 
   return (
-    <article className="rounded-2xl border border-zinc-200 bg-white p-5 sm:p-8 dark:border-white/10 dark:bg-[#0C0C10]">
+    <article className="rounded-2xl border border-zinc-200 bg-white p-5 sm:p-8 dark:border-white/12 dark:bg-[#0B0B10]">
       {/* Clean Header Bar */}
       <div className="flex flex-wrap items-center justify-between gap-3 pb-4 border-b border-zinc-200 dark:border-white/10">
-        <div className="flex flex-wrap items-center gap-2 text-xs text-stone-500 dark:text-zinc-400">
+        <div className="flex flex-wrap items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400">
           {canAccessEditorialTools && (
             <>
-              <span className="font-mono font-semibold tabular-nums text-stone-800 dark:text-zinc-200">
+              <span className="font-mono font-semibold tabular-nums text-zinc-800 dark:text-zinc-200">
                 {accessionCode}
               </span>
               <span aria-hidden="true">·</span>
@@ -631,10 +654,20 @@ export function EntryDetailSheet({
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
+          {onSwitchToReference && (
+            <button
+              type="button"
+              onClick={onSwitchToReference}
+              className="inline-flex min-h-[34px] items-center gap-1.5 rounded-full border border-emerald-500/40 bg-emerald-50/70 px-3.5 py-1 text-xs font-semibold text-emerald-900 hover:bg-emerald-100 transition-colors whitespace-nowrap shrink-0 cursor-pointer dark:border-[#D9FF43]/45 dark:bg-[#D9FF43]/10 dark:text-[#D9FF43] dark:hover:bg-[#D9FF43]/20"
+            >
+              <BookOpen className="h-3.5 w-3.5" />
+              <span>البطاقة القاموسية</span>
+            </button>
+          )}
           <button
             type="button"
             onClick={handleCopyShareLink}
-            className="inline-flex min-h-[34px] items-center gap-1.5 rounded-full border border-zinc-300 bg-zinc-50 px-3 py-1 text-xs font-medium text-stone-700 hover:bg-zinc-100 transition-colors whitespace-nowrap shrink-0 cursor-pointer dark:border-white/15 dark:bg-[#07070A] dark:text-zinc-300 dark:hover:bg-white/10"
+            className="inline-flex min-h-[34px] items-center gap-1.5 rounded-full border border-zinc-300 bg-zinc-50 px-3 py-1 text-xs font-medium text-zinc-700 hover:bg-zinc-100 transition-colors whitespace-nowrap shrink-0 cursor-pointer dark:border-white/15 dark:bg-[#07070A] dark:text-zinc-300 dark:hover:bg-white/10"
           >
             {copiedLink ? (
               <>
@@ -652,7 +685,7 @@ export function EntryDetailSheet({
           <button
             type="button"
             onClick={handleCopyReference}
-            className="inline-flex min-h-[34px] items-center gap-1.5 rounded-full border border-zinc-300 bg-zinc-50 px-3 py-1 text-xs font-medium text-stone-700 hover:bg-zinc-100 transition-colors whitespace-nowrap shrink-0 cursor-pointer dark:border-white/15 dark:bg-[#07070A] dark:text-zinc-300 dark:hover:bg-white/10"
+            className="inline-flex min-h-[34px] items-center gap-1.5 rounded-full border border-zinc-300 bg-zinc-50 px-3 py-1 text-xs font-medium text-zinc-700 hover:bg-zinc-100 transition-colors whitespace-nowrap shrink-0 cursor-pointer dark:border-white/15 dark:bg-[#07070A] dark:text-zinc-300 dark:hover:bg-white/10"
           >
             {copied ? (
               <>
@@ -674,11 +707,11 @@ export function EntryDetailSheet({
                 onClick={onPrev}
                 disabled={currentIndex <= 0}
                 aria-label="المفردة السابقة"
-                className="flex h-[34px] w-[34px] items-center justify-center rounded-full border border-zinc-300 bg-zinc-50 text-stone-700 hover:bg-zinc-100 disabled:opacity-40 cursor-pointer dark:border-white/15 dark:bg-[#07070A] dark:text-zinc-300"
+                className="flex h-[34px] w-[34px] items-center justify-center rounded-full border border-zinc-300 bg-zinc-50 text-zinc-700 hover:bg-zinc-100 disabled:opacity-40 cursor-pointer dark:border-white/15 dark:bg-[#07070A] dark:text-zinc-300"
               >
                 <ChevronRight className="h-4 w-4" />
               </button>
-              <span className="px-1.5 font-mono text-xs tabular-nums text-stone-500 dark:text-zinc-400">
+              <span className="px-1.5 font-mono text-xs tabular-nums text-zinc-500 dark:text-zinc-400">
                 {(currentIndex + 1).toLocaleString('en-US')} /{' '}
                 {totalFiltered.toLocaleString('en-US')}
               </span>
@@ -687,7 +720,7 @@ export function EntryDetailSheet({
                 onClick={onNext}
                 disabled={currentIndex >= totalFiltered - 1}
                 aria-label="المفردة التالية"
-                className="flex h-[34px] w-[34px] items-center justify-center rounded-full border border-zinc-300 bg-zinc-50 text-stone-700 hover:bg-zinc-100 disabled:opacity-40 cursor-pointer dark:border-white/15 dark:bg-[#07070A] dark:text-zinc-300"
+                className="flex h-[34px] w-[34px] items-center justify-center rounded-full border border-zinc-300 bg-zinc-50 text-zinc-700 hover:bg-zinc-100 disabled:opacity-40 cursor-pointer dark:border-white/15 dark:bg-[#07070A] dark:text-zinc-300"
               >
                 <ChevronLeft className="h-4 w-4" />
               </button>
@@ -700,7 +733,7 @@ export function EntryDetailSheet({
       <div className="py-6 border-b border-zinc-200 dark:border-white/10">
         <div className="space-y-2.5">
           <div className="flex flex-wrap items-baseline justify-between gap-4">
-            <h3 className="font-display text-3xl sm:text-4xl font-bold text-stone-900 dark:text-white">
+            <h3 className="font-display text-3xl sm:text-4xl font-bold text-zinc-950 dark:text-white">
               {entry.word}
             </h3>
             <span
@@ -712,7 +745,7 @@ export function EntryDetailSheet({
           </div>
 
           {phoneticAnalysis.phoneticCues.length > 0 && (
-            <div className="flex flex-wrap items-center gap-2 text-xs text-stone-500 dark:text-zinc-400">
+            <div className="flex flex-wrap items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400">
               <Volume2
                 className="h-3.5 w-3.5 shrink-0 text-emerald-700 dark:text-[#D9FF43]"
                 aria-hidden="true"
@@ -721,7 +754,7 @@ export function EntryDetailSheet({
               {phoneticAnalysis.phoneticCues.map((cue, idx) => (
                 <span key={cue.symbol} className="inline-flex items-center gap-1">
                   {idx > 0 && <span aria-hidden="true">·</span>}
-                  <strong className="font-mono text-stone-800 dark:text-zinc-200" dir="ltr">
+                  <strong className="font-mono text-zinc-800 dark:text-zinc-200" dir="ltr">
                     {cue.symbol}
                   </strong>
                   <span>= {cue.exampleNote}</span>
@@ -761,21 +794,21 @@ export function EntryDetailSheet({
 
         <dl className="mt-6 grid grid-cols-1 gap-y-5 sm:grid-cols-2 sm:gap-x-8 pt-5 border-t border-zinc-200/80 dark:border-white/10">
           <div>
-            <dt className="text-xs font-medium text-stone-500 dark:text-zinc-400">
+            <dt className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
               المعنى بالعربية الفصحى
             </dt>
-            <dd className="mt-1.5 text-sm font-medium leading-relaxed text-stone-900 dark:text-white">
+            <dd className="mt-1.5 text-sm font-medium leading-relaxed text-zinc-950 dark:text-white">
               {entry.meaning}
             </dd>
           </div>
 
           <div>
-            <dt className="text-xs font-medium text-stone-500 dark:text-zinc-400">
+            <dt className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
               المقابل بالفرنسية
             </dt>
             <dd
               dir="ltr"
-              className="mt-1.5 text-sm font-medium leading-relaxed text-end sm:text-start text-stone-900 dark:text-white"
+              className="mt-1.5 text-sm font-medium leading-relaxed text-end sm:text-start text-zinc-950 dark:text-white"
             >
               {entry.french || '—'}
             </dd>
@@ -783,10 +816,10 @@ export function EntryDetailSheet({
 
           {entry.reviewNotes && (
             <div className="sm:col-span-2 pt-3 border-t border-zinc-200/80 dark:border-white/10">
-              <dt className="text-xs font-medium text-stone-500 dark:text-zinc-400">
+              <dt className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
                 ملاحظة تداولية
               </dt>
-              <dd className="mt-1 text-xs leading-relaxed text-stone-600 dark:text-zinc-300">
+              <dd className="mt-1 text-xs leading-relaxed text-zinc-600 dark:text-zinc-300">
                 {entry.reviewNotes}
               </dd>
             </div>
@@ -797,7 +830,7 @@ export function EntryDetailSheet({
       {/* Linked Contextual Examples */}
       <div className="py-6 border-b border-zinc-200 dark:border-white/10">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <h4 className="font-display text-sm font-bold text-stone-900 dark:text-white">
+          <h4 className="font-display text-sm font-bold text-zinc-950 dark:text-white">
             الأمثلة السياقية ({entry.examples.length.toLocaleString('en-US')})
           </h4>
           {canAccessEditorialTools && (
@@ -811,7 +844,7 @@ export function EntryDetailSheet({
                 <span>بحث Google</span>
                 <ExternalLink className="h-3 w-3" aria-hidden="true" />
               </a>
-              <span className="text-stone-300 dark:text-zinc-700" aria-hidden="true">
+              <span className="text-zinc-300 dark:text-zinc-700" aria-hidden="true">
                 ·
               </span>
               <a
@@ -837,10 +870,10 @@ export function EntryDetailSheet({
                 <div key={ex.id} className="py-3.5 first:pt-0 last:pb-0 space-y-2">
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div className="space-y-1 flex-1 min-w-[220px]">
-                      <div className="flex flex-wrap items-center gap-2 text-[11px] text-stone-500 dark:text-zinc-400">
+                      <div className="flex flex-wrap items-center gap-2 text-[11px] text-zinc-500 dark:text-zinc-400">
                         {canAccessEditorialTools && (
                           <>
-                            <span className="font-mono tabular-nums text-stone-700 dark:text-zinc-300">
+                            <span className="font-mono tabular-nums text-zinc-700 dark:text-zinc-300">
                               {ex.id}
                             </span>
                             <span aria-hidden="true">·</span>
@@ -861,18 +894,18 @@ export function EntryDetailSheet({
                           )}
                       </div>
 
-                      <p className="text-sm font-semibold leading-relaxed text-stone-900 dark:text-white">
+                      <p className="text-sm font-semibold leading-relaxed text-zinc-950 dark:text-white">
                         «{ex.darijaAr}»
                       </p>
                       {ex.darijaLatin && (
                         <p
                           dir="ltr"
-                          className="font-mono text-xs text-stone-500 text-end sm:text-start dark:text-zinc-400"
+                          className="font-mono text-xs text-zinc-500 text-end sm:text-start dark:text-zinc-400"
                         >
                           {ex.darijaLatin}
                         </p>
                       )}
-                      <div className="flex flex-wrap items-center gap-2 text-xs text-stone-600 dark:text-zinc-400">
+                      <div className="flex flex-wrap items-center gap-2 text-xs text-zinc-600 dark:text-zinc-400">
                         {ex.meaningAr && <span>المعنى: {ex.meaningAr}</span>}
                         {ex.meaningFr && (
                           <>
@@ -897,7 +930,7 @@ export function EntryDetailSheet({
                           className={`inline-flex min-h-[32px] items-center gap-1 rounded-full border px-3 py-1 text-[11px] font-semibold transition-colors whitespace-nowrap cursor-pointer ${
                             exVerdict === 'accurate'
                               ? 'border-zinc-950 bg-zinc-950 text-white dark:border-[#D9FF43] dark:bg-[#D9FF43] dark:text-[#050507]'
-                              : 'border-zinc-300 bg-zinc-50 text-stone-700 hover:bg-zinc-100 dark:border-white/15 dark:bg-[#07070A] dark:text-zinc-300'
+                              : 'border-zinc-300 bg-zinc-50 text-zinc-700 hover:bg-zinc-100 dark:border-white/15 dark:bg-[#07070A] dark:text-zinc-300'
                           }`}
                         >
                           <Check className="h-3 w-3" aria-hidden="true" />
@@ -934,7 +967,7 @@ export function EntryDetailSheet({
                           className={`inline-flex min-h-[32px] items-center gap-1 rounded-full border px-3 py-1 text-[11px] font-semibold transition-colors whitespace-nowrap cursor-pointer ${
                             exVerdict === 'needs_correction'
                               ? 'border-[#FF3B2F] bg-[#FF3B2F]/10 text-[#FF3B2F] dark:border-[#FF3B2F] dark:bg-[#FF3B2F]/15 dark:text-white'
-                              : 'border-zinc-300 bg-zinc-50 text-stone-700 hover:bg-zinc-100 dark:border-white/15 dark:bg-[#07070A] dark:text-zinc-300'
+                              : 'border-zinc-300 bg-zinc-50 text-zinc-700 hover:bg-zinc-100 dark:border-white/15 dark:bg-[#07070A] dark:text-zinc-300'
                           }`}
                         >
                           <X className="h-3 w-3" aria-hidden="true" />
@@ -949,7 +982,7 @@ export function EntryDetailSheet({
           </div>
         ) : (
           <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
-            <p className="text-xs leading-relaxed text-stone-600 dark:text-zinc-400">
+            <p className="text-xs leading-relaxed text-zinc-600 dark:text-zinc-400">
               لا توجد جملة مثال مسجلة لهذه المفردة بعد. هل تود إثراءها بمثال من كلامك اليومي؟
             </p>
             {!isEditOpen && (
@@ -977,7 +1010,7 @@ export function EntryDetailSheet({
           <button
             type="button"
             onClick={() => setShowProvenance((v) => !v)}
-            className="inline-flex items-center gap-1.5 text-xs font-medium text-stone-500 hover:text-stone-900 cursor-pointer dark:text-zinc-400 dark:hover:text-white"
+            className="inline-flex items-center gap-1.5 text-xs font-medium text-zinc-500 hover:text-zinc-950 cursor-pointer dark:text-zinc-400 dark:hover:text-white"
           >
             <ChevronDown
               className={`h-3.5 w-3.5 transition-transform duration-150 ${showProvenance ? 'rotate-180' : ''}`}
@@ -986,22 +1019,22 @@ export function EntryDetailSheet({
           </button>
 
           {showProvenance && (
-            <dl className="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs text-stone-600 dark:text-zinc-400">
+            <dl className="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs text-zinc-600 dark:text-zinc-400">
               <div>
-                <dt className="text-stone-400 dark:text-zinc-500">المصدر</dt>
-                <dd className="mt-0.5 font-medium text-stone-800 dark:text-zinc-200">
+                <dt className="text-zinc-400 dark:text-zinc-500">المصدر</dt>
+                <dd className="mt-0.5 font-medium text-zinc-800 dark:text-zinc-200">
                   {entry.provenance.sourceName}
                 </dd>
               </div>
               <div>
-                <dt className="text-stone-400 dark:text-zinc-500">الرخصة</dt>
-                <dd className="mt-0.5 font-medium text-stone-800 dark:text-zinc-200">
+                <dt className="text-zinc-400 dark:text-zinc-500">الرخصة</dt>
+                <dd className="mt-0.5 font-medium text-zinc-800 dark:text-zinc-200">
                   {entry.provenance.license}
                 </dd>
               </div>
               <div>
-                <dt className="text-stone-400 dark:text-zinc-500">الاستخدام التجاري</dt>
-                <dd className="mt-0.5 font-medium text-stone-800 dark:text-zinc-200">
+                <dt className="text-zinc-400 dark:text-zinc-500">الاستخدام التجاري</dt>
+                <dd className="mt-0.5 font-medium text-zinc-800 dark:text-zinc-200">
                   {entry.provenance.commercialPermission === 'allowed'
                     ? 'مسموح'
                     : 'غير تجاري (مفتوح للبحث والتعليم)'}
@@ -1058,6 +1091,21 @@ export function EntryDetailSheet({
           </div>
         ) : (
           <div>
+            {!isAuthenticated && (
+              <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-3 text-xs text-zinc-700 dark:border-white/12 dark:bg-[#07070A] dark:text-zinc-300">
+                <span>
+                  وضع الزائر: يمكنك حفظ تعديلك كمسودة في المتصفح، أو تسجيل الدخول لإرساله رسمياً لهيئة التحرير.
+                </span>
+                <button
+                  type="button"
+                  onClick={onRequireLogin}
+                  className="font-semibold text-emerald-700 hover:underline whitespace-nowrap cursor-pointer dark:text-[#D9FF43]"
+                >
+                  تسجيل الدخول ←
+                </button>
+              </div>
+            )}
+
             {activeRevision && (
               <div className="mb-5 rounded-xl border border-amber-300 bg-amber-50/80 p-4 text-xs text-amber-950 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200">
                 <div className="flex items-start justify-between gap-3">
@@ -1347,7 +1395,13 @@ export function EntryDetailSheet({
                   className="inline-flex min-h-[42px] items-center gap-2 rounded-full bg-zinc-950 px-5 py-2.5 text-xs font-semibold text-white hover:bg-zinc-800 disabled:opacity-50 transition-colors whitespace-nowrap shrink-0 cursor-pointer dark:bg-[#D9FF43] dark:text-[#050507] dark:hover:bg-[#e5ff73]"
                 >
                   <Send className="h-3.5 w-3.5" aria-hidden="true" />
-                  <span>{busy ? 'جارٍ الإرسال...' : 'إرسال للمراجعة'}</span>
+                  <span>
+                    {busy
+                      ? 'جارٍ الإرسال...'
+                      : isAuthenticated
+                        ? 'إرسال للمراجعة'
+                        : 'سجّل الدخول لإرسال التعديل'}
+                  </span>
                 </button>
 
                 {canAccessEditorialTools && (

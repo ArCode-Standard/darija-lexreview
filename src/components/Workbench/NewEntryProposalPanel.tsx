@@ -50,6 +50,7 @@ interface NewEntryProposalPanelProps {
   entries: LexicalEntry[]
   categories: string[]
   corpusVersion: string
+  isAuthenticated?: boolean
   canAccessEditorialTools: boolean
   prefillWord?: string | null
   onClearPrefillWord?: () => void
@@ -77,6 +78,7 @@ export function NewEntryProposalPanel({
   entries,
   categories,
   corpusVersion,
+  isAuthenticated = false,
   canAccessEditorialTools,
   prefillWord,
   onClearPrefillWord,
@@ -548,7 +550,7 @@ export function NewEntryProposalPanel({
     <div className="rounded-2xl border border-zinc-200 bg-white p-5 sm:p-8 dark:border-white/10 dark:bg-[#0C0C10]">
       <div className="pb-6 border-b border-zinc-200 dark:border-white/10">
         <p className="font-mono text-xs font-semibold tracking-wider uppercase text-emerald-700 dark:text-[#D9FF43]">
-          01 / إضافة سريعة في ٣ خطوات بسيطة
+          {isAuthenticated ? '01 / إضافة رسمية باسم حسابك' : '01 / اقتراح مفردة (وضع الزائر)'}
         </p>
         <h3 className="mt-1.5 font-display text-xl sm:text-2xl font-bold text-zinc-950 dark:text-[#F5F5F7]">
           أضف مفردة أو عبارة مغربية جديدة
@@ -556,6 +558,21 @@ export function NewEntryProposalPanel({
         <p className="mt-1.5 max-w-[68ch] text-xs sm:text-sm leading-relaxed text-zinc-600 dark:text-zinc-400">
           اكتب الكلمة ومعناها وجملة مثال من كلامك اليومي فقط. سيتكفل النظام بتوليد النطق اللاتيني تلقائياً، ويستكمل المحررون اللغويون بقية التفاصيل عند المراجعة.
         </p>
+
+        {!isAuthenticated && (
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-3 text-xs text-zinc-700 dark:border-white/12 dark:bg-[#07070A] dark:text-zinc-300">
+            <span>
+              أنت تتصفح حالياً كزائر: يمكنك حفظ مقترحك كمسودة في متصفحك، ويتطلب الإرسال الرسمي للمعجم تسجيل الدخول لحفظ حقوق الإسناد باسمك.
+            </span>
+            <button
+              type="button"
+              onClick={onRequireLogin}
+              className="font-semibold text-emerald-700 hover:underline whitespace-nowrap cursor-pointer dark:text-[#D9FF43]"
+            >
+              تسجيل الدخول الآن ←
+            </button>
+          </div>
+        )}
       </div>
 
       {revisionTarget && (
@@ -1153,7 +1170,13 @@ export function NewEntryProposalPanel({
               className="inline-flex min-h-[44px] items-center gap-2 rounded-full bg-zinc-950 px-6 py-2.5 text-sm font-semibold text-white hover:bg-zinc-800 disabled:opacity-50 whitespace-nowrap shrink-0 cursor-pointer dark:bg-[#D9FF43] dark:text-[#050507] dark:hover:bg-[#e5ff73]"
             >
               <Send className="h-4 w-4" aria-hidden="true" />
-              <span>{busy ? 'جارٍ الإرسال...' : 'إرسال المفردة للمعجم'}</span>
+              <span>
+                {busy
+                  ? 'جارٍ الإرسال...'
+                  : isAuthenticated
+                    ? 'إرسال المفردة للمعجم'
+                    : 'سجّل الدخول لإرسال المفردة'}
+              </span>
             </button>
 
             {canAccessEditorialTools && (

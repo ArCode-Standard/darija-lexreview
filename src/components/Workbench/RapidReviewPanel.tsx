@@ -917,8 +917,8 @@ export function RapidReviewPanel({
       {/* Top Session & Micro-Task Orchestration Bar (Compact in Focus Mode) */}
       {isFocusMode ? (
         <div className="mx-auto max-w-3xl flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-zinc-200 bg-white px-4 py-2.5 text-xs dark:border-white/10 dark:bg-[#0C0C10]">
-          <div className="flex flex-wrap items-center gap-3 text-stone-700 dark:text-zinc-300">
-            <span className="font-semibold text-stone-900 dark:text-white">وضع التركيز</span>
+          <div className="flex flex-wrap items-center gap-3 text-zinc-700 dark:text-zinc-300">
+            <span className="font-semibold text-zinc-950 dark:text-white">وضع التركيز</span>
             <span aria-hidden="true">·</span>
             <span>
               اليوم:{' '}
@@ -934,9 +934,9 @@ export function RapidReviewPanel({
             {canAccessEditorialTools && calibrationStats.total > 0 && (
               <>
                 <span aria-hidden="true" className="hidden sm:inline">·</span>
-                <span className="hidden sm:inline text-stone-500 dark:text-zinc-400">
+                <span className="hidden sm:inline text-zinc-500 dark:text-zinc-400">
                   معايرة الدقة:{' '}
-                  <strong className="font-mono tabular-nums text-stone-800 dark:text-zinc-200">
+                  <strong className="font-mono tabular-nums text-zinc-800 dark:text-zinc-200">
                     {Math.round((calibrationStats.passed / calibrationStats.total) * 100)}%
                   </strong>
                 </span>
@@ -949,7 +949,7 @@ export function RapidReviewPanel({
               <button
                 type="button"
                 onClick={handleUndo}
-                className="inline-flex min-h-[34px] items-center gap-1 rounded-full border border-zinc-300 bg-zinc-50 px-3 py-1 text-xs font-medium text-stone-800 hover:bg-zinc-100 cursor-pointer dark:border-white/15 dark:bg-[#07070A] dark:text-zinc-200 dark:hover:bg-white/10"
+                className="inline-flex min-h-[34px] items-center gap-1 rounded-full border border-zinc-300 bg-zinc-50 px-3 py-1 text-xs font-medium text-zinc-800 hover:bg-zinc-100 cursor-pointer dark:border-white/15 dark:bg-[#07070A] dark:text-zinc-200 dark:hover:bg-white/10"
               >
                 <RotateCcw className="h-3 w-3" aria-hidden="true" />
                 <span>تراجع</span>
@@ -958,7 +958,7 @@ export function RapidReviewPanel({
             <button
               type="button"
               onClick={onToggleFocusMode}
-              className="inline-flex min-h-[34px] items-center gap-1.5 rounded-full border border-zinc-300 bg-zinc-50 px-3.5 py-1 text-xs font-semibold text-stone-800 hover:bg-zinc-100 cursor-pointer dark:border-[#D9FF43]/40 dark:bg-[#07070A] dark:text-[#D9FF43] dark:hover:bg-[#D9FF43]/10"
+              className="inline-flex min-h-[34px] items-center gap-1.5 rounded-full border border-zinc-300 bg-zinc-50 px-3.5 py-1 text-xs font-semibold text-zinc-800 hover:bg-zinc-100 cursor-pointer dark:border-[#D9FF43]/40 dark:bg-[#07070A] dark:text-[#D9FF43] dark:hover:bg-[#D9FF43]/10"
             >
               <Minimize2 className="h-3.5 w-3.5" aria-hidden="true" />
               <span>إنهاء التركيز</span>
@@ -969,10 +969,10 @@ export function RapidReviewPanel({
         <div className="rounded-2xl border border-zinc-200 bg-white p-5 sm:p-6 space-y-5 dark:border-white/10 dark:bg-[#0C0C10]">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
-              <h3 className="font-display text-lg sm:text-xl font-bold text-stone-900 dark:text-white">
+              <h3 className="font-display text-lg sm:text-xl font-bold text-zinc-950 dark:text-white">
                 المراجعة البشرية السريعة (بطاقة تلو الأخرى)
               </h3>
-              <p className="mt-1 text-xs sm:text-sm text-stone-600 dark:text-zinc-400">
+              <p className="mt-1 text-xs sm:text-sm text-zinc-600 dark:text-zinc-400">
                 أجب بـ «نعم» لتوثيق صحة الكلمة فوراً، أو «لا» لتصحيح الكلمة أو المعنى أو المثال مباشرة دون تعقيد.
               </p>
             </div>
@@ -992,7 +992,7 @@ export function RapidReviewPanel({
                 <button
                   type="button"
                   onClick={handleUndo}
-                  className="inline-flex min-h-[38px] items-center gap-1.5 rounded-full border border-zinc-300 bg-zinc-50 px-3.5 py-1.5 text-xs font-semibold text-stone-800 hover:bg-zinc-100 whitespace-nowrap shrink-0 cursor-pointer dark:border-white/15 dark:bg-[#07070A] dark:text-zinc-200 dark:hover:bg-white/10"
+                  className="inline-flex min-h-[38px] items-center gap-1.5 rounded-full border border-zinc-300 bg-zinc-50 px-3.5 py-1.5 text-xs font-semibold text-zinc-800 hover:bg-zinc-100 whitespace-nowrap shrink-0 cursor-pointer dark:border-white/15 dark:bg-[#07070A] dark:text-zinc-200 dark:hover:bg-white/10"
                 >
                   <RotateCcw className="h-3.5 w-3.5" aria-hidden="true" />
                   <span>تراجع</span>
@@ -1000,9 +1000,9 @@ export function RapidReviewPanel({
               )}
 
               <div className="flex items-center gap-3 rounded-full border border-zinc-200 bg-zinc-50 px-4 py-2 dark:border-white/10 dark:bg-[#07070A]">
-                <div className="text-xs text-stone-700 dark:text-zinc-300">
+                <div className="text-xs text-zinc-700 dark:text-zinc-300">
                   <span>إنجاز اليوم: </span>
-                  <strong className="font-mono tabular-nums text-stone-900 dark:text-white">
+                  <strong className="font-mono tabular-nums text-zinc-950 dark:text-white">
                     {completedTodayCount} / {sessionPrefs.dailyGoal}
                   </strong>
                 </div>
@@ -1019,7 +1019,7 @@ export function RapidReviewPanel({
                   aria-label="هدف المراجعة اليومي"
                   value={sessionPrefs.dailyGoal}
                   onChange={(e) => onUpdateSessionPrefs({ dailyGoal: Number(e.target.value) })}
-                  className="bg-transparent text-[11px] font-mono tabular-nums text-stone-600 focus:outline-none cursor-pointer dark:text-zinc-400"
+                  className="bg-transparent text-[11px] font-mono tabular-nums text-zinc-600 focus:outline-none cursor-pointer dark:text-zinc-400"
                 >
                   <option value={5}>هدف 5</option>
                   <option value={10}>هدف 10</option>
@@ -1048,7 +1048,7 @@ export function RapidReviewPanel({
                 className={`min-h-[34px] rounded-full px-3.5 py-1.5 text-xs font-semibold transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
                   microTask === 'verify_words'
                     ? 'bg-zinc-950 text-white shadow-2xs dark:bg-[#D9FF43] dark:text-[#050507]'
-                    : 'text-stone-600 hover:text-stone-900 dark:text-zinc-400 dark:hover:text-white'
+                    : 'text-zinc-600 hover:text-zinc-950 dark:text-zinc-400 dark:hover:text-white'
                 }`}
               >
                 تدقيق الكلمات (نعم / لا)
@@ -1064,7 +1064,7 @@ export function RapidReviewPanel({
                 className={`min-h-[34px] rounded-full px-3.5 py-1.5 text-xs font-semibold transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
                   microTask === 'verify_examples'
                     ? 'bg-zinc-950 text-white shadow-2xs dark:bg-[#D9FF43] dark:text-[#050507]'
-                    : 'text-stone-600 hover:text-stone-900 dark:text-zinc-400 dark:hover:text-white'
+                    : 'text-zinc-600 hover:text-zinc-950 dark:text-zinc-400 dark:hover:text-white'
                 }`}
               >
                 تدقيق الشواهد السياقية
@@ -1080,7 +1080,7 @@ export function RapidReviewPanel({
                 className={`min-h-[34px] rounded-full px-3.5 py-1.5 text-xs font-semibold transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
                   microTask === 'enrich_examples'
                     ? 'bg-zinc-950 text-white shadow-2xs dark:bg-[#D9FF43] dark:text-[#050507]'
-                    : 'text-stone-600 hover:text-stone-900 dark:text-zinc-400 dark:hover:text-white'
+                    : 'text-zinc-600 hover:text-zinc-950 dark:text-zinc-400 dark:hover:text-white'
                 }`}
               >
                 إثراء الأمثلة السريع
@@ -1096,7 +1096,7 @@ export function RapidReviewPanel({
                 className={`min-h-[34px] rounded-full px-3.5 py-1.5 text-xs font-semibold transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
                   microTask === 'regional_usage'
                     ? 'bg-zinc-950 text-white shadow-2xs dark:bg-[#D9FF43] dark:text-[#050507]'
-                    : 'text-stone-600 hover:text-stone-900 dark:text-zinc-400 dark:hover:text-white'
+                    : 'text-zinc-600 hover:text-zinc-950 dark:text-zinc-400 dark:hover:text-white'
                 }`}
               >
                 التداول حسب المنطقة
@@ -1104,12 +1104,12 @@ export function RapidReviewPanel({
             </div>
 
             <div className="flex flex-wrap items-center gap-3">
-              <label className="flex items-center gap-2 text-xs text-stone-600 dark:text-zinc-400">
+              <label className="flex items-center gap-2 text-xs text-zinc-600 dark:text-zinc-400">
                 <span className="whitespace-nowrap">منطقتي اللهجية:</span>
                 <select
                   value={sessionPrefs.dialectRegion}
                   onChange={(e) => onUpdateSessionPrefs({ dialectRegion: e.target.value })}
-                  className="min-h-[36px] rounded-lg border border-zinc-300 bg-zinc-50 px-2.5 py-1 text-xs font-medium text-stone-900 focus:border-zinc-950 focus:outline-none dark:border-white/15 dark:bg-[#07070A] dark:text-white dark:focus:border-[#D9FF43]"
+                  className="min-h-[36px] rounded-lg border border-zinc-300 bg-zinc-50 px-2.5 py-1 text-xs font-medium text-zinc-950 focus:border-zinc-950 focus:outline-none dark:border-white/15 dark:bg-[#07070A] dark:text-white dark:focus:border-[#D9FF43]"
                 >
                   {MOROCCAN_REGIONS.map((reg) => (
                     <option key={reg} value={reg}>
@@ -1119,7 +1119,7 @@ export function RapidReviewPanel({
                 </select>
               </label>
 
-              <label className="flex items-center gap-2 text-xs text-stone-600 dark:text-zinc-400">
+              <label className="flex items-center gap-2 text-xs text-zinc-600 dark:text-zinc-400">
                 <span className="whitespace-nowrap">الفئة:</span>
                 <select
                   value={categoryFilter}
@@ -1127,7 +1127,7 @@ export function RapidReviewPanel({
                     setForcedEntryId(null)
                     setCategoryFilter(e.target.value)
                   }}
-                  className="min-h-[36px] rounded-lg border border-zinc-300 bg-zinc-50 px-2.5 py-1 text-xs font-medium text-stone-900 focus:border-zinc-950 focus:outline-none dark:border-white/15 dark:bg-[#07070A] dark:text-white dark:focus:border-[#D9FF43]"
+                  className="min-h-[36px] rounded-lg border border-zinc-300 bg-zinc-50 px-2.5 py-1 text-xs font-medium text-zinc-950 focus:border-zinc-950 focus:outline-none dark:border-white/15 dark:bg-[#07070A] dark:text-white dark:focus:border-[#D9FF43]"
                 >
                   <option value="all">جميع الفئات ({entries.length})</option>
                   {categories.map((cat) => (
@@ -1141,7 +1141,7 @@ export function RapidReviewPanel({
           </div>
 
           {/* One-Time Session Open License Consent */}
-          <div className="pt-3 border-t border-zinc-200 flex flex-wrap items-center justify-between gap-3 text-xs text-stone-600 dark:border-white/10 dark:text-zinc-400">
+          <div className="pt-3 border-t border-zinc-200 flex flex-wrap items-center justify-between gap-3 text-xs text-zinc-600 dark:border-white/10 dark:text-zinc-400">
             <label className="inline-flex items-center gap-2 cursor-pointer">
               <input
                 type="checkbox"
@@ -1157,10 +1157,10 @@ export function RapidReviewPanel({
               </span>
             </label>
 
-            <div className="flex flex-wrap items-center gap-3 text-[11px] text-stone-500 dark:text-zinc-400">
+            <div className="flex flex-wrap items-center gap-3 text-[11px] text-zinc-500 dark:text-zinc-400">
               <span>
                 متبقٍ في هذه القائمة:{' '}
-                <strong className="font-mono tabular-nums text-stone-800 dark:text-zinc-200">
+                <strong className="font-mono tabular-nums text-zinc-800 dark:text-zinc-200">
                   {queue.length.toLocaleString('en-US')}
                 </strong>
               </span>
@@ -1169,7 +1169,7 @@ export function RapidReviewPanel({
                   <span aria-hidden="true">·</span>
                   <span>
                     دقة المعايرة:{' '}
-                    <strong className="font-mono tabular-nums text-stone-800 dark:text-zinc-200">
+                    <strong className="font-mono tabular-nums text-zinc-800 dark:text-zinc-200">
                       {calibrationStats.passed}/{calibrationStats.total}
                     </strong>
                   </span>
@@ -1200,7 +1200,7 @@ export function RapidReviewPanel({
             toast.type === 'error'
               ? 'border-red-200 bg-red-50 text-red-950 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-200'
               : toast.type === 'info'
-                ? 'border-zinc-200 bg-zinc-50 text-stone-800 dark:border-white/15 dark:bg-[#0C0C10] dark:text-zinc-200'
+                ? 'border-zinc-200 bg-zinc-50 text-zinc-800 dark:border-white/15 dark:bg-[#0C0C10] dark:text-zinc-200'
                 : 'border-emerald-200 bg-emerald-50/80 text-emerald-950 dark:border-[#D9FF43]/30 dark:bg-[#D9FF43]/10 dark:text-[#F5F5F7]'
           }`}
         >
@@ -1228,10 +1228,10 @@ export function RapidReviewPanel({
       {!currentEntry ? (
         <div className="mx-auto max-w-3xl rounded-2xl border border-zinc-200 bg-white p-8 sm:p-12 text-center space-y-4 dark:border-white/10 dark:bg-[#0C0C10]">
           <CheckCircle2 className="mx-auto h-9 w-9 text-emerald-700 dark:text-[#D9FF43]" />
-          <h4 className="font-display text-xl font-bold text-stone-900 dark:text-white">
+          <h4 className="font-display text-xl font-bold text-zinc-950 dark:text-white">
             أكملت جميع المفردات المتاحة في هذا المسار
           </h4>
-          <p className="mx-auto max-w-md text-sm text-stone-600 dark:text-zinc-400">
+          <p className="mx-auto max-w-md text-sm text-zinc-600 dark:text-zinc-400">
             لم تتبقَّ مفردات غير مراجعة ضمن الفلتر الحالي. يمكنك استعادة المفردات التي تخطيتها أو اختيار فئة دلالية أخرى.
           </p>
           <div className="pt-2 flex flex-wrap items-center justify-center gap-3">
@@ -1248,7 +1248,7 @@ export function RapidReviewPanel({
               <button
                 type="button"
                 onClick={() => setCategoryFilter('all')}
-                className="min-h-[42px] rounded-full border border-zinc-300 bg-zinc-50 px-4 py-2 text-xs font-semibold text-stone-800 hover:bg-zinc-100 whitespace-nowrap cursor-pointer dark:border-white/15 dark:bg-[#07070A] dark:text-zinc-200"
+                className="min-h-[42px] rounded-full border border-zinc-300 bg-zinc-50 px-4 py-2 text-xs font-semibold text-zinc-800 hover:bg-zinc-100 whitespace-nowrap cursor-pointer dark:border-white/15 dark:bg-[#07070A] dark:text-zinc-200"
               >
                 عرض جميع الفئات
               </button>
@@ -1256,7 +1256,7 @@ export function RapidReviewPanel({
             <button
               type="button"
               onClick={() => setShowAlreadyReviewed((v) => !v)}
-              className="min-h-[42px] rounded-full border border-zinc-300 bg-white px-4 py-2 text-xs font-medium text-stone-700 hover:bg-zinc-100 whitespace-nowrap cursor-pointer dark:border-white/15 dark:bg-[#07070A] dark:text-zinc-300"
+              className="min-h-[42px] rounded-full border border-zinc-300 bg-white px-4 py-2 text-xs font-medium text-zinc-700 hover:bg-zinc-100 whitespace-nowrap cursor-pointer dark:border-white/15 dark:bg-[#07070A] dark:text-zinc-300"
             >
               {showAlreadyReviewed ? 'إخفاء ما راجعته سابقاً' : 'إظهار المفردات المراجعة سابقاً'}
             </button>
@@ -1269,11 +1269,11 @@ export function RapidReviewPanel({
           }`}
         >
           {/* Quiet Unboxed Metadata Header — Zero Pre-Vote Herd Bias */}
-          <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-stone-500 dark:text-zinc-400">
+          <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-zinc-500 dark:text-zinc-400">
             <div className="flex flex-wrap items-center gap-2">
               {canAccessEditorialTools && !activeCalibrationCard && (
                 <>
-                  <span className="font-mono font-semibold tabular-nums text-stone-700 dark:text-zinc-300">
+                  <span className="font-mono font-semibold tabular-nums text-zinc-700 dark:text-zinc-300">
                     {formatAccessionCode(currentEntry.id, currentEntry.numericId)}
                   </span>
                   <span aria-hidden="true">·</span>
@@ -1306,7 +1306,7 @@ export function RapidReviewPanel({
               <button
                 type="button"
                 onClick={() => onOpenDetailedEntry(currentEntry)}
-                className="inline-flex items-center gap-1 text-xs font-medium text-stone-600 hover:text-stone-900 whitespace-nowrap cursor-pointer dark:text-zinc-400 dark:hover:text-[#D9FF43]"
+                className="inline-flex items-center gap-1 text-xs font-medium text-zinc-600 hover:text-zinc-950 whitespace-nowrap cursor-pointer dark:text-zinc-400 dark:hover:text-[#D9FF43]"
               >
                 <span>عرض البطاقة الكاملة</span>
                 <ArrowUpLeft className="h-3.5 w-3.5" aria-hidden="true" />
@@ -1318,7 +1318,7 @@ export function RapidReviewPanel({
           <div className="py-1 space-y-4">
             <div className="space-y-2">
               <div className="flex flex-wrap items-baseline justify-between gap-4">
-                <h4 className="font-display text-3xl sm:text-5xl font-bold tracking-tight text-stone-900 dark:text-white">
+                <h4 className="font-display text-3xl sm:text-5xl font-bold tracking-tight text-zinc-950 dark:text-white">
                   {currentEntry.word}
                 </h4>
                 <span
@@ -1331,13 +1331,13 @@ export function RapidReviewPanel({
 
               {/* Phonetic Pronunciation Key for Unvocalized Arabic */}
               {phoneticAnalysis && phoneticAnalysis.phoneticCues.length > 0 && (
-                <div className="flex flex-wrap items-center gap-2 text-xs text-stone-500 dark:text-zinc-400">
+                <div className="flex flex-wrap items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400">
                   <Volume2 className="h-3.5 w-3.5 shrink-0 text-emerald-700 dark:text-[#D9FF43]" aria-hidden="true" />
                   <span>دليل النطق الصوتي:</span>
                   {phoneticAnalysis.phoneticCues.map((cue, idx) => (
                     <span key={cue.symbol} className="inline-flex items-center gap-1">
                       {idx > 0 && <span aria-hidden="true">·</span>}
-                      <strong className="font-mono text-stone-800 dark:text-zinc-200" dir="ltr">
+                      <strong className="font-mono text-zinc-800 dark:text-zinc-200" dir="ltr">
                         {cue.symbol}
                       </strong>
                       <span>= {cue.exampleNote}</span>
@@ -1376,18 +1376,18 @@ export function RapidReviewPanel({
 
             <div className="grid grid-cols-1 gap-4 pt-4 border-t border-zinc-200 sm:grid-cols-2 dark:border-white/10">
               <div>
-                <p className="text-xs text-stone-500 dark:text-zinc-400">
+                <p className="text-xs text-zinc-500 dark:text-zinc-400">
                   المعنى بالعربية الفصحى
                 </p>
-                <p className="mt-1 text-base sm:text-lg font-medium text-stone-900 dark:text-white">
+                <p className="mt-1 text-base sm:text-lg font-medium text-zinc-950 dark:text-white">
                   {currentEntry.meaning || 'غير محدد'}
                 </p>
               </div>
               <div>
-                <p className="text-xs text-stone-500 dark:text-zinc-400">المقابل بالفرنسية</p>
+                <p className="text-xs text-zinc-500 dark:text-zinc-400">المقابل بالفرنسية</p>
                 <p
                   dir="ltr"
-                  className="mt-1 text-base sm:text-lg font-medium text-stone-800 text-end sm:text-start dark:text-zinc-200"
+                  className="mt-1 text-base sm:text-lg font-medium text-zinc-800 text-end sm:text-start dark:text-zinc-200"
                 >
                   {currentEntry.french || '—'}
                 </p>
@@ -1397,22 +1397,22 @@ export function RapidReviewPanel({
             {/* Existing Contextual Example if available */}
             {!activeCalibrationCard && (
               <div className="pt-4 border-t border-zinc-200 dark:border-white/10">
-                <p className="text-xs text-stone-500 dark:text-zinc-400">
+                <p className="text-xs text-zinc-500 dark:text-zinc-400">
                   الشاهد السياقي المسجل حالياً
                 </p>
                 {currentEntry.examples.length > 0 ? (
                   <div className="mt-2 space-y-1">
-                    <p className="text-sm sm:text-base font-medium text-stone-900 dark:text-white">
+                    <p className="text-sm sm:text-base font-medium text-zinc-950 dark:text-white">
                       «{currentEntry.examples[0].darijaAr}»
                     </p>
                     <p
                       dir="ltr"
-                      className="font-mono text-xs text-stone-600 text-end sm:text-start dark:text-zinc-400"
+                      className="font-mono text-xs text-zinc-600 text-end sm:text-start dark:text-zinc-400"
                     >
                       {currentEntry.examples[0].darijaLatin}
                     </p>
                     {currentEntry.examples[0].meaningAr && (
-                      <p className="text-xs text-stone-500 dark:text-zinc-400">
+                      <p className="text-xs text-zinc-500 dark:text-zinc-400">
                         المعنى: {currentEntry.examples[0].meaningAr}
                       </p>
                     )}
@@ -1430,12 +1430,12 @@ export function RapidReviewPanel({
           {(microTask === 'verify_words' || microTask === 'verify_examples') && (
             <div className="pt-5 border-t border-zinc-200 space-y-5 dark:border-white/10">
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <p className="font-display text-sm sm:text-base font-bold text-stone-900 dark:text-white">
+                <p className="font-display text-sm sm:text-base font-bold text-zinc-950 dark:text-white">
                   {microTask === 'verify_examples'
                     ? `هل جملة المثال المعروضة سليمة وتعبّر بدقة عن معنى «${currentEntry.word}»؟`
                     : 'هل هذه المفردة بنطقها ومعناها المعروض صحيحة ومستعملة في الدارجة؟'}
                 </p>
-                <span className="hidden sm:inline text-[11px] text-stone-500 dark:text-zinc-400">
+                <span className="hidden sm:inline text-[11px] text-zinc-500 dark:text-zinc-400">
                   اختصارات: 1 نعم · 2 تصويب{microTask === 'verify_words' ? ' · 3 مرادف بمنطقتي' : ''} · مسافة تخطي
                 </span>
               </div>
@@ -1467,7 +1467,7 @@ export function RapidReviewPanel({
                   className={`inline-flex min-h-[48px] items-center justify-center gap-2 rounded-full border px-4 py-3 text-sm font-semibold transition-colors whitespace-nowrap cursor-pointer ${
                     correctionOpen
                       ? 'border-[#FF3B2F] bg-[#FF3B2F]/10 text-[#FF3B2F] dark:border-[#FF3B2F] dark:bg-[#FF3B2F]/15 dark:text-white'
-                      : 'border-zinc-300 bg-zinc-50 text-stone-900 hover:bg-zinc-100 dark:border-white/15 dark:bg-[#07070A] dark:text-white dark:hover:border-white/30 dark:hover:bg-white/5'
+                      : 'border-zinc-300 bg-zinc-50 text-zinc-950 hover:bg-zinc-100 dark:border-white/15 dark:bg-[#07070A] dark:text-white dark:hover:border-white/30 dark:hover:bg-white/5'
                   }`}
                 >
                   <X className="h-4 w-4 shrink-0" aria-hidden="true" />
@@ -1488,7 +1488,7 @@ export function RapidReviewPanel({
                     className={`inline-flex min-h-[48px] items-center justify-center gap-1.5 rounded-full border px-3.5 py-3 text-xs font-semibold transition-colors whitespace-nowrap cursor-pointer ${
                       regionalAltOpen
                         ? 'border-zinc-950 bg-zinc-950/10 text-zinc-950 dark:border-[#D9FF43] dark:bg-[#D9FF43]/15 dark:text-[#D9FF43]'
-                        : 'border-zinc-300 bg-zinc-50 text-stone-800 hover:bg-zinc-100 dark:border-white/15 dark:bg-[#07070A] dark:text-zinc-200 dark:hover:border-white/30 dark:hover:bg-white/5'
+                        : 'border-zinc-300 bg-zinc-50 text-zinc-800 hover:bg-zinc-100 dark:border-white/15 dark:bg-[#07070A] dark:text-zinc-200 dark:hover:border-white/30 dark:hover:bg-white/5'
                     }`}
                   >
                     <span>مرادف بمنطقتي</span>
@@ -1499,7 +1499,7 @@ export function RapidReviewPanel({
                   type="button"
                   disabled={submitting}
                   onClick={handleSkipCard}
-                  className="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-full border border-zinc-200 bg-white px-4 py-3 text-sm font-medium text-stone-600 transition-colors hover:bg-zinc-100 hover:text-stone-900 whitespace-nowrap cursor-pointer dark:border-white/10 dark:bg-transparent dark:text-zinc-400 dark:hover:border-white/25 dark:hover:text-white"
+                  className="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-full border border-zinc-200 bg-white px-4 py-3 text-sm font-medium text-zinc-600 transition-colors hover:bg-zinc-100 hover:text-zinc-950 whitespace-nowrap cursor-pointer dark:border-white/10 dark:bg-transparent dark:text-zinc-400 dark:hover:border-white/25 dark:hover:text-white"
                 >
                   <SkipForward className="h-4 w-4 shrink-0" aria-hidden="true" />
                   <span>تخطي</span>
@@ -1513,7 +1513,7 @@ export function RapidReviewPanel({
                   className="pt-6 border-t border-zinc-200 space-y-5 dark:border-white/10"
                 >
                   <div className="space-y-2.5">
-                    <p className="text-xs font-semibold text-stone-800 dark:text-zinc-200">
+                    <p className="text-xs font-semibold text-zinc-800 dark:text-zinc-200">
                       ما الذي تريد تصحيحه؟ (اختر حقلاً واحداً أو أكثر ليظهر لك فوراً)
                     </p>
                     <div className="flex flex-wrap gap-2">
@@ -1534,7 +1534,7 @@ export function RapidReviewPanel({
                             className={`min-h-[38px] rounded-full border px-4 py-1.5 text-xs font-semibold transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
                               active
                                 ? 'border-zinc-950 bg-zinc-950 text-white dark:border-[#D9FF43] dark:bg-[#D9FF43] dark:text-[#050507]'
-                                : 'border-zinc-300 bg-zinc-50 text-stone-700 hover:bg-zinc-100 dark:border-white/15 dark:bg-[#07070A] dark:text-zinc-300 dark:hover:border-white/30'
+                                : 'border-zinc-300 bg-zinc-50 text-zinc-700 hover:bg-zinc-100 dark:border-white/15 dark:bg-[#07070A] dark:text-zinc-300 dark:hover:border-white/30'
                             }`}
                           >
                             {label}
@@ -1548,7 +1548,7 @@ export function RapidReviewPanel({
                   {selectedTargets.has('word') && (
                     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                       <label className="block space-y-1.5">
-                        <span className="text-xs font-medium text-stone-700 dark:text-zinc-300">
+                        <span className="text-xs font-medium text-zinc-700 dark:text-zinc-300">
                           الكلمة الصحيحة بالدارجة (بدل «{currentEntry.word}»)
                         </span>
                         <input
@@ -1557,13 +1557,13 @@ export function RapidReviewPanel({
                           onChange={(e) => setFixWordAr(e.target.value)}
                           placeholder="اكتب الصواب هنا..."
                           autoFocus
-                          className="w-full min-h-[42px] rounded-lg border border-zinc-300 bg-zinc-50 px-3.5 py-2 text-sm text-stone-900 focus:border-zinc-950 focus:bg-white focus:outline-none dark:border-white/15 dark:bg-[#07070A] dark:text-white dark:focus:border-[#D9FF43]"
+                          className="w-full min-h-[42px] rounded-lg border border-zinc-300 bg-zinc-50 px-3.5 py-2 text-sm text-zinc-950 focus:border-zinc-950 focus:bg-white focus:outline-none dark:border-white/15 dark:bg-[#07070A] dark:text-white dark:focus:border-[#D9FF43]"
                         />
                       </label>
 
                       <div className="space-y-1.5">
                         <div className="flex items-center justify-between gap-2">
-                          <span className="text-xs font-medium text-stone-700 dark:text-zinc-300">
+                          <span className="text-xs font-medium text-zinc-700 dark:text-zinc-300">
                             الكتابة اللاتينية المقترحة تلقائياً
                           </span>
                           <button
@@ -1592,7 +1592,7 @@ export function RapidReviewPanel({
                             setFixArabizi(e.target.value)
                           }}
                           placeholder={currentEntry.latin || 'Ex: bzzaf'}
-                          className="w-full min-h-[42px] rounded-lg border border-zinc-300 bg-zinc-50 px-3.5 py-2 font-mono text-sm text-left text-stone-900 focus:border-zinc-950 focus:bg-white focus:outline-none dark:border-white/15 dark:bg-[#07070A] dark:text-white dark:focus:border-[#D9FF43]"
+                          className="w-full min-h-[42px] rounded-lg border border-zinc-300 bg-zinc-50 px-3.5 py-2 font-mono text-sm text-left text-zinc-950 focus:border-zinc-950 focus:bg-white focus:outline-none dark:border-white/15 dark:bg-[#07070A] dark:text-white dark:focus:border-[#D9FF43]"
                         />
                       </div>
                     </div>
@@ -1602,7 +1602,7 @@ export function RapidReviewPanel({
                   {selectedTargets.has('arabizi') && !selectedTargets.has('word') && (
                     <div className="space-y-1.5">
                       <div className="flex items-center justify-between gap-2">
-                        <span className="text-xs font-medium text-stone-700 dark:text-zinc-300">
+                        <span className="text-xs font-medium text-zinc-700 dark:text-zinc-300">
                           الكتابة اللاتينية الصحيحة (بدل {currentEntry.latin || '—'})
                         </span>
                         <button
@@ -1624,7 +1624,7 @@ export function RapidReviewPanel({
                         value={fixArabizi}
                         onChange={(e) => setFixArabizi(e.target.value)}
                         placeholder={currentEntry.latin || 'Ex: ch7al'}
-                        className="w-full min-h-[42px] rounded-lg border border-zinc-300 bg-zinc-50 px-3.5 py-2 font-mono text-sm text-left text-stone-900 focus:border-zinc-950 focus:bg-white focus:outline-none dark:border-white/15 dark:bg-[#07070A] dark:text-white dark:focus:border-[#D9FF43]"
+                        className="w-full min-h-[42px] rounded-lg border border-zinc-300 bg-zinc-50 px-3.5 py-2 font-mono text-sm text-left text-zinc-950 focus:border-zinc-950 focus:bg-white focus:outline-none dark:border-white/15 dark:bg-[#07070A] dark:text-white dark:focus:border-[#D9FF43]"
                       />
                     </div>
                   )}
@@ -1633,7 +1633,7 @@ export function RapidReviewPanel({
                   {selectedTargets.has('meaning') && (
                     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                       <label className="block space-y-1.5">
-                        <span className="text-xs font-medium text-stone-700 dark:text-zinc-300">
+                        <span className="text-xs font-medium text-zinc-700 dark:text-zinc-300">
                           المعنى الصحيح بالعربية الفصحى
                         </span>
                         <input
@@ -1641,12 +1641,12 @@ export function RapidReviewPanel({
                           value={fixMeaningAr}
                           onChange={(e) => setFixMeaningAr(e.target.value)}
                           placeholder={`الحالي: ${currentEntry.meaning}`}
-                          className="w-full min-h-[42px] rounded-lg border border-zinc-300 bg-zinc-50 px-3.5 py-2 text-sm text-stone-900 focus:border-zinc-950 focus:bg-white focus:outline-none dark:border-white/15 dark:bg-[#07070A] dark:text-white dark:focus:border-[#D9FF43]"
+                          className="w-full min-h-[42px] rounded-lg border border-zinc-300 bg-zinc-50 px-3.5 py-2 text-sm text-zinc-950 focus:border-zinc-950 focus:bg-white focus:outline-none dark:border-white/15 dark:bg-[#07070A] dark:text-white dark:focus:border-[#D9FF43]"
                         />
                       </label>
 
                       <label className="block space-y-1.5">
-                        <span className="text-xs font-medium text-stone-700 dark:text-zinc-300">
+                        <span className="text-xs font-medium text-zinc-700 dark:text-zinc-300">
                           المقابل الفرنسي الصحيح (اختياري)
                         </span>
                         <input
@@ -1655,7 +1655,7 @@ export function RapidReviewPanel({
                           value={fixMeaningFr}
                           onChange={(e) => setFixMeaningFr(e.target.value)}
                           placeholder={currentEntry.french || 'Traduction française...'}
-                          className="w-full min-h-[42px] rounded-lg border border-zinc-300 bg-zinc-50 px-3.5 py-2 text-sm text-left text-stone-900 focus:border-zinc-950 focus:bg-white focus:outline-none dark:border-white/15 dark:bg-[#07070A] dark:text-white dark:focus:border-[#D9FF43]"
+                          className="w-full min-h-[42px] rounded-lg border border-zinc-300 bg-zinc-50 px-3.5 py-2 text-sm text-left text-zinc-950 focus:border-zinc-950 focus:bg-white focus:outline-none dark:border-white/15 dark:bg-[#07070A] dark:text-white dark:focus:border-[#D9FF43]"
                         />
                       </label>
                     </div>
@@ -1666,7 +1666,7 @@ export function RapidReviewPanel({
                     <div className="space-y-3">
                       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                         <label className="block space-y-1.5">
-                          <span className="text-xs font-medium text-stone-700 dark:text-zinc-300">
+                          <span className="text-xs font-medium text-zinc-700 dark:text-zinc-300">
                             جملة مثال طبيعية بالدارجة
                           </span>
                           <input
@@ -1674,13 +1674,13 @@ export function RapidReviewPanel({
                             value={fixExampleAr}
                             onChange={(e) => setFixExampleAr(e.target.value)}
                             placeholder="مثال يستعمل المفردة في سياق يومي..."
-                            className="w-full min-h-[42px] rounded-lg border border-zinc-300 bg-zinc-50 px-3.5 py-2 text-sm text-stone-900 focus:border-zinc-950 focus:bg-white focus:outline-none dark:border-white/15 dark:bg-[#07070A] dark:text-white dark:focus:border-[#D9FF43]"
+                            className="w-full min-h-[42px] rounded-lg border border-zinc-300 bg-zinc-50 px-3.5 py-2 text-sm text-zinc-950 focus:border-zinc-950 focus:bg-white focus:outline-none dark:border-white/15 dark:bg-[#07070A] dark:text-white dark:focus:border-[#D9FF43]"
                           />
                         </label>
 
                         <div className="space-y-1.5">
                           <div className="flex items-center justify-between gap-2">
-                            <span className="text-xs font-medium text-stone-700 dark:text-zinc-300">
+                            <span className="text-xs font-medium text-zinc-700 dark:text-zinc-300">
                               الكتابة اللاتينية للمثال (تتولد تلقائياً)
                             </span>
                             <button
@@ -1706,13 +1706,13 @@ export function RapidReviewPanel({
                               setFixExampleArabizi(e.target.value)
                             }}
                             placeholder="Ex: ch7al hadi ma chftk..."
-                            className="w-full min-h-[42px] rounded-lg border border-zinc-300 bg-zinc-50 px-3.5 py-2 font-mono text-sm text-left text-stone-900 focus:border-zinc-950 focus:bg-white focus:outline-none dark:border-white/15 dark:bg-[#07070A] dark:text-white dark:focus:border-[#D9FF43]"
+                            className="w-full min-h-[42px] rounded-lg border border-zinc-300 bg-zinc-50 px-3.5 py-2 font-mono text-sm text-left text-zinc-950 focus:border-zinc-950 focus:bg-white focus:outline-none dark:border-white/15 dark:bg-[#07070A] dark:text-white dark:focus:border-[#D9FF43]"
                           />
                         </div>
                       </div>
 
                       <label className="block space-y-1.5">
-                        <span className="text-xs font-medium text-stone-700 dark:text-zinc-300">
+                        <span className="text-xs font-medium text-zinc-700 dark:text-zinc-300">
                           معنى المثال بالعربية الفصحى (اختياري)
                         </span>
                         <input
@@ -1720,14 +1720,14 @@ export function RapidReviewPanel({
                           value={fixExampleMeaningAr}
                           onChange={(e) => setFixExampleMeaningAr(e.target.value)}
                           placeholder="ترجمة الجملة بإيجاز..."
-                          className="w-full min-h-[40px] rounded-lg border border-zinc-300 bg-zinc-50 px-3.5 py-2 text-sm text-stone-900 focus:border-zinc-950 focus:bg-white focus:outline-none dark:border-white/15 dark:bg-[#07070A] dark:text-white dark:focus:border-[#D9FF43]"
+                          className="w-full min-h-[40px] rounded-lg border border-zinc-300 bg-zinc-50 px-3.5 py-2 text-sm text-zinc-950 focus:border-zinc-950 focus:bg-white focus:outline-none dark:border-white/15 dark:bg-[#07070A] dark:text-white dark:focus:border-[#D9FF43]"
                         />
                       </label>
                     </div>
                   )}
 
                   <label className="block space-y-1.5">
-                    <span className="text-xs text-stone-600 dark:text-zinc-400">
+                    <span className="text-xs text-zinc-600 dark:text-zinc-400">
                       ملاحظة إضافية للمراجع اللغوي (اختياري)
                     </span>
                     <input
@@ -1735,7 +1735,7 @@ export function RapidReviewPanel({
                       value={quickNote}
                       onChange={(e) => setQuickNote(e.target.value)}
                       placeholder="مثال: هذه الصيغة هي الأصح نطقاً في الاستعمال اليومي..."
-                      className="w-full min-h-[40px] rounded-lg border border-zinc-300 bg-zinc-50 px-3.5 py-2 text-xs text-stone-900 focus:border-zinc-950 focus:bg-white focus:outline-none dark:border-white/15 dark:bg-[#07070A] dark:text-white dark:focus:border-[#D9FF43]"
+                      className="w-full min-h-[40px] rounded-lg border border-zinc-300 bg-zinc-50 px-3.5 py-2 text-xs text-zinc-950 focus:border-zinc-950 focus:bg-white focus:outline-none dark:border-white/15 dark:bg-[#07070A] dark:text-white dark:focus:border-[#D9FF43]"
                     />
                   </label>
 
@@ -1754,7 +1754,7 @@ export function RapidReviewPanel({
                     <button
                       type="button"
                       onClick={() => setCorrectionOpen(false)}
-                      className="min-h-[40px] px-3 py-1.5 text-xs font-medium text-stone-600 hover:text-stone-900 whitespace-nowrap cursor-pointer dark:text-zinc-400 dark:hover:text-white"
+                      className="min-h-[40px] px-3 py-1.5 text-xs font-medium text-zinc-600 hover:text-zinc-950 whitespace-nowrap cursor-pointer dark:text-zinc-400 dark:hover:text-white"
                     >
                       إلغاء التصحيح
                     </button>
@@ -1770,7 +1770,7 @@ export function RapidReviewPanel({
                 >
                   <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                     <label className="block space-y-1.5">
-                      <span className="text-xs font-medium text-stone-700 dark:text-zinc-300">
+                      <span className="text-xs font-medium text-zinc-700 dark:text-zinc-300">
                         ما الكلمة المستعملة في ({sessionPrefs.dialectRegion}) لمعنى «{currentEntry.meaning}»؟
                       </span>
                       <input
@@ -1779,12 +1779,12 @@ export function RapidReviewPanel({
                         onChange={(e) => setRegionalAltWordAr(e.target.value)}
                         placeholder="اكتب المرادف المحلي في منطقتك..."
                         autoFocus
-                        className="w-full min-h-[42px] rounded-lg border border-zinc-300 bg-zinc-50 px-3.5 py-2 text-sm text-stone-900 focus:border-zinc-950 focus:bg-white focus:outline-none dark:border-white/15 dark:bg-[#07070A] dark:text-white dark:focus:border-[#D9FF43]"
+                        className="w-full min-h-[42px] rounded-lg border border-zinc-300 bg-zinc-50 px-3.5 py-2 text-sm text-zinc-950 focus:border-zinc-950 focus:bg-white focus:outline-none dark:border-white/15 dark:bg-[#07070A] dark:text-white dark:focus:border-[#D9FF43]"
                       />
                     </label>
 
                     <label className="block space-y-1.5">
-                      <span className="text-xs font-medium text-stone-700 dark:text-zinc-300">
+                      <span className="text-xs font-medium text-zinc-700 dark:text-zinc-300">
                         النطق اللاتيني للمرادف (تلقائي)
                       </span>
                       <input
@@ -1793,7 +1793,7 @@ export function RapidReviewPanel({
                         value={regionalAltArabizi}
                         onChange={(e) => setRegionalAltArabizi(e.target.value)}
                         placeholder="يتولد تلقائياً..."
-                        className="w-full min-h-[42px] rounded-lg border border-zinc-300 bg-zinc-50 px-3.5 py-2 font-mono text-sm text-left text-stone-900 focus:border-zinc-950 focus:bg-white focus:outline-none dark:border-white/15 dark:bg-[#07070A] dark:text-white dark:focus:border-[#D9FF43]"
+                        className="w-full min-h-[42px] rounded-lg border border-zinc-300 bg-zinc-50 px-3.5 py-2 font-mono text-sm text-left text-zinc-950 focus:border-zinc-950 focus:bg-white focus:outline-none dark:border-white/15 dark:bg-[#07070A] dark:text-white dark:focus:border-[#D9FF43]"
                       />
                     </label>
                   </div>
@@ -1810,7 +1810,7 @@ export function RapidReviewPanel({
                     <button
                       type="button"
                       onClick={() => setRegionalAltOpen(false)}
-                      className="min-h-[40px] px-3 py-1.5 text-xs text-stone-600 hover:text-stone-900 whitespace-nowrap cursor-pointer dark:text-zinc-400 dark:hover:text-white"
+                      className="min-h-[40px] px-3 py-1.5 text-xs text-zinc-600 hover:text-zinc-950 whitespace-nowrap cursor-pointer dark:text-zinc-400 dark:hover:text-white"
                     >
                       إلغاء
                     </button>
@@ -1826,13 +1826,13 @@ export function RapidReviewPanel({
               onSubmit={handleSubmitExampleEnrichment}
               className="pt-6 border-t border-zinc-200 space-y-4 dark:border-white/10"
             >
-              <p className="font-display text-sm sm:text-base font-bold text-stone-900 dark:text-white">
+              <p className="font-display text-sm sm:text-base font-bold text-zinc-950 dark:text-white">
                 أضف جملة قصيرة من كلامك اليومي تستعمل فيها كلمة «{currentEntry.word}»:
               </p>
 
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <label className="block space-y-1.5">
-                  <span className="text-xs font-medium text-stone-700 dark:text-zinc-300">
+                  <span className="text-xs font-medium text-zinc-700 dark:text-zinc-300">
                     الجملة بالدارجة (بالحروف العربية)
                   </span>
                   <input
@@ -1840,13 +1840,13 @@ export function RapidReviewPanel({
                     value={fixExampleAr}
                     onChange={(e) => setFixExampleAr(e.target.value)}
                     placeholder={`مثال يحتوي على «${currentEntry.word}»...`}
-                    className="w-full min-h-[44px] rounded-lg border border-zinc-300 bg-zinc-50 px-3.5 py-2 text-sm text-stone-900 focus:border-zinc-950 focus:bg-white focus:outline-none dark:border-white/15 dark:bg-[#07070A] dark:text-white dark:focus:border-[#D9FF43]"
+                    className="w-full min-h-[44px] rounded-lg border border-zinc-300 bg-zinc-50 px-3.5 py-2 text-sm text-zinc-950 focus:border-zinc-950 focus:bg-white focus:outline-none dark:border-white/15 dark:bg-[#07070A] dark:text-white dark:focus:border-[#D9FF43]"
                   />
                 </label>
 
                 <div className="space-y-1.5">
                   <div className="flex items-center justify-between gap-2">
-                    <span className="text-xs font-medium text-stone-700 dark:text-zinc-300">
+                    <span className="text-xs font-medium text-zinc-700 dark:text-zinc-300">
                       الكتابة اللاتينية (مولّدة تلقائياً)
                     </span>
                     <button
@@ -1872,13 +1872,13 @@ export function RapidReviewPanel({
                       setFixExampleArabizi(e.target.value)
                     }}
                     placeholder="تظهر تلقائياً بمجرد الكتابة بالعربية..."
-                    className="w-full min-h-[44px] rounded-lg border border-zinc-300 bg-zinc-50 px-3.5 py-2 font-mono text-sm text-left text-stone-900 focus:border-zinc-950 focus:bg-white focus:outline-none dark:border-white/15 dark:bg-[#07070A] dark:text-white dark:focus:border-[#D9FF43]"
+                    className="w-full min-h-[44px] rounded-lg border border-zinc-300 bg-zinc-50 px-3.5 py-2 font-mono text-sm text-left text-zinc-950 focus:border-zinc-950 focus:bg-white focus:outline-none dark:border-white/15 dark:bg-[#07070A] dark:text-white dark:focus:border-[#D9FF43]"
                   />
                 </div>
               </div>
 
               <label className="block space-y-1.5">
-                <span className="text-xs font-medium text-stone-700 dark:text-zinc-300">
+                <span className="text-xs font-medium text-zinc-700 dark:text-zinc-300">
                   معنى الجملة بالعربية الفصحى (باختصار)
                 </span>
                 <input
@@ -1886,7 +1886,7 @@ export function RapidReviewPanel({
                   value={fixExampleMeaningAr}
                   onChange={(e) => setFixExampleMeaningAr(e.target.value)}
                   placeholder="اشرح معنى الجملة..."
-                  className="w-full min-h-[42px] rounded-lg border border-zinc-300 bg-zinc-50 px-3.5 py-2 text-sm text-stone-900 focus:border-zinc-950 focus:bg-white focus:outline-none dark:border-white/15 dark:bg-[#07070A] dark:text-white dark:focus:border-[#D9FF43]"
+                  className="w-full min-h-[42px] rounded-lg border border-zinc-300 bg-zinc-50 px-3.5 py-2 text-sm text-zinc-950 focus:border-zinc-950 focus:bg-white focus:outline-none dark:border-white/15 dark:bg-[#07070A] dark:text-white dark:focus:border-[#D9FF43]"
                 />
               </label>
 
@@ -1907,7 +1907,7 @@ export function RapidReviewPanel({
                       setMicroTask('verify_words')
                       setCorrectionOpen(true)
                     }}
-                    className="min-h-[44px] rounded-full border border-zinc-300 bg-zinc-50 px-4 py-2 text-xs font-semibold text-stone-800 hover:bg-zinc-100 whitespace-nowrap cursor-pointer dark:border-white/15 dark:bg-[#07070A] dark:text-zinc-200"
+                    className="min-h-[44px] rounded-full border border-zinc-300 bg-zinc-50 px-4 py-2 text-xs font-semibold text-zinc-800 hover:bg-zinc-100 whitespace-nowrap cursor-pointer dark:border-white/15 dark:bg-[#07070A] dark:text-zinc-200"
                   >
                     الكلمة نفسها تحتاج تصحيحاً
                   </button>
@@ -1916,7 +1916,7 @@ export function RapidReviewPanel({
                 <button
                   type="button"
                   onClick={handleSkipCard}
-                  className="inline-flex min-h-[42px] items-center gap-1.5 px-3 py-2 text-xs font-medium text-stone-600 hover:text-stone-900 whitespace-nowrap cursor-pointer dark:text-zinc-400 dark:hover:text-white"
+                  className="inline-flex min-h-[42px] items-center gap-1.5 px-3 py-2 text-xs font-medium text-zinc-600 hover:text-zinc-950 whitespace-nowrap cursor-pointer dark:text-zinc-400 dark:hover:text-white"
                 >
                   <SkipForward className="h-3.5 w-3.5" aria-hidden="true" />
                   <span>تخطي الكلمة</span>
@@ -1928,7 +1928,7 @@ export function RapidReviewPanel({
           {/* MICRO-TASK 3: REGIONAL USAGE */}
           {microTask === 'regional_usage' && (
             <div className="pt-6 border-t border-zinc-200 space-y-5 dark:border-white/10">
-              <p className="font-display text-sm sm:text-base font-bold text-stone-900 dark:text-white">
+              <p className="font-display text-sm sm:text-base font-bold text-zinc-950 dark:text-white">
                 هل تُستعمل كلمة «{currentEntry.word}» بهذا المعنى في منطقة ({sessionPrefs.dialectRegion})؟
               </p>
 
@@ -1950,7 +1950,7 @@ export function RapidReviewPanel({
                   className={`inline-flex min-h-[48px] items-center justify-center gap-2 rounded-full border px-5 py-3 text-sm font-semibold transition-colors whitespace-nowrap cursor-pointer ${
                     regionalAltOpen
                       ? 'border-[#FF3B2F] bg-[#FF3B2F]/10 text-[#FF3B2F] dark:border-[#FF3B2F] dark:bg-[#FF3B2F]/15 dark:text-white'
-                      : 'border-zinc-300 bg-zinc-50 text-stone-900 hover:bg-zinc-100 dark:border-white/15 dark:bg-[#07070A] dark:text-white'
+                      : 'border-zinc-300 bg-zinc-50 text-zinc-950 hover:bg-zinc-100 dark:border-white/15 dark:bg-[#07070A] dark:text-white'
                   }`}
                 >
                   <X className="h-4 w-4 shrink-0" aria-hidden="true" />
@@ -1961,7 +1961,7 @@ export function RapidReviewPanel({
                   type="button"
                   disabled={submitting}
                   onClick={handleSkipCard}
-                  className="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-full border border-zinc-200 bg-white px-5 py-3 text-sm font-medium text-stone-600 hover:bg-zinc-100 whitespace-nowrap cursor-pointer dark:border-white/10 dark:bg-transparent dark:text-zinc-400 dark:hover:text-white"
+                  className="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-full border border-zinc-200 bg-white px-5 py-3 text-sm font-medium text-zinc-600 hover:bg-zinc-100 whitespace-nowrap cursor-pointer dark:border-white/10 dark:bg-transparent dark:text-zinc-400 dark:hover:text-white"
                 >
                   <SkipForward className="h-4 w-4 shrink-0" aria-hidden="true" />
                   <span>تخطي</span>
@@ -1975,7 +1975,7 @@ export function RapidReviewPanel({
                 >
                   <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                     <label className="block space-y-1.5">
-                      <span className="text-xs font-medium text-stone-700 dark:text-zinc-300">
+                      <span className="text-xs font-medium text-zinc-700 dark:text-zinc-300">
                         ما الكلمة المستعملة في ({sessionPrefs.dialectRegion}) لنفس المعنى؟
                       </span>
                       <input
@@ -1984,12 +1984,12 @@ export function RapidReviewPanel({
                         onChange={(e) => setRegionalAltWordAr(e.target.value)}
                         placeholder="اكتب المرادف المحلي في منطقتك..."
                         autoFocus
-                        className="w-full min-h-[42px] rounded-lg border border-zinc-300 bg-zinc-50 px-3.5 py-2 text-sm text-stone-900 focus:border-zinc-950 focus:bg-white focus:outline-none dark:border-white/15 dark:bg-[#07070A] dark:text-white dark:focus:border-[#D9FF43]"
+                        className="w-full min-h-[42px] rounded-lg border border-zinc-300 bg-zinc-50 px-3.5 py-2 text-sm text-zinc-950 focus:border-zinc-950 focus:bg-white focus:outline-none dark:border-white/15 dark:bg-[#07070A] dark:text-white dark:focus:border-[#D9FF43]"
                       />
                     </label>
 
                     <label className="block space-y-1.5">
-                      <span className="text-xs font-medium text-stone-700 dark:text-zinc-300">
+                      <span className="text-xs font-medium text-zinc-700 dark:text-zinc-300">
                         الكتابة اللاتينية للمرادف (تلقائي)
                       </span>
                       <input
@@ -1998,13 +1998,13 @@ export function RapidReviewPanel({
                         value={regionalAltArabizi}
                         onChange={(e) => setRegionalAltArabizi(e.target.value)}
                         placeholder="Arabizi..."
-                        className="w-full min-h-[42px] rounded-lg border border-zinc-300 bg-zinc-50 px-3.5 py-2 font-mono text-sm text-left text-stone-900 focus:border-zinc-950 focus:bg-white focus:outline-none dark:border-white/15 dark:bg-[#07070A] dark:text-white dark:focus:border-[#D9FF43]"
+                        className="w-full min-h-[42px] rounded-lg border border-zinc-300 bg-zinc-50 px-3.5 py-2 font-mono text-sm text-left text-zinc-950 focus:border-zinc-950 focus:bg-white focus:outline-none dark:border-white/15 dark:bg-[#07070A] dark:text-white dark:focus:border-[#D9FF43]"
                       />
                     </label>
                   </div>
 
                   <label className="block space-y-1.5">
-                    <span className="text-xs font-medium text-stone-700 dark:text-zinc-300">
+                    <span className="text-xs font-medium text-zinc-700 dark:text-zinc-300">
                       مثال سريع من منطقتك (اختياري)
                     </span>
                     <input
@@ -2012,7 +2012,7 @@ export function RapidReviewPanel({
                       value={regionalAltExample}
                       onChange={(e) => setRegionalAltExample(e.target.value)}
                       placeholder="جملة قصيرة توضح الاستعمال المحلي..."
-                      className="w-full min-h-[40px] rounded-lg border border-zinc-300 bg-zinc-50 px-3.5 py-2 text-sm text-stone-900 focus:border-zinc-950 focus:bg-white focus:outline-none dark:border-white/15 dark:bg-[#07070A] dark:text-white dark:focus:border-[#D9FF43]"
+                      className="w-full min-h-[40px] rounded-lg border border-zinc-300 bg-zinc-50 px-3.5 py-2 text-sm text-zinc-950 focus:border-zinc-950 focus:bg-white focus:outline-none dark:border-white/15 dark:bg-[#07070A] dark:text-white dark:focus:border-[#D9FF43]"
                     />
                   </label>
 
@@ -2028,7 +2028,7 @@ export function RapidReviewPanel({
                     <button
                       type="button"
                       onClick={() => setRegionalAltOpen(false)}
-                      className="min-h-[40px] px-3 py-1.5 text-xs text-stone-600 hover:text-stone-900 whitespace-nowrap cursor-pointer dark:text-zinc-400 dark:hover:text-white"
+                      className="min-h-[40px] px-3 py-1.5 text-xs text-zinc-600 hover:text-zinc-950 whitespace-nowrap cursor-pointer dark:text-zinc-400 dark:hover:text-white"
                     >
                       إلغاء
                     </button>
@@ -2067,7 +2067,7 @@ export function RapidReviewPanel({
                 type="button"
                 disabled={submitting}
                 onClick={handleNegativeAction}
-                className="inline-flex min-h-[44px] items-center justify-center gap-1 rounded-full border border-zinc-300 bg-zinc-50 px-2 py-2 text-xs font-semibold text-stone-900 cursor-pointer dark:border-white/15 dark:bg-[#07070A] dark:text-white"
+                className="inline-flex min-h-[44px] items-center justify-center gap-1 rounded-full border border-zinc-300 bg-zinc-50 px-2 py-2 text-xs font-semibold text-zinc-950 cursor-pointer dark:border-white/15 dark:bg-[#07070A] dark:text-white"
               >
                 <X className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
                 <span>تصويب</span>
@@ -2081,7 +2081,7 @@ export function RapidReviewPanel({
                     setCorrectionOpen(false)
                     setRegionalAltOpen(true)
                   }}
-                  className="inline-flex min-h-[44px] items-center justify-center rounded-full border border-zinc-300 bg-zinc-50 px-2 py-2 text-[11px] font-semibold text-stone-800 cursor-pointer dark:border-white/15 dark:bg-[#07070A] dark:text-zinc-200"
+                  className="inline-flex min-h-[44px] items-center justify-center rounded-full border border-zinc-300 bg-zinc-50 px-2 py-2 text-[11px] font-semibold text-zinc-800 cursor-pointer dark:border-white/15 dark:bg-[#07070A] dark:text-zinc-200"
                 >
                   <span>بمنطقتي</span>
                 </button>
@@ -2091,7 +2091,7 @@ export function RapidReviewPanel({
                 type="button"
                 disabled={submitting}
                 onClick={handleSkipCard}
-                className="inline-flex min-h-[44px] items-center justify-center gap-1 rounded-full border border-zinc-200 bg-white px-2 py-2 text-xs font-medium text-stone-600 cursor-pointer dark:border-white/10 dark:bg-transparent dark:text-zinc-400"
+                className="inline-flex min-h-[44px] items-center justify-center gap-1 rounded-full border border-zinc-200 bg-white px-2 py-2 text-xs font-medium text-zinc-600 cursor-pointer dark:border-white/10 dark:bg-transparent dark:text-zinc-400"
               >
                 <SkipForward className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
                 <span>تخطي</span>

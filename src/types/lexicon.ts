@@ -156,6 +156,7 @@ export interface ReviewDecisionEvent {
 }
 
 export type UserRole = 'reviewer' | 'editor' | 'admin'
+export type AccountStatus = 'active' | 'warned' | 'suspended' | 'banned'
 
 export interface ReviewerProfile {
   id: string
@@ -163,8 +164,95 @@ export interface ReviewerProfile {
   dialect_region?: string | null
   specialty?: string | null
   github_handle?: string | null
+  public_listed?: boolean
   role: UserRole
+  account_status?: AccountStatus
+  status_reason?: string | null
+  suspended_until?: string | null
+  status_updated_at?: string | null
+  accepted_count?: number
+  attestations_count?: number
   created_at?: string
+  is_sandbox?: boolean
+}
+
+export interface PublicContributorRecord {
+  public_slug: string
+  display_name: string
+  dialect_region: string | null
+  specialty: string | null
+  github_handle: string | null
+  role: UserRole
+  accepted_count: number
+  attestations_count: number
+  joined_year: number
+  is_sandbox?: boolean
+}
+
+export type MemberMessageCategory =
+  | 'welcome'
+  | 'appreciation'
+  | 'editorial_note'
+  | 'role_update'
+  | 'warning'
+  | 'suspension_notice'
+  | 'announcement'
+
+export interface MemberMessageRecord {
+  id: string
+  recipient_id: string | null
+  is_broadcast: boolean
+  sender_id: string | null
+  sender_label: string
+  category: MemberMessageCategory
+  title: string
+  body: string
+  requires_ack: boolean
+  read_at: string | null
+  acknowledged_at: string | null
+  pinned_until: string | null
+  created_at: string
+  is_sandbox?: boolean
+}
+
+export type MemberModerationAction =
+  | 'promote'
+  | 'demote'
+  | 'warn'
+  | 'suspend'
+  | 'ban'
+  | 'restore'
+
+export interface MemberModerationEvent {
+  id: string | number
+  target_user_id: string
+  target_display_name?: string | null
+  actor_id: string | null
+  actor_display_name?: string | null
+  action_type: MemberModerationAction
+  previous_role: UserRole | null
+  new_role: UserRole | null
+  previous_status: AccountStatus | null
+  new_status: AccountStatus | null
+  reason: string | null
+  occurred_at: string
+  is_sandbox?: boolean
+}
+
+export interface MemberModerationReport {
+  id: string
+  target_user_id: string
+  target_display_name: string | null
+  reporter_id: string
+  reporter_display_name?: string | null
+  recommended_action: 'warn' | 'suspend' | 'ban'
+  reason: string
+  status: 'open' | 'resolved' | 'dismissed'
+  reviewed_by: string | null
+  admin_note: string | null
+  created_at: string
+  updated_at: string
+  is_sandbox?: boolean
 }
 
 export type PromotionRequestStatus = 'pending' | 'approved' | 'rejected'

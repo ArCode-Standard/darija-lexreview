@@ -2,6 +2,8 @@ import { ArrowLeft, ChevronLeft, ExternalLink } from 'lucide-react'
 import type { WorkbenchTab } from '../types/lexicon'
 
 interface MethodologySectionProps {
+  isAuthenticated?: boolean
+  onOpenContributors?: () => void
   onSelectWorkbenchTab?: (tab: WorkbenchTab) => void
 }
 
@@ -135,8 +137,16 @@ function StepGlyph({ kind }: { kind: 'radial' | 'matrix' | 'nodes' | 'rings' }) 
   )
 }
 
-export function MethodologySection({ onSelectWorkbenchTab }: MethodologySectionProps) {
+export function MethodologySection({
+  isAuthenticated = false,
+  onOpenContributors,
+  onSelectWorkbenchTab,
+}: MethodologySectionProps) {
   const handleJump = (tab: WorkbenchTab) => {
+    if (tab === 'submissions' && !isAuthenticated && onOpenContributors) {
+      onOpenContributors()
+      return
+    }
     onSelectWorkbenchTab?.(tab)
   }
 

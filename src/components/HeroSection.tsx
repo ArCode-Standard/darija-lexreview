@@ -12,10 +12,12 @@ interface HeroSectionProps {
   categoriesCount: number
   examplesCount: number
   dataMode: DataMode
+  isAuthenticated?: boolean
   onStartRapidReview: () => void
   onStartDetailedReview: () => void
   onSelectEntry: (entry: LexicalEntry) => void
   onQuickAddWord: (word: string) => void
+  onOpenContributors?: () => void
   onSelectWorkbenchTab?: (tab: WorkbenchTab) => void
 }
 
@@ -25,10 +27,12 @@ export function HeroSection({
   categoriesCount,
   examplesCount,
   dataMode,
+  isAuthenticated = false,
   onStartRapidReview,
   onStartDetailedReview,
   onSelectEntry,
   onQuickAddWord,
+  onOpenContributors,
   onSelectWorkbenchTab,
 }: HeroSectionProps) {
   const [imgFailed, setImgFailed] = useState(false)
@@ -426,7 +430,7 @@ export function HeroSection({
               </div>
             </button>
 
-            {/* Cell 3: Add New Word */}
+            {/* Cell 3: Add New Word (Labeled Clearly for Visitor vs Member) */}
             <button
               type="button"
               onClick={() => jumpToTab('new_entry')}
@@ -451,7 +455,7 @@ export function HeroSection({
               </svg>
               <div>
                 <p className="font-display text-sm font-bold text-zinc-950 dark:text-white">
-                  إضافة مفردة جديدة
+                  {isAuthenticated ? 'إضافة مفردة جديدة' : 'اقترح مفردة من منطقتك'}
                 </p>
                 <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
                   ٣ حقول عربية ونطق لاتيني تلقائي
@@ -459,10 +463,18 @@ export function HeroSection({
               </div>
             </button>
 
-            {/* Cell 4: Visual Archival Frame + Contributions Link */}
+            {/* Cell 4: Visitor -> Public Contributors Honor Roll | Member -> Personal Submissions */}
             <button
               type="button"
-              onClick={() => jumpToTab('submissions')}
+              onClick={() => {
+                if (isAuthenticated) {
+                  jumpToTab('submissions')
+                } else if (onOpenContributors) {
+                  onOpenContributors()
+                } else {
+                  jumpToTab('explorer')
+                }
+              }}
               className="group relative min-h-[200px] overflow-hidden text-start cursor-pointer bg-zinc-900"
             >
               {!secondaryImgFailed ? (
@@ -480,14 +492,18 @@ export function HeroSection({
               />
               <div className="relative z-10 flex h-full min-h-[200px] flex-col justify-between p-6 text-white">
                 <span className="font-mono text-[11px] uppercase tracking-widest text-[#D9FF43]">
-                  سجل الأثر المعجمي
+                  {isAuthenticated ? 'حساب المساهم' : 'المجتمع العلمي المفتوح'}
                 </span>
                 <div>
                   <p className="font-display text-base font-bold">
-                    مساهماتي ومتابعة الاعتماد
+                    {isAuthenticated
+                      ? 'مساهماتي ومتابعة الاعتماد'
+                      : 'لوحة شرف المساهمين'}
                   </p>
                   <p className="mt-1 text-xs text-zinc-300">
-                    تتبّع مسوداتك ومقترحاتك الموثقة باسمك
+                    {isAuthenticated
+                      ? 'تتبّع مسوداتك ومقترحاتك الموثقة باسمك'
+                      : 'تعرّف على المساهمين والمحررين المعتمدين في بناء المعجم'}
                   </p>
                 </div>
               </div>

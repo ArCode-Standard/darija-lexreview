@@ -1,6 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   ArrowLeft,
+  Award,
+  BarChart3,
+  Bell,
   BookOpen,
   Compass,
   Download,
@@ -12,6 +15,7 @@ import {
   Search,
   ShieldCheck,
   Sparkles,
+  UserCog,
   UserRound,
   X,
 } from 'lucide-react'
@@ -25,6 +29,7 @@ interface CommandPaletteProps {
   entries: LexicalEntry[]
   isAuthenticated: boolean
   canAccessEditorialTools: boolean
+  draftsCount?: number
   onNavigatePage: (page: AppPage, options?: { subView?: 'entries' | 'categories' }) => void
   onSelectEntry: (entry: LexicalEntry) => void
   onQuickAddWord: (word: string) => void
@@ -36,6 +41,7 @@ export function CommandPalette({
   entries,
   isAuthenticated,
   canAccessEditorialTools,
+  draftsCount = 0,
   onNavigatePage,
   onSelectEntry,
   onQuickAddWord,
@@ -73,13 +79,6 @@ export function CommandPalette({
         action: () => onNavigatePage('home'),
       },
       {
-        id: 'review' as const,
-        label: 'المراجعة السريعة بالبطاقات',
-        hint: '/review',
-        icon: Sparkles,
-        action: () => onNavigatePage('review'),
-      },
-      {
         id: 'lexicon' as const,
         label: 'تصفح مفردات المعجم',
         hint: '/lexicon',
@@ -94,34 +93,84 @@ export function CommandPalette({
         action: () => onNavigatePage('lexicon', { subView: 'categories' }),
       },
       {
-        id: 'contribute' as const,
-        label: 'إضافة مفردة أو شاهد جديد',
-        hint: '/contribute',
-        icon: FilePlus2,
-        action: () => onNavigatePage('contribute'),
+        id: 'review' as const,
+        label: 'المراجعة السريعة بالبطاقات',
+        hint: '/review',
+        icon: Sparkles,
+        action: () => onNavigatePage('review'),
       },
       {
-        id: 'submissions' as const,
-        label: 'مساهماتي ومسوداتي المحفوظة',
-        hint: '/submissions',
-        icon: FolderKanban,
-        action: () => onNavigatePage('submissions'),
+        id: 'insights' as const,
+        label: 'خارطة تغطية المعجم وفجوات الإثراء',
+        hint: '/insights',
+        icon: BarChart3,
+        action: () => onNavigatePage('insights'),
       },
-      isAuthenticated
-        ? {
-            id: 'profile' as const,
-            label: 'ملفي الشخصي وربط GitHub / Google',
-            hint: '/profile',
-            icon: UserRound,
-            action: () => onNavigatePage('profile'),
-          }
-        : {
-            id: 'auth' as const,
-            label: 'تسجيل الدخول أو إنشاء حساب مراجع',
-            hint: '/auth',
-            icon: LogIn,
-            action: () => onNavigatePage('auth'),
-          },
+      {
+        id: 'contributors' as const,
+        label: 'لوحة شرف المساهمين والهيئة العلمية',
+        hint: '/contributors',
+        icon: Award,
+        action: () => onNavigatePage('contributors'),
+      },
+      ...(isAuthenticated
+        ? [
+            {
+              id: 'contribute' as const,
+              label: 'إضافة مفردة أو شاهد جديد',
+              hint: '/contribute',
+              icon: FilePlus2,
+              action: () => onNavigatePage('contribute'),
+            },
+            {
+              id: 'submissions' as const,
+              label: 'مساهماتي ومسوداتي المحفوظة',
+              hint: '/submissions',
+              icon: FolderKanban,
+              action: () => onNavigatePage('submissions'),
+            },
+            {
+              id: 'messages' as const,
+              label: 'صندوق رسائل الأعضاء والتنبيهات',
+              hint: '/messages',
+              icon: Bell,
+              action: () => onNavigatePage('messages'),
+            },
+            {
+              id: 'profile' as const,
+              label: 'ملفي الشخصي وربط GitHub / Google',
+              hint: '/profile',
+              icon: UserRound,
+              action: () => onNavigatePage('profile'),
+            },
+          ]
+        : [
+            {
+              id: 'auth' as const,
+              label: 'تسجيل الدخول أو إنشاء حساب مساهم',
+              hint: '/auth',
+              icon: LogIn,
+              action: () => onNavigatePage('auth'),
+            },
+            {
+              id: 'contribute' as const,
+              label: 'اقترح مفردة جديدة (حفظ مسودة زائر)',
+              hint: '/contribute',
+              icon: FilePlus2,
+              action: () => onNavigatePage('contribute'),
+            },
+            ...(draftsCount > 0
+              ? [
+                  {
+                    id: 'submissions' as const,
+                    label: `مسودات المتصفح المحفوظة (${draftsCount})`,
+                    hint: '/submissions',
+                    icon: FolderKanban,
+                    action: () => onNavigatePage('submissions'),
+                  },
+                ]
+              : []),
+          ]),
       ...(canAccessEditorialTools
         ? [
             {
@@ -130,6 +179,13 @@ export function CommandPalette({
               hint: '/editorial',
               icon: ShieldCheck,
               action: () => onNavigatePage('editorial'),
+            },
+            {
+              id: 'members' as const,
+              label: 'إدارة الأعضاء والترقية والطرد',
+              hint: '/members',
+              icon: UserCog,
+              action: () => onNavigatePage('members'),
             },
             {
               id: 'export' as const,
@@ -141,7 +197,7 @@ export function CommandPalette({
           ]
         : []),
     ],
-    [isAuthenticated, canAccessEditorialTools, onNavigatePage],
+    [isAuthenticated, canAccessEditorialTools, draftsCount, onNavigatePage],
   )
 
   const trimmed = query.trim()

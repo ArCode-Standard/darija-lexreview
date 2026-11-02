@@ -1,8 +1,9 @@
 -- =============================================================================
 -- ArCode Darija LexReview — Complete Synchronized Supabase Schema
--- Synchronized through migration 20261101160000_close_structural_architecture_gaps.sql
+-- Synchronized through migration 20261102150000_contributors_governance_and_messages.sql
 -- Review workflow, audit ledger, community attestations (headwords + ctx-* examples),
--- RBAC role promotions, and SHA-256 official release manifests.
+-- RBAC role promotions, public contributors directory, member standing & messages,
+-- and SHA-256 official release manifests.
 -- The canonical lexical dataset remains versioned in GitHub.
 -- Safe to apply idempotently on fresh or existing Supabase deployments.
 -- =============================================================================
@@ -1035,6 +1036,100 @@ grant update (status, reviewed_by, admin_note, updated_at)
 
 grant select, insert, update, delete on table public.community_attestations to authenticated;
 grant select on table public.release_manifests to anon, authenticated;
+
+-- -----------------------------------------------------------------------------
+-- 6. Public Contributors Directory, Member Standing & Messages (20261102150000)
+-- -----------------------------------------------------------------------------
+alter table public.reviewer_profiles
+  add column if not exists public_listed boolean not null default true,
+  add column if not exists account_status text not null default 'active'
+    check (account_status in ('active', 'warned', 'suspended', 'banned')),
+  add column if not exists status_reason text
+    check (status_reason is null or char_length(status_reason) <= 1000),
+  add column if not exists suspended_until timestamptz,
+  add column if not exists status_updated_at timestamptz,
+  add column if not exists status_updated_by uuid references auth.users(id) on delete set null;
+
+create table if not exists public.member_moderation_events (
+  id bigint generated always as identity primary key,
+  target_user_id uuid not null references auth.users(id) on delete cascade,
+  actor_id uuid references auth.users(id) on delete set null,
+  action_type text not null
+    check (action_type in ('promote', 'demote', 'warn', 'suspend', 'ban', 'restore')),
+  previous_role text,
+  new_role text,
+  previous_status text,
+  new_status text,
+  reason text check (reason is null or char_length(reason) <= 1000),
+  occurred_at timestamptz not null default now()
+);
+
+create table if not exists public.member_moderation_reports (
+  id uuid primary key default gen_random_uuid(),
+  target_user_id uuid not null references auth.users(id) on delete cascade,
+  target_display_name text check (target_display_name is null or char_length(target_display_name) <= 120),
+  reporter_id uuid not null default auth.uid() references auth.users(id) on delete cascade,
+  recommended_action text not null default 'warn'
+    check (recommended_action in ('warn', 'suspend', 'ban')),
+  reason text not null
+    check (char_length(btrim(reason)) between 10 and 1500),
+  status text not null default 'open'
+    check (status in ('open', 'resolved', 'dismissed')),
+  reviewed_by uuid references auth.users(id) on delete set null,
+  admin_note text check (admin_note is null or char_length(admin_note) <= 1000),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.member_messages (
+  id uuid primary key default gen_random_uuid(),
+  recipient_id uuid references auth.users(id) on delete cascade,
+  is_broadcast boolean not null default false,
+  sender_id uuid references auth.users(id) on delete set null,
+  sender_label text not null default 'إدارة المعجم'
+    check (char_length(btrim(sender_label)) between 2 and 120),
+  category text not null
+    check (category in (
+      'welcome',
+      'appreciation',
+      'editorial_note',
+      'role_update',
+      'warning',
+      'suspension_notice',
+      'announcement'
+    )),
+  title text not null
+    check (char_length(btrim(title)) between 2 and 160),
+  body text not null
+    check (char_length(btrim(body)) between 4 and 4000),
+  requires_ack boolean not null default false,
+  read_at timestamptz,
+  acknowledged_at timestamptz,
+  pinned_until timestamptz,
+  created_at timestamptz not null default now(),
+  constraint member_messages_target_check
+    check (
+      (is_broadcast = true and recipient_id is null and requires_ack = false)
+      or (is_broadcast = false and recipient_id is not null)
+    )
+);
+
+alter table public.member_moderation_events enable row level security;
+alter table public.member_moderation_reports enable row level security;
+alter table public.member_messages enable row level security;
+
+grant select on table public.member_moderation_events to authenticated;
+grant select, insert on table public.member_moderation_reports to authenticated;
+grant update (status, reviewed_by, admin_note, updated_at)
+  on table public.member_moderation_reports to authenticated;
+grant select on table public.member_messages to anon, authenticated;
+grant insert on table public.member_messages to authenticated;
+grant update (read_at, acknowledged_at, pinned_until)
+  on table public.member_messages to authenticated;
+grant update (
+  display_name, dialect_region, specialty, github_handle, public_listed,
+  role, account_status, status_reason, suspended_until
+) on table public.reviewer_profiles to authenticated;
 
 -- Bootstrap initial admin once via SQL Editor:
 -- update public.reviewer_profiles set role = 'admin' where id = '<INITIAL_ADMIN_UUID>';

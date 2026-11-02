@@ -609,13 +609,13 @@ export function EditorModerationPanel({
   return (
     <div className="space-y-6">
       {/* Top Mode & Authorization Governance Strip */}
-      <div className="rounded-xl border border-[#E5DFD3] bg-white p-5 dark:border-[#2E2B27] dark:bg-[#1C1A18]">
+      <div className="rounded-xl border border-zinc-200 bg-white p-5 dark:border-white/10 dark:bg-[#0B0B10]">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
-            <h3 className="font-display text-lg font-bold text-stone-900 dark:text-stone-100">
+            <h3 className="font-display text-lg font-bold text-zinc-950 dark:text-white">
               لوحة تحكيم المحررين وفحص المقترحات
             </h3>
-            <p className="mt-1 text-xs text-stone-600 dark:text-stone-400">
+            <p className="mt-1 text-xs text-zinc-600 dark:text-zinc-400">
               مقارنة التعديلات المقترحة بالمتن الرسمي، وتهذيب الضبط اللغوي، وفحص سلامة الشواهد قبل الاعتماد.
             </p>
           </div>
@@ -624,15 +624,15 @@ export function EditorModerationPanel({
             <div
               role="group"
               aria-label="مصدر طابور التحكيم"
-              className="inline-flex items-center gap-1 rounded-lg border border-[#E5DFD3] bg-[#F3EFE6] p-1 dark:border-[#2E2B27] dark:bg-[#141312]"
+              className="inline-flex items-center gap-1 rounded-lg border border-zinc-200 bg-zinc-100 p-1 dark:border-white/10 dark:bg-[#07070A]"
             >
               <button
                 type="button"
                 onClick={() => setQueueSource('live')}
                 className={`min-h-[34px] rounded-md px-3 py-1.5 text-xs font-semibold transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
                   queueSource === 'live'
-                    ? 'bg-white text-stone-900 shadow-2xs dark:bg-[#2A2622] dark:text-stone-100'
-                    : 'text-stone-600 hover:text-stone-900 dark:text-stone-400'
+                    ? 'bg-zinc-950 text-white dark:bg-[#D9FF43] dark:text-[#050507]'
+                    : 'text-zinc-600 hover:text-zinc-950 dark:text-zinc-400'
                 }`}
               >
                 سجل Supabase الحي
@@ -642,8 +642,8 @@ export function EditorModerationPanel({
                 onClick={() => setQueueSource('sandbox')}
                 className={`min-h-[34px] rounded-md px-3 py-1.5 text-xs font-semibold transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
                   queueSource === 'sandbox'
-                    ? 'bg-white text-stone-900 shadow-2xs dark:bg-[#2A2622] dark:text-stone-100'
-                    : 'text-stone-600 hover:text-stone-900 dark:text-stone-400'
+                    ? 'bg-zinc-950 text-white dark:bg-[#D9FF43] dark:text-[#050507]'
+                    : 'text-zinc-600 hover:text-zinc-950 dark:text-zinc-400'
                 }`}
               >
                 طابور المحاكاة المحلي ({sandboxItems.length})
@@ -654,7 +654,7 @@ export function EditorModerationPanel({
               <button
                 type="button"
                 onClick={() => onGoToExporter(queueSource)}
-                className="inline-flex min-h-[38px] items-center gap-1.5 rounded-lg bg-[#0F5C4E] px-4 py-1.5 text-xs font-semibold text-white hover:bg-[#0B463B] whitespace-nowrap shrink-0 cursor-pointer dark:bg-[#147A67]"
+                className="inline-flex min-h-[38px] items-center gap-1.5 rounded-lg bg-zinc-950 px-4 py-1.5 text-xs font-semibold text-white hover:bg-zinc-800 whitespace-nowrap shrink-0 cursor-pointer dark:bg-[#D9FF43] dark:text-[#050507] dark:hover:bg-[#e5ff73]"
               >
                 <span>تصدير المعتمد ({acceptedCountInSource})</span>
                 <ArrowLeft className="h-3.5 w-3.5" />
@@ -663,16 +663,16 @@ export function EditorModerationPanel({
           </div>
         </div>
 
-        <div className="mt-5 grid grid-cols-2 gap-3 border-t border-stone-100 pt-4 sm:grid-cols-4 dark:border-stone-800">
+        <div className="mt-5 grid grid-cols-2 gap-3 border-t border-zinc-200/80 pt-4 sm:grid-cols-4 dark:border-white/10">
           {[
             { label: 'إجمالي السجلات', value: activePool.length },
             { label: 'بانتظار القرار', value: activePool.filter((item) => item.status === 'pending').length },
             { label: 'تحتاج تعديلاً', value: activePool.filter((item) => item.status === 'needs_changes').length },
             { label: 'جاهزة للتصدير', value: acceptedCountInSource },
           ].map((metric) => (
-            <div key={metric.label} className="rounded-xl bg-[#F7F6F2] px-4 py-3 dark:bg-[#141312]">
-              <p className="text-[11px] font-medium text-stone-500 dark:text-stone-400">{metric.label}</p>
-              <p className="mt-1 text-2xl font-semibold tracking-tight tabular-nums text-stone-900 dark:text-stone-100">{metric.value.toLocaleString('en-US')}</p>
+            <div key={metric.label} className="rounded-xl bg-zinc-50/70 px-4 py-3 dark:bg-[#07070A]">
+              <p className="text-[11px] font-medium text-zinc-500 dark:text-zinc-400">{metric.label}</p>
+              <p className="mt-1 text-2xl font-semibold tracking-tight tabular-nums text-zinc-950 dark:text-white">{metric.value.toLocaleString('en-US')}</p>
             </div>
           ))}
         </div>
@@ -698,7 +698,7 @@ export function EditorModerationPanel({
                 <button
                   type="button"
                   onClick={onOpenAuth}
-                  className="min-h-[36px] rounded-lg bg-[#0F5C4E] px-4 py-1.5 text-xs font-semibold text-white hover:bg-[#0B463B] whitespace-nowrap cursor-pointer"
+                  className="min-h-[36px] rounded-lg bg-zinc-950 px-4 py-1.5 text-xs font-semibold text-white hover:bg-zinc-800 dark:bg-[#D9FF43] dark:text-[#050507] dark:hover:bg-[#e5ff73] whitespace-nowrap cursor-pointer"
                 >
                   تسجيل الدخول
                 </button>
@@ -706,7 +706,7 @@ export function EditorModerationPanel({
               <button
                 type="button"
                 onClick={() => setQueueSource('sandbox')}
-                className="min-h-[36px] rounded-lg border border-amber-400 bg-white px-3.5 py-1.5 text-xs font-semibold text-amber-950 hover:bg-amber-100/50 whitespace-nowrap cursor-pointer dark:border-amber-700 dark:bg-[#141312] dark:text-amber-200"
+                className="min-h-[36px] rounded-lg border border-amber-400 bg-white px-3.5 py-1.5 text-xs font-semibold text-amber-950 hover:bg-amber-100/50 whitespace-nowrap cursor-pointer dark:border-amber-700 dark:bg-[#07070A] dark:text-amber-200"
               >
                 التبديل إلى المحاكاة المحلية
               </button>
@@ -715,14 +715,14 @@ export function EditorModerationPanel({
         )}
 
         {queueSource === 'sandbox' && (
-          <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-[#D6CEBE] bg-[#FBF9F5] px-4 py-2.5 text-xs text-stone-700 dark:border-[#3A3530] dark:bg-[#141312] dark:text-stone-300">
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-zinc-300 bg-zinc-50 px-4 py-2.5 text-xs text-zinc-700 dark:border-white/15 dark:bg-[#07070A] dark:text-zinc-300">
             <span>
               <strong>وضع المحاكاة التحريرية المعزول:</strong> جميع القرارات هنا محفوظة في متصفحك فقط ولا تختلط بالسجل الرسمي.
             </span>
             <button
               type="button"
               onClick={onResetSandbox}
-              className="inline-flex items-center gap-1 text-xs font-medium text-stone-600 hover:text-stone-900 whitespace-nowrap cursor-pointer dark:text-stone-400 dark:hover:text-stone-100"
+              className="inline-flex items-center gap-1 text-xs font-medium text-zinc-600 hover:text-zinc-950 whitespace-nowrap cursor-pointer dark:text-zinc-400 dark:hover:text-white"
             >
               <RotateCcw className="h-3.5 w-3.5" />
               <span>إعادة ضبط أمثلة المحاكاة</span>
@@ -730,11 +730,11 @@ export function EditorModerationPanel({
           </div>
         )}
         {/* Sub-view Switcher: Submissions Adjudication vs RBAC Role Governance */}
-        <div className="mt-4 pt-4 border-t border-[#E5DFD3] flex flex-wrap items-center justify-between gap-3 dark:border-[#2E2B27]">
+        <div className="mt-4 pt-4 border-t border-zinc-200 flex flex-wrap items-center justify-between gap-3 dark:border-white/10">
           <div
             role="tablist"
             aria-label="أقسام التحكيم والحوكمة"
-            className="inline-flex items-center gap-1 rounded-lg bg-[#F3EFE6] p-1 dark:bg-[#141312]"
+            className="inline-flex items-center gap-1 rounded-lg bg-zinc-100 p-1 dark:bg-[#07070A]"
           >
             <button
               type="button"
@@ -743,8 +743,8 @@ export function EditorModerationPanel({
               onClick={() => setModerationSection('adjudication')}
               className={`min-h-[34px] rounded-md px-3.5 py-1.5 text-xs font-semibold transition-colors whitespace-nowrap cursor-pointer ${
                 moderationSection === 'adjudication'
-                  ? 'bg-white text-stone-900 shadow-2xs dark:bg-[#2A2622] dark:text-stone-100'
-                  : 'text-stone-600 hover:text-stone-900 dark:text-stone-400'
+                  ? 'bg-zinc-950 text-white dark:bg-[#D9FF43] dark:text-[#050507]'
+                  : 'text-zinc-600 hover:text-zinc-950 dark:text-zinc-400'
               }`}
             >
               طابور التحكيم ولوحة النشاط
@@ -756,8 +756,8 @@ export function EditorModerationPanel({
               onClick={() => setModerationSection('governance')}
               className={`min-h-[34px] rounded-md px-3.5 py-1.5 text-xs font-semibold transition-colors whitespace-nowrap cursor-pointer ${
                 moderationSection === 'governance'
-                  ? 'bg-white text-stone-900 shadow-2xs dark:bg-[#2A2622] dark:text-stone-100'
-                  : 'text-stone-600 hover:text-stone-900 dark:text-stone-400'
+                  ? 'bg-zinc-950 text-white dark:bg-[#D9FF43] dark:text-[#050507]'
+                  : 'text-zinc-600 hover:text-zinc-950 dark:text-zinc-400'
               }`}
             >
               حوكمة الصلاحيات وطلبات الترقية
@@ -768,7 +768,7 @@ export function EditorModerationPanel({
             </button>
           </div>
 
-          <span className="text-xs text-stone-500 dark:text-stone-400">
+          <span className="text-xs text-zinc-500 dark:text-zinc-400">
             {moderationSection === 'governance'
               ? 'مراجعة طلبات الترقية إلى «محرر معتمد» وإدارة صلاحيات الأعضاء (RBAC)'
               : 'مراجعة المقترحات المعجمية واعتماد الدفعات للمتن الرسمي'}
@@ -805,9 +805,9 @@ export function EditorModerationPanel({
           {(queueSource === 'sandbox' || isAuthorizedLiveEditor) && (
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-12 items-start">
           {/* Queue List Sidebar */}
-          <aside className="lg:col-span-4 rounded-xl border border-[#E5DFD3] bg-white p-4 sm:p-5 space-y-3.5 dark:border-[#2E2B27] dark:bg-[#1C1A18]">
+          <aside className="lg:col-span-4 rounded-xl border border-zinc-200 bg-white p-4 sm:p-5 space-y-3.5 dark:border-white/10 dark:bg-[#0B0B10]">
             <div className="flex items-center justify-between gap-2">
-              <span className="font-display text-sm font-bold text-stone-900 dark:text-stone-100">
+              <span className="font-display text-sm font-bold text-zinc-950 dark:text-white">
                 قائمة المقترحات ({filteredQueue.length})
               </span>
               {queueSource === 'live' && (
@@ -815,7 +815,7 @@ export function EditorModerationPanel({
                   type="button"
                   onClick={fetchLiveQueue}
                   disabled={loadingLive}
-                  className="inline-flex items-center gap-1 text-xs text-stone-600 hover:text-stone-900 cursor-pointer dark:text-stone-400"
+                  className="inline-flex items-center gap-1 text-xs text-zinc-600 hover:text-zinc-950 cursor-pointer dark:text-zinc-400"
                 >
                   <RefreshCw className={`h-3.5 w-3.5 ${loadingLive ? 'animate-spin' : ''}`} />
                   <span>تحديث</span>
@@ -823,7 +823,7 @@ export function EditorModerationPanel({
               )}
             </div>
 
-            <div className="flex flex-wrap gap-1 rounded-lg bg-[#F3EFE6] p-1 dark:bg-[#141312]">
+            <div className="flex flex-wrap gap-1 rounded-lg bg-zinc-100 p-1 dark:bg-[#07070A]">
               {(
                 [
                   ['pending', 'معلق'],
@@ -842,8 +842,8 @@ export function EditorModerationPanel({
                   onClick={() => setStatusFilter(st)}
                   className={`flex-1 min-h-[30px] rounded-md px-2 py-1 text-[11px] font-medium transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
                     statusFilter === st
-                      ? 'bg-white text-stone-900 shadow-2xs dark:bg-[#2A2622] dark:text-stone-100'
-                      : 'text-stone-600 hover:text-stone-900 dark:text-stone-400'
+                      ? 'bg-zinc-950 text-white dark:bg-[#D9FF43] dark:text-[#050507]'
+                      : 'text-zinc-600 hover:text-zinc-950 dark:text-zinc-400'
                   }`}
                 >
                   {label}
@@ -856,7 +856,7 @@ export function EditorModerationPanel({
                 aria-label="نوع المقترح"
                 value={kindFilter}
                 onChange={(e) => setKindFilter(e.target.value as 'all' | 'edit' | 'new')}
-                className="min-h-[36px] rounded-lg border border-[#D6CEBE] bg-[#FBF9F5] px-2.5 py-1.5 text-xs text-stone-800 dark:border-[#3A3530] dark:bg-[#141312] dark:text-stone-200"
+                className="min-h-[36px] rounded-lg border border-zinc-300 bg-zinc-50 px-2.5 py-1.5 text-xs text-zinc-800 dark:border-white/15 dark:bg-[#07070A] dark:text-zinc-200"
               >
                 <option value="all">جميع الأنواع</option>
                 <option value="edit">تعديل مدخل قائم</option>
@@ -869,7 +869,7 @@ export function EditorModerationPanel({
                 onChange={(e) =>
                   setCrowdSignalFilter(e.target.value as 'all' | 'flagged' | 'verified')
                 }
-                className="min-h-[36px] rounded-lg border border-[#D6CEBE] bg-[#FBF9F5] px-2.5 py-1.5 text-xs text-stone-800 dark:border-[#3A3530] dark:bg-[#141312] dark:text-stone-200"
+                className="min-h-[36px] rounded-lg border border-zinc-300 bg-zinc-50 px-2.5 py-1.5 text-xs text-zinc-800 dark:border-white/15 dark:bg-[#07070A] dark:text-zinc-200"
               >
                 <option value="all">كل إشارات المجتمع</option>
                 <option value="flagged">عليها اعتراض بشري (لا)</option>
@@ -882,7 +882,7 @@ export function EditorModerationPanel({
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="بحث سريع في الطابور..."
-              className="w-full min-h-[36px] rounded-lg border border-[#D6CEBE] bg-[#FBF9F5] px-2.5 py-1.5 text-xs text-stone-900 dark:border-[#3A3530] dark:bg-[#141312] dark:text-stone-100"
+              className="w-full min-h-[36px] rounded-lg border border-zinc-300 bg-zinc-50 px-2.5 py-1.5 text-xs text-zinc-950 dark:border-white/15 dark:bg-[#07070A] dark:text-white"
             />
 
             {liveError && queueSource === 'live' && (
@@ -891,14 +891,14 @@ export function EditorModerationPanel({
 
             {/* Batch Selection & Bulk Approval Toolbar */}
             {(selectableFilteredIds.length > 0 || selectedBatchIds.size > 0) && (
-              <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-[#E5DFD3] bg-[#FBF9F5] px-3 py-2 text-xs dark:border-[#2E2B27] dark:bg-[#141312]">
+              <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 text-xs dark:border-white/10 dark:bg-[#07070A]">
                 {selectableFilteredIds.length > 0 ? (
-                  <label className="inline-flex items-center gap-2 font-medium text-stone-700 cursor-pointer dark:text-stone-300">
+                  <label className="inline-flex items-center gap-2 font-medium text-zinc-700 cursor-pointer dark:text-zinc-300">
                     <input
                       type="checkbox"
                       checked={allSelectableChecked}
                       onChange={handleToggleSelectAllVisible}
-                      className="h-3.5 w-3.5 accent-[#0F5C4E]"
+                      className="h-3.5 w-3.5 accent-zinc-950 dark:accent-[#D9FF43]"
                     />
                     <span>
                       {selectedBatchIds.size > 0
@@ -908,13 +908,13 @@ export function EditorModerationPanel({
                   </label>
                 ) : (
                   <div className="flex items-center gap-2">
-                    <span className="font-medium text-stone-700 dark:text-stone-300">
+                    <span className="font-medium text-zinc-700 dark:text-zinc-300">
                       محدد للدفعة ({selectedBatchIds.size})
                     </span>
                     <button
                       type="button"
                       onClick={() => setSelectedBatchIds(new Set())}
-                      className="text-[11px] text-stone-500 underline hover:text-stone-800 cursor-pointer dark:text-stone-400 dark:hover:text-stone-200"
+                      className="text-[11px] text-zinc-500 underline hover:text-zinc-800 cursor-pointer dark:text-zinc-400 dark:hover:text-zinc-200"
                     >
                       إلغاء التحديد
                     </button>
@@ -928,7 +928,7 @@ export function EditorModerationPanel({
                       setBulkError(null)
                       setBulkModalOpen(true)
                     }}
-                    className="inline-flex min-h-[30px] items-center gap-1.5 rounded-md bg-[#0F5C4E] px-2.5 py-1 text-[11px] font-semibold text-white hover:bg-[#0B463B] whitespace-nowrap shrink-0 cursor-pointer dark:bg-[#147A67]"
+                    className="inline-flex min-h-[30px] items-center gap-1.5 rounded-md bg-zinc-950 px-2.5 py-1 text-[11px] font-semibold text-white hover:bg-zinc-800 whitespace-nowrap shrink-0 cursor-pointer dark:bg-[#D9FF43] dark:text-[#050507] dark:hover:bg-[#e5ff73]"
                   >
                     <CheckSquare className="h-3.5 w-3.5" aria-hidden="true" />
                     <span>اعتماد الدفعة ({selectedBatchIds.size})</span>
@@ -939,9 +939,9 @@ export function EditorModerationPanel({
 
             <div className="max-h-[520px] overflow-y-auto space-y-1.5 pe-1">
               {loadingLive && queueSource === 'live' ? (
-                <div className="py-8 text-center text-xs text-stone-500">جارٍ جلب الطابور...</div>
+                <div className="py-8 text-center text-xs text-zinc-500">جارٍ جلب الطابور...</div>
               ) : filteredQueue.length === 0 ? (
-                <div className="py-10 text-center text-xs text-stone-500 dark:text-stone-400">
+                <div className="py-10 text-center text-xs text-zinc-500 dark:text-zinc-400">
                   لا توجد مقترحات مطابقة لهذا الفلتر حالياً.
                 </div>
               ) : (
@@ -960,8 +960,8 @@ export function EditorModerationPanel({
                       key={item.id}
                       className={`flex items-start gap-2.5 rounded-lg border px-3 py-3 transition-colors ${
                         isSelected
-                          ? 'border-[#B8AE99] bg-[#EFECE4] dark:border-[#4A433B] dark:bg-[#2A2622]'
-                          : 'border-transparent hover:border-[#E5DFD3] hover:bg-[#FBF9F5] dark:hover:border-[#2E2B27] dark:hover:bg-[#141312]'
+                          ? 'border-zinc-950 bg-zinc-100 dark:border-[#D9FF43]/60 dark:bg-[#D9FF43]/10'
+                          : 'border-transparent hover:border-zinc-200 hover:bg-zinc-50 dark:hover:border-white/10 dark:hover:bg-[#07070A]'
                       }`}
                     >
                       <input
@@ -977,7 +977,7 @@ export function EditorModerationPanel({
                               ? 'هذا المقترح معتمد مسبقاً'
                               : 'تحديد للاعتماد الجماعي'
                         }
-                        className="mt-1 h-4 w-4 accent-[#0F5C4E] shrink-0 disabled:opacity-30 cursor-pointer disabled:cursor-not-allowed"
+                        className="mt-1 h-4 w-4 accent-zinc-950 dark:accent-[#D9FF43] shrink-0 disabled:opacity-30 cursor-pointer disabled:cursor-not-allowed"
                       />
 
                       <button
@@ -986,17 +986,17 @@ export function EditorModerationPanel({
                         className="flex-1 min-w-0 text-start cursor-pointer"
                       >
                         <div className="flex items-baseline justify-between gap-2">
-                          <span className="font-display text-sm font-bold text-stone-900 truncate dark:text-stone-100">
+                          <span className="font-display text-sm font-bold text-zinc-950 truncate dark:text-white">
                             {displayTitle}
                           </span>
-                          <span className="font-mono text-[11px] tabular-nums text-stone-500 shrink-0 dark:text-stone-400">
+                          <span className="font-mono text-[11px] tabular-nums text-zinc-500 shrink-0 dark:text-zinc-400">
                             {isNew ? 'NEW' : formatAccessionCode(item.entry_id, null)}
                           </span>
                         </div>
-                        <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-[11px] text-stone-600 dark:text-stone-400">
+                        <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-[11px] text-zinc-600 dark:text-zinc-400">
                           <span>{isNew ? 'إضافة جديدة' : 'تعديل مدخل'}</span>
                           <span aria-hidden="true">·</span>
-                          <span className="font-semibold text-[#0F5C4E] dark:text-[#4FD1C5]">
+                          <span className="font-semibold text-emerald-700 dark:text-[#D9FF43]">
                             {formatStatusLabel(item.status)}
                           </span>
                           <span aria-hidden="true">·</span>
@@ -1006,7 +1006,7 @@ export function EditorModerationPanel({
                           {attestationSummaries[item.entry_id] && (
                             <>
                               <span aria-hidden="true">·</span>
-                              <span className="font-mono tabular-nums text-stone-700 dark:text-stone-300">
+                              <span className="font-mono tabular-nums text-zinc-700 dark:text-zinc-300">
                                 {attestationSummaries[item.entry_id].accurateCount} نعم /{' '}
                                 {attestationSummaries[item.entry_id].flaggedCount} لا
                               </span>
@@ -1022,7 +1022,7 @@ export function EditorModerationPanel({
           </aside>
 
           {/* Adjudication Detail Pane */}
-          <div className="lg:col-span-8 rounded-xl border border-[#E5DFD3] bg-white p-5 sm:p-8 dark:border-[#2E2B27] dark:bg-[#1C1A18]">
+          <div className="lg:col-span-8 rounded-xl border border-zinc-200 bg-white p-5 sm:p-8 dark:border-white/10 dark:bg-[#0B0B10]">
             {!activeSubmission ? (
               <div className="space-y-4 py-12">
                 {actionMessage && (
@@ -1037,17 +1037,17 @@ export function EditorModerationPanel({
                     {actionMessage.text}
                   </div>
                 )}
-                <div className="text-center text-sm text-stone-500 dark:text-stone-400">
+                <div className="text-center text-sm text-zinc-500 dark:text-zinc-400">
                   اختر مقترحاً من القائمة الجانبية لفحصه ومقارنته بالمتن الرسمي.
                 </div>
               </div>
             ) : (
               <div className="space-y-6">
                 {/* Header */}
-                <div className="flex flex-wrap items-start justify-between gap-4 pb-5 border-b border-[#E5DFD3] dark:border-[#2E2B27]">
+                <div className="flex flex-wrap items-start justify-between gap-4 pb-5 border-b border-zinc-200 dark:border-white/10">
                   <div>
-                    <div className="flex flex-wrap items-center gap-2 text-xs text-stone-500 dark:text-stone-400">
-                      <span className="font-mono font-semibold text-stone-800 dark:text-stone-200">
+                    <div className="flex flex-wrap items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400">
+                      <span className="font-mono font-semibold text-zinc-800 dark:text-zinc-200">
                         {isNewEntrySubmission(activeSubmission)
                           ? 'مقترح مفردة جديدة (NEW)'
                           : `تعديل على ${formatAccessionCode(activeSubmission.entry_id, targetCanonicalEntry?.numericId ?? null)}`}
@@ -1059,7 +1059,7 @@ export function EditorModerationPanel({
                         {new Date(activeSubmission.created_at).toLocaleString('ar-MA')}
                       </span>
                     </div>
-                    <h4 className="mt-2 font-display text-2xl font-bold text-stone-900 dark:text-stone-100">
+                    <h4 className="mt-2 font-display text-2xl font-bold text-zinc-950 dark:text-white">
                       {isNewEntrySubmission(activeSubmission)
                         ? editableProposed.word_ar || 'مفردة جديدة'
                         : targetCanonicalEntry?.word || `مدخل #${activeSubmission.entry_id}`}
@@ -1072,15 +1072,15 @@ export function EditorModerationPanel({
                       onClick={() => setEditMode((v) => !v)}
                       className={`inline-flex min-h-[36px] items-center gap-1.5 rounded-lg border px-3.5 py-1.5 text-xs font-semibold transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
                         editMode
-                          ? 'border-[#0F5C4E] bg-[#0F5C4E] text-white dark:bg-[#147A67]'
-                          : 'border-[#D6CEBE] bg-[#FBF9F5] text-stone-800 hover:bg-[#EFECE4] dark:border-[#3A3530] dark:bg-[#141312] dark:text-stone-200'
+                          ? 'border-zinc-950 bg-zinc-950 text-white dark:border-[#D9FF43] dark:bg-[#D9FF43] dark:text-[#050507]'
+                          : 'border-zinc-300 bg-zinc-50 text-zinc-800 hover:bg-zinc-100 dark:border-white/15 dark:bg-[#07070A] dark:text-zinc-200'
                       }`}
                     >
                       <Edit3 className="h-3.5 w-3.5" />
                       <span>{editMode ? 'إنهاء تهذيب الحقول' : 'تهذيب الحقول (محاكاة)'}</span>
                     </button>
                   ) : (
-                    <span className="text-[11px] text-stone-500 dark:text-stone-400">
+                    <span className="text-[11px] text-zinc-500 dark:text-zinc-400">
                       {activeSubmission.status === 'merged'
                         ? `مدمج ومؤرشف رسمياً${activeSubmission.exported_in_version ? ` (v${activeSubmission.exported_in_version})` : ''}`
                         : 'محتوى المقترح ثابت بعد الإرسال (اطلب تعديلاً عند الحاجة)'}
@@ -1091,12 +1091,12 @@ export function EditorModerationPanel({
                 {/* Crowd Human Validation Signals + Weighted Trust Score on Target Entry */}
                 {!isNewEntrySubmission(activeSubmission) &&
                   attestationSummaries[activeSubmission.entry_id] && (
-                    <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-[#E5DFD3] bg-[#FBF9F5] px-3.5 py-2.5 text-xs text-stone-700 dark:border-[#2E2B27] dark:bg-[#141312] dark:text-stone-300">
+                    <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-zinc-200 bg-zinc-50 px-3.5 py-2.5 text-xs text-zinc-700 dark:border-white/10 dark:bg-[#07070A] dark:text-zinc-300">
                       <div className="flex flex-wrap items-center gap-2">
-                        <span className="font-semibold text-stone-900 dark:text-stone-100">
+                        <span className="font-semibold text-zinc-950 dark:text-white">
                           إشارات المراجعة البشرية الموزونة:
                         </span>
-                        <span className="font-mono tabular-nums text-[#0F5C4E] dark:text-[#4FD1C5]">
+                        <span className="font-mono tabular-nums text-emerald-700 dark:text-[#D9FF43]">
                           {attestationSummaries[activeSubmission.entry_id].accurateCount} نعم (وزن الثقة:{' '}
                           {(
                             attestationSummaries[activeSubmission.entry_id].weightedAccurateScore ??
@@ -1134,9 +1134,9 @@ export function EditorModerationPanel({
 
                 {/* Supersedes Lineage Notice */}
                 {activeSubmission.supersedes_id && (
-                  <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-[#D6CEBE] bg-[#FBF9F5] px-3.5 py-2.5 text-xs text-stone-800 dark:border-[#3A3530] dark:bg-[#141312] dark:text-stone-200">
+                  <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-zinc-300 bg-zinc-50 px-3.5 py-2.5 text-xs text-zinc-800 dark:border-white/15 dark:bg-[#07070A] dark:text-zinc-200">
                     <div className="flex items-center gap-2">
-                      <GitBranch className="h-4 w-4 shrink-0 text-[#0F5C4E] dark:text-[#4FD1C5]" />
+                      <GitBranch className="h-4 w-4 shrink-0 text-emerald-700 dark:text-[#D9FF43]" />
                       <span>
                         هذا المقترح <strong>نسخة منقحة</strong> تحل محل مقترح سابق لنفس المساهم.
                       </span>
@@ -1148,7 +1148,7 @@ export function EditorModerationPanel({
                           setStatusFilter('all')
                           setSelectedId(activeSubmission.supersedes_id ?? '')
                         }}
-                        className="font-semibold text-[#0F5C4E] hover:underline whitespace-nowrap cursor-pointer dark:text-[#4FD1C5]"
+                        className="font-semibold text-emerald-700 hover:underline whitespace-nowrap cursor-pointer dark:text-[#D9FF43]"
                       >
                         عرض المقترح السابق
                       </button>
@@ -1173,13 +1173,13 @@ export function EditorModerationPanel({
 
                 {/* Side-by-Side Comparison / Inline Polish Table */}
                 <div>
-                  <h5 className="text-xs font-semibold text-stone-800 mb-3 dark:text-stone-200">
+                  <h5 className="text-xs font-semibold text-zinc-800 mb-3 dark:text-zinc-200">
                     المقارنة التفصيلية مع المتن الرسمي
                   </h5>
-                  <div className="overflow-x-auto rounded-lg border border-[#E5DFD3] dark:border-[#2E2B27]">
+                  <div className="overflow-x-auto rounded-lg border border-zinc-200 dark:border-white/10">
                     <table className="w-full text-start border-collapse text-xs">
                       <thead>
-                        <tr className="border-b border-[#E5DFD3] bg-[#FBF9F5] text-stone-600 dark:border-[#2E2B27] dark:bg-[#141312] dark:text-stone-400">
+                        <tr className="border-b border-zinc-200 bg-zinc-50 text-zinc-600 dark:border-white/10 dark:bg-[#07070A] dark:text-zinc-400">
                           <th className="py-2.5 px-3 text-start font-medium w-1/4">الحقل</th>
                           {!isNewEntrySubmission(activeSubmission) && (
                             <th className="py-2.5 px-3 text-start font-medium w-1/3">
@@ -1191,7 +1191,7 @@ export function EditorModerationPanel({
                           </th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-[#E5DFD3] dark:divide-[#2E2B27]">
+                      <tbody className="divide-y divide-zinc-200 dark:divide-white/10">
                         {DIFF_FIELDS.map((field) => {
                           const propVal = editableProposed[field.key]
                           const propStr = typeof propVal === 'string' ? propVal : ''
@@ -1215,13 +1215,13 @@ export function EditorModerationPanel({
                                   : ''
                               }
                             >
-                              <td className="py-3 px-3 font-medium text-stone-700 dark:text-stone-300">
+                              <td className="py-3 px-3 font-medium text-zinc-700 dark:text-zinc-300">
                                 {field.label}
                               </td>
                               {!isNewEntrySubmission(activeSubmission) && (
                                 <td
                                   dir={field.dir}
-                                  className={`py-3 px-3 text-stone-500 dark:text-stone-400 ${
+                                  className={`py-3 px-3 text-zinc-500 dark:text-zinc-400 ${
                                     field.dir === 'ltr' ? 'font-mono text-left' : ''
                                   }`}
                                 >
@@ -1239,7 +1239,7 @@ export function EditorModerationPanel({
                                           category: e.target.value,
                                         }))
                                       }
-                                      className="w-full rounded border border-[#D6CEBE] bg-white px-2.5 py-1.5 text-xs text-stone-900 dark:border-[#3A3530] dark:bg-[#141312] dark:text-stone-100"
+                                      className="w-full rounded border border-zinc-300 bg-white px-2.5 py-1.5 text-xs text-zinc-950 dark:border-white/15 dark:bg-[#07070A] dark:text-white"
                                     >
                                       <option value="">بدون تغيير</option>
                                       {categories.map((c) => (
@@ -1260,7 +1260,7 @@ export function EditorModerationPanel({
                                         }))
                                       }
                                       placeholder="فارغ (يبقى النص الأصلي دون تعديل)"
-                                      className={`w-full rounded border border-[#D6CEBE] bg-white px-2.5 py-1.5 text-xs text-stone-900 dark:border-[#3A3530] dark:bg-[#141312] dark:text-stone-100 ${
+                                      className={`w-full rounded border border-zinc-300 bg-white px-2.5 py-1.5 text-xs text-zinc-950 dark:border-white/15 dark:bg-[#07070A] dark:text-white ${
                                         field.dir === 'ltr' ? 'font-mono text-left' : ''
                                       }`}
                                     />
@@ -1268,14 +1268,14 @@ export function EditorModerationPanel({
                                 ) : isModified ? (
                                   <span
                                     dir={field.dir}
-                                    className={`font-semibold text-stone-900 dark:text-stone-100 ${
+                                    className={`font-semibold text-zinc-950 dark:text-white ${
                                       field.dir === 'ltr' ? 'font-mono' : ''
                                     }`}
                                   >
                                     {propStr}
                                   </span>
                                 ) : (
-                                  <span className="text-stone-400 dark:text-stone-500">
+                                  <span className="text-zinc-400 dark:text-zinc-500">
                                     بدون تعديل مقترح
                                   </span>
                                 )}
@@ -1289,13 +1289,13 @@ export function EditorModerationPanel({
                 </div>
 
                 {/* Sanitized Evidence & Reviewer Note */}
-                <div className="pt-4 border-t border-[#E5DFD3] space-y-3 dark:border-[#2E2B27]">
-                  <h5 className="text-xs font-semibold text-stone-800 dark:text-stone-200">
+                <div className="pt-4 border-t border-zinc-200 space-y-3 dark:border-white/10">
+                  <h5 className="text-xs font-semibold text-zinc-800 dark:text-zinc-200">
                     الشواهد المرفقة ومذكرة المراجع
                   </h5>
 
                   {activeSubmission.reviewer_note && (
-                    <p className="text-xs leading-relaxed text-stone-700 bg-[#FBF9F5] rounded-lg border border-[#E5DFD3] p-3 dark:bg-[#141312] dark:border-[#2E2B27] dark:text-stone-300">
+                    <p className="text-xs leading-relaxed text-zinc-700 bg-zinc-50 rounded-lg border border-zinc-200 p-3 dark:bg-[#07070A] dark:border-white/10 dark:text-zinc-300">
                       <strong className="font-semibold">مذكرة المساهم:</strong>{' '}
                       {activeSubmission.reviewer_note}
                     </p>
@@ -1309,7 +1309,7 @@ export function EditorModerationPanel({
                         return (
                           <li
                             key={idx}
-                            className="rounded-lg border border-[#E5DFD3] bg-[#FBF9F5] p-3 space-y-1 dark:border-[#2E2B27] dark:bg-[#141312]"
+                            className="rounded-lg border border-zinc-200 bg-zinc-50 p-3 space-y-1 dark:border-white/10 dark:bg-[#07070A]"
                           >
                             {ev.url ? (
                               safeHref ? (
@@ -1318,7 +1318,7 @@ export function EditorModerationPanel({
                                   target="_blank"
                                   rel="noopener noreferrer"
                                   dir="ltr"
-                                  className="inline-flex items-center gap-1.5 font-mono text-[#0F5C4E] hover:underline break-all dark:text-[#4FD1C5]"
+                                  className="inline-flex items-center gap-1.5 font-mono text-emerald-700 hover:underline break-all dark:text-[#D9FF43]"
                                 >
                                   <span>{safeHref}</span>
                                   <ExternalLink className="h-3 w-3 shrink-0" />
@@ -1330,19 +1330,19 @@ export function EditorModerationPanel({
                               )
                             ) : null}
                             {ev.note && (
-                              <p className="text-stone-600 dark:text-stone-400">{ev.note}</p>
+                              <p className="text-zinc-600 dark:text-zinc-400">{ev.note}</p>
                             )}
                           </li>
                         )
                       })}
                     </ul>
                   ) : (
-                    <p className="text-xs text-stone-500">لا توجد روابط خارجية مرفقة.</p>
+                    <p className="text-xs text-zinc-500">لا توجد روابط خارجية مرفقة.</p>
                   )}
                 </div>
 
                 {/* Editor Note & Adjudication Decision Buttons */}
-                <div className="pt-4 border-t border-[#E5DFD3] space-y-4 dark:border-[#2E2B27]">
+                <div className="pt-4 border-t border-zinc-200 space-y-4 dark:border-white/10">
                   {activeSubmission.status === 'merged' ? (
                     <div className="rounded-lg border border-emerald-200 bg-emerald-50/80 p-4 text-xs leading-relaxed text-emerald-950 dark:border-emerald-900/50 dark:bg-emerald-950/30 dark:text-emerald-200">
                       <p className="font-bold">
@@ -1362,8 +1362,8 @@ export function EditorModerationPanel({
                     </div>
                   ) : activeSubmission.status === 'withdrawn' ||
                     activeSubmission.status === 'superseded' ? (
-                    <div className="rounded-lg border border-[#D6CEBE] bg-[#FBF9F5] p-4 text-xs leading-relaxed text-stone-700 dark:border-[#3A3530] dark:bg-[#141312] dark:text-stone-300">
-                      <p className="font-bold text-stone-900 dark:text-stone-100">
+                    <div className="rounded-lg border border-zinc-300 bg-zinc-50 p-4 text-xs leading-relaxed text-zinc-700 dark:border-white/15 dark:bg-[#07070A] dark:text-zinc-300">
+                      <p className="font-bold text-zinc-950 dark:text-white">
                         {activeSubmission.status === 'withdrawn'
                           ? 'مقترح مسحوب من قِبل المساهم'
                           : 'مقترح مُستبدل بنسخة منقحة أحدث'}
@@ -1377,7 +1377,7 @@ export function EditorModerationPanel({
                   ) : (
                     <>
                       <label className="block">
-                        <span className="block text-xs font-semibold text-stone-800 dark:text-stone-200">
+                        <span className="block text-xs font-semibold text-zinc-800 dark:text-zinc-200">
                           {activeSubmission.status === 'accepted'
                             ? 'مذكرة تعليل سحب الاعتماد (إلزامية بحد أدنى 10 أحرف لفك تعارض أو تصحيح حقوق)'
                             : 'مذكرة المحرر التحكيمية (إلزامية عند الرفض أو طلب التعديل)'}
@@ -1387,7 +1387,7 @@ export function EditorModerationPanel({
                           value={editorNote}
                           onChange={(e) => setEditorNote(e.target.value)}
                           placeholder="سجّل قرار التدقيق، ملاحظات الضبط المعتمدة، أو سبب إعادة المقترح للمراجع..."
-                          className="mt-1.5 w-full rounded-lg border border-[#D6CEBE] bg-[#FBF9F5] p-3 text-xs leading-relaxed text-stone-900 focus:border-[#0F5C4E] focus:bg-white focus:outline-none dark:border-[#3A3530] dark:bg-[#141312] dark:text-stone-100"
+                          className="mt-1.5 w-full rounded-lg border border-zinc-300 bg-zinc-50 p-3 text-xs leading-relaxed text-zinc-950 focus:border-zinc-950 dark:focus:border-[#D9FF43] focus:bg-white focus:outline-none dark:border-white/15 dark:bg-[#07070A] dark:text-white"
                         />
                       </label>
 
@@ -1397,7 +1397,7 @@ export function EditorModerationPanel({
                             type="button"
                             disabled={savingDecision}
                             onClick={() => handleDecision('accepted')}
-                            className="inline-flex min-h-[42px] items-center gap-2 rounded-lg bg-[#0F5C4E] px-5 py-2.5 text-xs font-semibold text-white hover:bg-[#0B463B] disabled:opacity-50 whitespace-nowrap shrink-0 cursor-pointer dark:bg-[#147A67]"
+                            className="inline-flex min-h-[42px] items-center gap-2 rounded-lg bg-zinc-950 px-5 py-2.5 text-xs font-semibold text-white hover:bg-zinc-800 disabled:opacity-50 whitespace-nowrap shrink-0 cursor-pointer dark:bg-[#D9FF43] dark:text-[#050507] dark:hover:bg-[#e5ff73]"
                           >
                             <CheckCircle2 className="h-4 w-4" />
                             <span>اعتماد المقترح للدمج</span>

@@ -1,10 +1,14 @@
-import { ChevronLeft, Search } from 'lucide-react'
-import type { WorkbenchTab } from '../types/lexicon'
+import { Bell, ChevronLeft, Search, UserRound } from 'lucide-react'
+import type { UserRole, WorkbenchTab } from '../types/lexicon'
 import type { AppPage } from '../utils/urlState'
+import { PWAInstallButton } from './PWAInstallButton'
 
 interface NavbarProps {
   isAuthenticated: boolean
+  userDisplayName?: string | null
+  userRole?: UserRole | null
   canAccessEditorialTools: boolean
+  unreadMessagesCount?: number
   isFocusMode?: boolean
   onExitFocusMode?: () => void
   onOpenAuth: () => void
@@ -15,7 +19,10 @@ interface NavbarProps {
 
 export function Navbar({
   isAuthenticated,
+  userDisplayName,
+  userRole,
   canAccessEditorialTools,
+  unreadMessagesCount = 0,
   isFocusMode = false,
   onExitFocusMode,
   onOpenAuth,
@@ -78,18 +85,9 @@ export function Navbar({
           {!isFocusMode && (
             <nav
               aria-label="التنقل الرئيسي"
-              className="hidden md:flex items-center gap-6 lg:gap-7 text-xs sm:text-sm font-medium text-zinc-600 dark:text-zinc-400"
+              className="hidden md:flex items-center gap-5 lg:gap-6 text-xs sm:text-sm font-medium text-zinc-600 dark:text-zinc-400"
             >
-              <a
-                href="/review"
-                onClick={(e) => {
-                  e.preventDefault()
-                  handleNav('review', 'rapid_review')
-                }}
-                className="whitespace-nowrap shrink-0 py-1 hover:text-zinc-950 hover:underline hover:underline-offset-8 transition-colors duration-150 dark:hover:text-white"
-              >
-                المراجعة السريعة
-              </a>
+              {/* Public Exploration Links (Visible to Everyone) */}
               <a
                 href="/lexicon"
                 onClick={(e) => {
@@ -101,42 +99,85 @@ export function Navbar({
                 تصفح المعجم
               </a>
               <a
-                href="/contribute"
+                href="/review"
                 onClick={(e) => {
                   e.preventDefault()
-                  handleNav('contribute', 'new_entry')
+                  handleNav('review', 'rapid_review')
                 }}
                 className="whitespace-nowrap shrink-0 py-1 hover:text-zinc-950 hover:underline hover:underline-offset-8 transition-colors duration-150 dark:hover:text-white"
               >
-                إضافة مفردة
+                المراجعة السريعة
               </a>
               <a
-                href="/submissions"
+                href="/insights"
                 onClick={(e) => {
                   e.preventDefault()
-                  handleNav('submissions', 'submissions')
+                  handleNav('insights')
                 }}
                 className="whitespace-nowrap shrink-0 py-1 hover:text-zinc-950 hover:underline hover:underline-offset-8 transition-colors duration-150 dark:hover:text-white"
               >
-                مساهماتي
+                خارطة التغطية
               </a>
-              {canAccessEditorialTools && (
+              <a
+                href="/contributors"
+                onClick={(e) => {
+                  e.preventDefault()
+                  handleNav('contributors')
+                }}
+                className="whitespace-nowrap shrink-0 py-1 hover:text-zinc-950 hover:underline hover:underline-offset-8 transition-colors duration-150 dark:hover:text-white"
+              >
+                لوحة المساهمين
+              </a>
+
+              {/* Registered Member Links (Only for Logged-In Users) */}
+              {isAuthenticated && (
+                <>
+                  <a
+                    href="/contribute"
+                    onClick={(e) => {
+                      e.preventDefault()
+                      handleNav('contribute', 'new_entry')
+                    }}
+                    className="whitespace-nowrap shrink-0 py-1 hover:text-zinc-950 hover:underline hover:underline-offset-8 transition-colors duration-150 dark:hover:text-white"
+                  >
+                    إضافة مفردة
+                  </a>
+                  <a
+                    href="/submissions"
+                    onClick={(e) => {
+                      e.preventDefault()
+                      handleNav('submissions', 'submissions')
+                    }}
+                    className="whitespace-nowrap shrink-0 py-1 hover:text-zinc-950 hover:underline hover:underline-offset-8 transition-colors duration-150 dark:hover:text-white"
+                  >
+                    مساهماتي
+                  </a>
+                </>
+              )}
+
+              {/* Staff Governance Links (Only for Editors / Admins) */}
+              {isAuthenticated && canAccessEditorialTools && (
                 <a
-                  href="/editorial"
+                  href={userRole === 'admin' ? '/members' : '/editorial'}
                   onClick={(e) => {
                     e.preventDefault()
-                    handleNav('editorial', 'moderation')
+                    handleNav(
+                      userRole === 'admin' ? 'members' : 'editorial',
+                      'moderation',
+                    )
                   }}
                   className="whitespace-nowrap shrink-0 py-1 text-emerald-700 hover:text-emerald-900 hover:underline hover:underline-offset-8 transition-colors duration-150 dark:text-[#D9FF43] dark:hover:text-[#e5ff73]"
                 >
-                  تحكيم المحررين
+                  {userRole === 'admin' ? 'إدارة الأعضاء' : 'لوحة الإشراف'}
                 </a>
               )}
             </nav>
           )}
         </div>
 
-        <div className="flex items-center gap-2.5 shrink-0">
+        <div className="flex items-center gap-2 sm:gap-2.5 shrink-0">
+          {!isFocusMode && <PWAInstallButton variant="compact" />}
+
           {!isFocusMode && onOpenCommandPalette && (
             <button
               type="button"
@@ -145,11 +186,36 @@ export function Navbar({
               className="inline-flex h-10 items-center gap-2 rounded-full border border-zinc-200 bg-white px-3.5 text-xs text-zinc-500 hover:border-zinc-400 hover:text-zinc-950 transition-colors cursor-pointer dark:border-white/12 dark:bg-[#0C0C10] dark:text-zinc-400 dark:hover:border-[#D9FF43]/60 dark:hover:text-white"
             >
               <Search className="h-3.5 w-3.5 text-emerald-700 dark:text-[#D9FF43]" />
-              <span className="hidden lg:inline">انتقال سريع</span>
+              <span className="hidden lg:inline">بحث سريع</span>
               <kbd className="hidden sm:inline font-mono text-[10px] text-zinc-400 dark:text-zinc-500">
                 ⌘K
               </kbd>
             </button>
+          )}
+
+          {/* Member Inbox Bell — Strictly Hidden from Unauthenticated Visitors */}
+          {!isFocusMode && isAuthenticated && (
+            <a
+              href="/messages"
+              onClick={(e) => {
+                e.preventDefault()
+                handleNav('messages')
+              }}
+              aria-label={
+                unreadMessagesCount > 0
+                  ? `صندوق الرسائل (${unreadMessagesCount} غير مقروءة)`
+                  : 'صندوق الرسائل والتنبيهات'
+              }
+              title="صندوق رسائل الأعضاء والتنبيهات"
+              className="relative inline-flex h-10 w-10 items-center justify-center rounded-full border border-zinc-200 bg-white text-zinc-700 hover:border-zinc-400 hover:text-zinc-950 transition-colors cursor-pointer dark:border-white/12 dark:bg-[#0C0C10] dark:text-zinc-200 dark:hover:border-[#D9FF43]/50 dark:hover:text-white"
+            >
+              <Bell className="h-4 w-4" />
+              {unreadMessagesCount > 0 && (
+                <span className="absolute -top-1 -end-1 inline-flex min-w-[18px] h-[18px] items-center justify-center rounded-full bg-emerald-600 px-1 font-mono text-[10px] font-bold text-white dark:bg-[#D9FF43] dark:text-[#050507]">
+                  {unreadMessagesCount > 9 ? '9+' : unreadMessagesCount}
+                </span>
+              )}
+            </a>
           )}
 
           <a
@@ -168,8 +234,17 @@ export function Navbar({
               isFocusMode ? 'min-h-[34px] py-1.5' : 'min-h-[40px] py-2'
             }`}
           >
-            <span>{isAuthenticated ? 'حسابي' : 'دخول / إنشاء حساب'}</span>
-            <ChevronLeft className="h-3.5 w-3.5" aria-hidden="true" />
+            {isAuthenticated ? (
+              <>
+                <UserRound className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                <span className="max-w-[120px] truncate">{userDisplayName || 'حسابي'}</span>
+              </>
+            ) : (
+              <>
+                <span>دخول / إنشاء حساب</span>
+                <ChevronLeft className="h-3.5 w-3.5" aria-hidden="true" />
+              </>
+            )}
           </a>
         </div>
       </div>

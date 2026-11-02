@@ -1,6 +1,9 @@
 import { useState } from 'react'
 import {
   AlertTriangle,
+  Award,
+  BarChart3,
+  Bell,
   BookOpen,
   CheckCircle2,
   ChevronLeft,
@@ -20,11 +23,13 @@ import {
   ShieldCheck,
   Sparkles,
   Sun,
+  UserCog,
   UserRound,
   X,
 } from 'lucide-react'
 import type { DataMode } from '../types/lexicon'
 import type { AppPage } from '../utils/urlState'
+import { PWAInstallButton } from './PWAInstallButton'
 
 interface WorkspaceShellProps {
   activePage: AppPage
@@ -33,6 +38,7 @@ interface WorkspaceShellProps {
   onExitFocusMode: () => void
   isAuthenticated: boolean
   userDisplayName: string | null
+  userRole?: 'reviewer' | 'editor' | 'admin' | null
   canAccessEditorialTools: boolean
   isStaffRole: boolean
   editorialPreviewMode: boolean
@@ -45,6 +51,7 @@ interface WorkspaceShellProps {
   cachedCorpusAt: string | null
   completedTodayCount: number
   draftsCount: number
+  unreadMessagesCount?: number
   pendingSandboxCount: number
   onReloadCorpus: () => void
   onOpenCommandPalette: () => void
@@ -56,10 +63,14 @@ const PAGE_LABELS: Record<AppPage, string> = {
   home: 'الرئيسية',
   review: 'المراجعة السريعة',
   lexicon: 'تصفح المعجم',
+  insights: 'خارطة التغطية وفجوات الإثراء',
+  contributors: 'لوحة شرف المساهمين',
   contribute: 'إضافة مفردة جديدة',
   submissions: 'مساهماتي ومسوداتي',
+  messages: 'صندوق الرسائل والتنبيهات',
   profile: 'ملفي الشخصي',
   editorial: 'تحكيم المحررين',
+  members: 'إدارة الأعضاء والرتب',
   export: 'تصدير المعجم',
   auth: 'دخول / إنشاء حساب',
 }
@@ -71,6 +82,7 @@ export function WorkspaceShell({
   onExitFocusMode,
   isAuthenticated,
   userDisplayName,
+  userRole,
   canAccessEditorialTools,
   isStaffRole,
   editorialPreviewMode,
@@ -82,6 +94,7 @@ export function WorkspaceShell({
   corpusVersion,
   completedTodayCount,
   draftsCount,
+  unreadMessagesCount = 0,
   pendingSandboxCount,
   onReloadCorpus,
   onOpenCommandPalette,
@@ -180,49 +193,102 @@ export function WorkspaceShell({
                   <span>الفئات الدلالية</span>
                 </span>
               </a>
+
+              <a
+                href="/insights"
+                onClick={(e) => {
+                  e.preventDefault()
+                  go('insights')
+                }}
+                className={navLinkClass(activePage === 'insights')}
+              >
+                <span className="flex items-center gap-2.5">
+                  <BarChart3 className="h-4 w-4 shrink-0" />
+                  <span>خارطة التغطية والإثراء</span>
+                </span>
+              </a>
+
+              <a
+                href="/contributors"
+                onClick={(e) => {
+                  e.preventDefault()
+                  go('contributors')
+                }}
+                className={navLinkClass(activePage === 'contributors')}
+              >
+                <span className="flex items-center gap-2.5">
+                  <Award className="h-4 w-4 shrink-0" />
+                  <span>لوحة شرف المساهمين</span>
+                </span>
+              </a>
             </div>
           </div>
 
-          {/* Contribution & Account Group */}
-          <div>
-            <p className="px-3 pb-2 font-mono text-[10px] tracking-[0.14em] uppercase text-zinc-400 dark:text-zinc-500">
-              المساهمة والحساب
-            </p>
-            <div className="space-y-1">
-              <a
-                href="/contribute"
-                onClick={(e) => {
-                  e.preventDefault()
-                  go('contribute')
-                }}
-                className={navLinkClass(activePage === 'contribute')}
-              >
-                <span className="flex items-center gap-2.5">
-                  <FilePlus2 className="h-4 w-4 shrink-0" />
-                  <span>إضافة مفردة جديدة</span>
-                </span>
-              </a>
-
-              <a
-                href="/submissions"
-                onClick={(e) => {
-                  e.preventDefault()
-                  go('submissions')
-                }}
-                className={navLinkClass(activePage === 'submissions')}
-              >
-                <span className="flex items-center gap-2.5">
-                  <FolderKanban className="h-4 w-4 shrink-0" />
-                  <span>مساهماتي ومسوداتي</span>
-                </span>
-                {draftsCount > 0 && (
-                  <span className="font-mono text-[11px] tabular-nums opacity-85">
-                    {draftsCount}
+          {/* Audience-Specific Group: Strictly Separated Between Visitors vs Registered Members */}
+          {isAuthenticated ? (
+            <div>
+              <p className="px-3 pb-2 font-mono text-[10px] tracking-[0.14em] uppercase text-zinc-400 dark:text-zinc-500">
+                حساب المساهم
+              </p>
+              <div className="space-y-1">
+                <a
+                  href="/contribute"
+                  onClick={(e) => {
+                    e.preventDefault()
+                    go('contribute')
+                  }}
+                  className={navLinkClass(activePage === 'contribute')}
+                >
+                  <span className="flex items-center gap-2.5">
+                    <FilePlus2 className="h-4 w-4 shrink-0" />
+                    <span>إضافة مفردة جديدة</span>
                   </span>
-                )}
-              </a>
+                </a>
 
-              {isAuthenticated ? (
+                <a
+                  href="/submissions"
+                  onClick={(e) => {
+                    e.preventDefault()
+                    go('submissions')
+                  }}
+                  className={navLinkClass(activePage === 'submissions')}
+                >
+                  <span className="flex items-center gap-2.5">
+                    <FolderKanban className="h-4 w-4 shrink-0" />
+                    <span>مساهماتي ومسوداتي</span>
+                  </span>
+                  {draftsCount > 0 && (
+                    <span className="font-mono text-[11px] tabular-nums opacity-85">
+                      {draftsCount}
+                    </span>
+                  )}
+                </a>
+
+                <a
+                  href="/messages"
+                  onClick={(e) => {
+                    e.preventDefault()
+                    go('messages')
+                  }}
+                  className={navLinkClass(activePage === 'messages')}
+                >
+                  <span className="flex items-center gap-2.5">
+                    <Bell className="h-4 w-4 shrink-0" />
+                    <span>صندوق الرسائل</span>
+                  </span>
+                  {unreadMessagesCount > 0 && (
+                    <span
+                      className={`rounded-full px-1.5 py-0.5 font-mono text-[10px] font-bold tabular-nums ${
+                        activePage === 'messages'
+                          ? 'bg-white/20 text-current dark:bg-black/20'
+                          : 'bg-emerald-600 text-white dark:bg-[#D9FF43] dark:text-[#050507]'
+                      }`}
+                    >
+                      {unreadMessagesCount}
+                    </span>
+                  )}
+                </a>
+
                 <a
                   href="/profile"
                   onClick={(e) => {
@@ -236,7 +302,14 @@ export function WorkspaceShell({
                     <span>ملفي وربط الحسابات</span>
                   </span>
                 </a>
-              ) : (
+              </div>
+            </div>
+          ) : (
+            <div>
+              <p className="px-3 pb-2 font-mono text-[10px] tracking-[0.14em] uppercase text-zinc-400 dark:text-zinc-500">
+                انضم للمجتمع
+              </p>
+              <div className="space-y-1">
                 <a
                   href="/auth"
                   onClick={(e) => {
@@ -250,15 +323,64 @@ export function WorkspaceShell({
                     <span>دخول / إنشاء حساب</span>
                   </span>
                 </a>
-              )}
-            </div>
-          </div>
 
-          {/* Editorial Governance Group */}
+                <a
+                  href="/contribute"
+                  onClick={(e) => {
+                    e.preventDefault()
+                    go('contribute')
+                  }}
+                  className={navLinkClass(activePage === 'contribute')}
+                >
+                  <span className="flex items-center gap-2.5">
+                    <FilePlus2 className="h-4 w-4 shrink-0" />
+                    <span>اقترح مفردة (مسودة زائر)</span>
+                  </span>
+                </a>
+
+                {draftsCount > 0 && (
+                  <a
+                    href="/submissions"
+                    onClick={(e) => {
+                      e.preventDefault()
+                      go('submissions')
+                    }}
+                    className={navLinkClass(activePage === 'submissions')}
+                  >
+                    <span className="flex items-center gap-2.5">
+                      <FolderKanban className="h-4 w-4 shrink-0" />
+                      <span>مسودات المتصفح المحفوظة</span>
+                    </span>
+                    <span className="font-mono text-[11px] tabular-nums opacity-85">
+                      {draftsCount}
+                    </span>
+                  </a>
+                )}
+
+                {editorialPreviewMode && (
+                  <a
+                    href="/messages"
+                    onClick={(e) => {
+                      e.preventDefault()
+                      go('messages')
+                    }}
+                    className={navLinkClass(activePage === 'messages')}
+                  >
+                    <span className="flex items-center gap-2.5">
+                      <Bell className="h-4 w-4 shrink-0" />
+                      <span>صندوق الرسائل (معاينة)</span>
+                    </span>
+                  </a>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Editorial & Admin Governance Group (Strictly Staff or Explicit Sandbox Preview) */}
           {canAccessEditorialTools && (
             <div>
               <p className="px-3 pb-2 font-mono text-[10px] tracking-[0.14em] uppercase text-emerald-700 dark:text-[#D9FF43]">
-                الحوكمة والتحكيم
+                {userRole === 'admin' ? 'الإدارة والحوكمة' : 'الإشراف والتحكيم'}
               </p>
               <div className="space-y-1">
                 <a
@@ -281,6 +403,24 @@ export function WorkspaceShell({
                 </a>
 
                 <a
+                  href="/members"
+                  onClick={(e) => {
+                    e.preventDefault()
+                    go('members')
+                  }}
+                  className={navLinkClass(activePage === 'members')}
+                >
+                  <span className="flex items-center gap-2.5">
+                    <UserCog className="h-4 w-4 shrink-0" />
+                    <span>
+                      {userRole === 'editor' && isStaffRole
+                        ? 'بلاغات الإشراف للأعضاء'
+                        : 'إدارة الأعضاء والرتب'}
+                    </span>
+                  </span>
+                </a>
+
+                <a
                   href="/export"
                   onClick={(e) => {
                     e.preventDefault()
@@ -298,8 +438,10 @@ export function WorkspaceShell({
           )}
         </div>
 
-        {/* Quiet Institutional Links & Preview Switch */}
-        <div className="space-y-3 border-t border-zinc-200 pt-4 text-xs dark:border-white/10">
+        {/* Quiet Institutional Links, PWA Install & Preview Switch */}
+        <div className="space-y-2.5 border-t border-zinc-200 pt-4 text-xs dark:border-white/10">
+          <PWAInstallButton variant="sidebar" />
+
           {/* Corpus Status Indicator */}
           <div className="flex items-center justify-between gap-2 rounded-xl border border-zinc-200 bg-zinc-50/80 px-3 py-2 text-[11px] dark:border-white/10 dark:bg-[#07070A]">
             <span className="flex items-center gap-1.5 text-zinc-600 dark:text-zinc-300">
@@ -327,19 +469,15 @@ export function WorkspaceShell({
             </div>
           </div>
 
-          {!isStaffRole && (
+          {!isStaffRole && editorialPreviewMode && (
             <button
               type="button"
               onClick={onToggleEditorialPreview}
-              className={`flex w-full items-center justify-between rounded-xl border px-3 py-2 text-[11px] font-medium transition-colors cursor-pointer ${
-                editorialPreviewMode
-                  ? 'border-emerald-400/60 bg-emerald-50 text-emerald-900 dark:border-[#D9FF43]/40 dark:bg-[#D9FF43]/10 dark:text-[#D9FF43]'
-                  : 'border-zinc-200 text-zinc-500 hover:text-zinc-900 dark:border-white/10 dark:text-zinc-400 dark:hover:text-white'
-              }`}
+              className="flex w-full items-center justify-between rounded-xl border border-amber-400/60 bg-amber-50 px-3 py-2 text-[11px] font-medium text-amber-950 transition-colors cursor-pointer dark:border-[#D9FF43]/40 dark:bg-[#D9FF43]/10 dark:text-[#D9FF43]"
             >
               <span className="flex items-center gap-1.5">
                 <Eye className="h-3.5 w-3.5" />
-                <span>{editorialPreviewMode ? 'إغلاق معاينة المحررين' : 'معاينة بيئة المحررين'}</span>
+                <span>إغلاق وضع المعاينة التجريبية</span>
               </span>
             </button>
           )}
@@ -377,7 +515,6 @@ export function WorkspaceShell({
       {/* Sticky Precision Workspace Top Bar */}
       <header className="sticky top-0 z-30 h-14 border-b border-zinc-200 bg-[#FAFAFC]/90 backdrop-blur-md dark:border-white/10 dark:bg-[#050507]/90">
         <div className="mx-auto flex h-full max-w-[1440px] items-center justify-between gap-3 px-4 sm:px-6">
-          {/* Left/Start: Mobile Drawer Toggle + Brand + Active Page Breadcrumb */}
           <div className="flex items-center gap-3 min-w-0">
             {!isFocusMode && (
               <button
@@ -417,8 +554,9 @@ export function WorkspaceShell({
             </span>
           </div>
 
-          {/* Center/End Controls: Quick Search (Ctrl+K) + Theme + Focus Exit / Auth */}
           <div className="flex items-center gap-2 sm:gap-2.5 shrink-0">
+            {!isFocusMode && <PWAInstallButton variant="compact" />}
+
             {isFocusMode ? (
               <button
                 type="button"
@@ -441,6 +579,31 @@ export function WorkspaceShell({
               </button>
             )}
 
+            {/* Member Inbox Bell — Strictly Hidden from Unauthenticated Visitors */}
+            {!isFocusMode && (isAuthenticated || editorialPreviewMode) && (
+              <a
+                href="/messages"
+                onClick={(e) => {
+                  e.preventDefault()
+                  onNavigatePage('messages')
+                }}
+                aria-label={
+                  unreadMessagesCount > 0
+                    ? `صندوق الرسائل (${unreadMessagesCount} غير مقروءة)`
+                    : 'صندوق الرسائل والتنبيهات'
+                }
+                title="صندوق رسائل الأعضاء والتنبيهات"
+                className="relative inline-flex h-9 w-9 items-center justify-center rounded-full border border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-100 transition-colors cursor-pointer dark:border-white/12 dark:bg-[#0C0C10] dark:text-zinc-200 dark:hover:border-[#D9FF43]/50"
+              >
+                <Bell className="h-4 w-4" />
+                {unreadMessagesCount > 0 && (
+                  <span className="absolute -top-1 -end-1 inline-flex min-w-[17px] h-[17px] items-center justify-center rounded-full bg-emerald-600 px-1 font-mono text-[10px] font-bold text-white dark:bg-[#D9FF43] dark:text-[#050507]">
+                    {unreadMessagesCount > 9 ? '9+' : unreadMessagesCount}
+                  </span>
+                )}
+              </a>
+            )}
+
             <button
               type="button"
               onClick={onToggleDarkMode}
@@ -458,7 +621,14 @@ export function WorkspaceShell({
               }}
               className="inline-flex min-h-[36px] items-center gap-1.5 rounded-full border border-zinc-950 bg-zinc-950 px-4 py-1.5 text-xs font-semibold text-white hover:bg-zinc-800 transition-colors whitespace-nowrap cursor-pointer dark:border-[#D9FF43]/75 dark:bg-[#D9FF43]/10 dark:text-white dark:hover:bg-[#D9FF43] dark:hover:text-[#050507]"
             >
-              <span>{isAuthenticated ? userDisplayName || 'حسابي' : 'دخول / تسجيل'}</span>
+              {isAuthenticated ? (
+                <>
+                  <UserRound className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                  <span className="max-w-[116px] truncate">{userDisplayName || 'حسابي'}</span>
+                </>
+              ) : (
+                <span>دخول / تسجيل</span>
+              )}
             </a>
           </div>
         </div>
