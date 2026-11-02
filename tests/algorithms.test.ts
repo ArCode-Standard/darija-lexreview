@@ -4,6 +4,7 @@ describe('Darija Intelligence Engine',()=>{
  it('normalizes Arabic and Arabizi search forms',()=>{expect(normalizeArabicForSearch(' أَهْلًا ـ ')).toBe('اهلا');expect(normalizeArabiziForSearch('Chno-kayen')).toBe('chno kayen')})
  it('calculates string similarities',()=>{expect(damerauLevenshteinDistance('abcd','abdc')).toBe(1);expect(characterNgramSimilarity('chno','chno')).toBe(1)})
  it('discovers candidates without merging',()=>{expect(discoverVariantCandidates([{id:'a',form:'شنو'},{id:'b',form:'أشنو'}],0.7).length).toBeGreaterThan(0)})
+ it('rejects non-finite variant thresholds',()=>{expect(()=>discoverVariantCandidates([],Number.NaN)).toThrow(RangeError);expect(()=>discoverVariantCandidates([],Number.POSITIVE_INFINITY)).toThrow(RangeError)})
  it('flags duplicate forms and possible sense differences',()=>{expect(detectIntegrityIssues([{id:'1',word:'شنو',meaning:'ماذا'},{id:'2',word:'شنو',meaning:'أي شيء'}]).map(x=>x.kind)).toContain('possible_meaning_conflict')})
  it('scores evidence metadata completeness',()=>{expect(scoreEvidenceQuality([{sourceName:'Dictionary',sourceType:'dictionary',url:'https://example.org',rightsHolder:'X',license:'CC BY',note:'entry',independent:true}]).score).toBe(100)})
  it('ranks review tasks deterministically',()=>{const result=rankReviewTasks([{id:'low',evidenceComplete:true,lastReviewedAt:'2026-10-30'},{id:'high',hasContradiction:true,evidenceComplete:false}],new Date('2026-11-02'));expect(result[0].id).toBe('high')})
