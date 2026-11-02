@@ -377,7 +377,7 @@ export default function App() {
       let prof: ReviewerProfile | null = null
       const fullRes = await supabase
         .from('reviewer_profiles')
-        .select('id, display_name, dialect_region, specialty, github_handle, role')
+        .select('id, display_name, dialect_region, specialty, github_handle, avatar_source, avatar_path, avatar_seed, role')
         .eq('id', user.id)
         .maybeSingle()
 
@@ -1007,6 +1007,10 @@ export default function App() {
           <Navbar
             isAuthenticated={Boolean(userEmail)}
             userDisplayName={resolvedUserDisplayName}
+            userAvatarSource={reviewerProfile?.avatar_source}
+            userAvatarPath={reviewerProfile?.avatar_path}
+            userAvatarSeed={reviewerProfile?.avatar_seed}
+            userGithubHandle={reviewerProfile?.github_handle}
             userRole={reviewerProfile?.role ?? null}
             canAccessEditorialTools={canAccessEditorialTools}
             unreadMessagesCount={unreadMessagesCount}
