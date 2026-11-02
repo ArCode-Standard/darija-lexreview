@@ -8,7 +8,7 @@ Before treating any metric as linguistic evidence, recruit at least two independ
 
 ## What is measured
 
-- Normalization: same-script normalized-form equivalence against provisional sense labels.
+- Normalization: orthographic-only positive and negative pairs (hamza/alef and diacritic handling); lexical synonyms are not treated as normalization equivalents.
 - Variant discovery: pairwise candidate precision, recall, and F1 against provisional sense IDs. A candidate is not a synonym assertion.
 - Arabizi transliteration: exact normalized Arabic-output match against the expected-output fixtures.
 - Scale: normalization, single-query duplicate search, and transliteration at 1k, 10k, and 50k synthetic entries.
