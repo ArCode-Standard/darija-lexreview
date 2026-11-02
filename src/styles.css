@@ -2,9 +2,9 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 @theme {
-  --font-display: 'Readex Pro', 'IBM Plex Sans Arabic', sans-serif;
-  --font-sans: 'IBM Plex Sans Arabic', sans-serif;
-  --font-mono: 'IBM Plex Mono', monospace;
+  --font-display: 'Segoe UI', 'Noto Sans Arabic', 'Noto Naskh Arabic', sans-serif;
+  --font-sans: 'Segoe UI', 'Noto Sans Arabic', 'Noto Naskh Arabic', sans-serif;
+  --font-mono: ui-monospace, 'Cascadia Code', 'Segoe UI Mono', monospace;
 }
 
 @layer base {
@@ -13,14 +13,8 @@
     scroll-padding-top: 5rem;
     text-rendering: optimizeLegibility;
   }
-
-  h1, h2, h3, h4, .font-display {
-    font-family: var(--font-display);
-  }
-
-  .tabular-nums {
-    font-variant-numeric: tabular-nums;
-  }
+  h1, h2, h3, h4, .font-display { font-family: var(--font-display); }
+  .tabular-nums { font-variant-numeric: tabular-nums; }
 }
 
 @media (prefers-reduced-motion: reduce) {
