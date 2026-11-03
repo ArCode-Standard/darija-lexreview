@@ -8,7 +8,6 @@ import {
   Edit3,
   ArrowLeft,
   ShieldAlert,
-  RotateCcw,
   CheckSquare,
   GitBranch,
 } from 'lucide-react'
