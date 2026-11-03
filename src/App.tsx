@@ -752,7 +752,6 @@ export default function App() {
 
   function handleJumpToAdminGovernance(source: 'live' | 'sandbox') {
     setFocusMode(false)
-    if (!isStaffRole) setEditorialPreviewMode(true)
     setForceSandboxModeration(source === 'sandbox')
     setForceGovernanceSection(true)
     setAuthDialogOpen(false)
@@ -845,7 +844,7 @@ export default function App() {
         <section className="mx-auto max-w-3xl">
           <div className="rounded-xl border border-amber-300 bg-amber-50 p-5 dark:border-amber-900/60 dark:bg-amber-950/20">
             <p className="text-xs font-bold text-amber-800 dark:text-amber-300">
-              وضع معاينة توضيحي — بيانات غير رسمية
+              تتطلب هذه الصفحة صلاحية محرر معتمد أو مشرف عام.
             </p>
             <h1 className="mt-2 text-xl font-bold">عينة واجهة Darija LexReview</h1>
             <p className="mt-2 text-sm leading-7 text-amber-950 dark:text-amber-100">
@@ -980,7 +979,7 @@ export default function App() {
     <>
       <GlobalAnnouncementBanner
         announcements={activeAnnouncements}
-        canOpenInbox={Boolean(userEmail) || editorialPreviewMode}
+        canOpenInbox={Boolean(userEmail)}
         onDismiss={dismissAnnouncement}
         onOpenMessages={() => navigatePage('messages')}
       />
@@ -1569,7 +1568,7 @@ export default function App() {
 
             {/* 4. Independent Submissions & Local Drafts Page (/submissions) */}
             {activePage === 'submissions' &&
-              (userEmail || draftsList.length > 0 || editorialPreviewMode ? (
+              (userEmail || draftsList.length > 0 ? (
                 <SubmissionsPanel
                   draftsList={draftsList}
                   entries={entries}
@@ -1595,7 +1594,7 @@ export default function App() {
 
             {/* 4b. Independent Member Messages & Alerts Inbox (/messages) — Strictly Members Only */}
             {activePage === 'messages' &&
-              (userEmail || editorialPreviewMode ? (
+              (userEmail ? (
                 <MemberMessagesPage
                   messages={inboxMessages}
                   unreadCount={unreadMessagesCount}
@@ -1789,7 +1788,7 @@ export default function App() {
       />
 
       {/* Mandatory Official Warning Acknowledgment Modal — Strictly Authenticated Members (or Active Sandbox) */}
-      {(Boolean(userEmail) || editorialPreviewMode) && (
+      {Boolean(userEmail) && (
         <MandatoryWarningModal
           warning={unacknowledgedWarnings[0] ?? null}
           onAcknowledge={(id) => void acknowledgeWarning(id)}
