@@ -573,6 +573,9 @@ create table if not exists private.feedback_candidates (
   provenance jsonb not null default '{}'::jsonb,
   status text not null default 'pending' check (status in ('pending','approved','rejected')),
   pii_screened boolean not null default false,
+  screening_version text,
+  consent_recorded_at timestamptz not null default now(),
+  source_reference text,
   created_at timestamptz not null default now()
 );
 create table if not exists private.feedback_reviews (
@@ -643,3 +646,167 @@ revoke all on private.feedback_candidates, private.feedback_reviews, private.dat
 grant select, insert, update, delete on private.feedback_candidates, private.feedback_reviews,
   private.dataset_registry, private.evaluation_runs, private.model_registry,
   private.model_release_approvals, private.model_rollbacks to service_role;
+
+
+-- Trusted ingestion is service-role-only; the Edge Function verifies the user JWT,
+-- checks standing, records explicit consent, and performs PII screening first.
+create or replace function private.create_learning_feedback_candidate(
+  p_actor_id uuid,
+  p_domain text,
+  p_source text,
+  p_source_surface text,
+  p_group_id text,
+  p_text text,
+  p_label text,
+  p_rationale text,
+  p_consent boolean,
+  p_license text,
+  p_provenance jsonb,
+  p_screening_version text,
+  p_source_reference text default null
+) returns uuid
+language plpgsql
+security definer
+set search_path = ''
+as $function$
+declare
+  v_role text := coalesce(
+    nullif(pg_catalog.current_setting('request.jwt.claim.role', true), ''),
+    nullif(pg_catalog.current_setting('role', true), '')
+  );
+  v_status text;
+  v_id uuid;
+begin
+  if v_role <> 'service_role' then
+    raise exception 'Service role required for feedback ingestion' using errcode = '42501';
+  end if;
+  if p_actor_id is null or p_domain not in ('linguistic','content_safety')
+     or p_source not in ('lexicon_suggestion','editor_correction','moderation_appeal','moderation_decision','benchmark_annotation')
+     or p_source_surface not in ('profile','lexicon','contribution','review','comment','discussion','report','benchmark')
+     or p_group_id is null or pg_catalog.btrim(p_group_id) = ''
+     or p_text is null or pg_catalog.char_length(pg_catalog.btrim(p_text)) not between 1 and 5000
+     or p_label is null or pg_catalog.char_length(pg_catalog.btrim(p_label)) not between 1 and 120
+     or p_rationale is null or pg_catalog.char_length(pg_catalog.btrim(p_rationale)) not between 1 and 2000
+     or p_consent is distinct from true
+     or p_license is null or pg_catalog.char_length(pg_catalog.btrim(p_license)) not between 1 and 250
+     or p_provenance is null or pg_catalog.jsonb_typeof(p_provenance) <> 'object'
+     or p_screening_version is null or pg_catalog.btrim(p_screening_version) = '' then
+    raise exception 'Feedback provenance, consent, license, PII screening, or content validation failed'
+      using errcode = '22023';
+  end if;
+
+  select rp.role, rp.account_status into v_role, v_status
+  from public.reviewer_profiles rp where rp.id = p_actor_id;
+  if v_status is null or not (
+    v_status in ('active','warned')
+    or exists (
+      select 1 from public.reviewer_profiles rp
+      where rp.id = p_actor_id and rp.account_status = 'suspended'
+        and rp.suspended_until is not null and rp.suspended_until <= pg_catalog.now()
+    )
+  ) then
+    raise exception 'Active contributor account required' using errcode = '42501';
+  end if;
+  if p_source in ('editor_correction','moderation_decision','benchmark_annotation')
+     and v_role not in ('editor','admin') then
+    raise exception 'Editor role required for this feedback source' using errcode = '42501';
+  end if;
+
+  insert into private.feedback_candidates(
+    domain,source,source_surface,group_id,text_value,label,rationale,
+    contributor_id,consent_to_dataset_use,license,provenance,
+    pii_screened,screening_version,source_reference
+  ) values (
+    p_domain,p_source,p_source_surface,pg_catalog.btrim(p_group_id),
+    pg_catalog.btrim(p_text),pg_catalog.btrim(p_label),pg_catalog.btrim(p_rationale),
+    p_actor_id,true,pg_catalog.btrim(p_license),p_provenance,
+    true,pg_catalog.btrim(p_screening_version),
+    nullif(pg_catalog.btrim(coalesce(p_source_reference,'')),'')
+  ) returning id into v_id;
+  return v_id;
+end;
+$function$;
+revoke all on function private.create_learning_feedback_candidate(uuid,text,text,text,text,text,text,text,boolean,text,jsonb,text,text) from public, anon, authenticated;
+grant execute on function private.create_learning_feedback_candidate(uuid,text,text,text,text,text,text,text,boolean,text,jsonb,text,text) to service_role;
+
+create or replace function private.review_learning_feedback_candidate(
+  p_candidate_id uuid,
+  p_decision text,
+  p_reason text
+) returns text
+language plpgsql
+security definer
+set search_path = ''
+as $function$
+declare
+  v_actor uuid := (select auth.uid());
+  v_role text;
+  v_candidate private.feedback_candidates;
+  v_approval_count integer;
+  v_next_status text;
+  v_required_approvals integer;
+begin
+  if v_actor is null then
+    raise exception 'Authentication required' using errcode = '42501';
+  end if;
+  select rp.role into v_role from public.reviewer_profiles rp
+  where rp.id = v_actor
+    and rp.role in ('editor','admin')
+    and (
+      rp.account_status in ('active','warned')
+      or (rp.account_status = 'suspended' and rp.suspended_until is not null and rp.suspended_until <= pg_catalog.now())
+    );
+  if v_role is null then
+    raise exception 'Editor role required to review learning feedback' using errcode = '42501';
+  end if;
+  if p_decision not in ('approve','reject') or p_reason is null
+     or pg_catalog.char_length(pg_catalog.btrim(p_reason)) not between 1 and 2000 then
+    raise exception 'A valid review decision and reason are required' using errcode = '22023';
+  end if;
+
+  select c.* into v_candidate from private.feedback_candidates c
+  where c.id = p_candidate_id for update;
+  if not found or v_candidate.status <> 'pending' then
+    raise exception 'Only pending feedback candidates can be reviewed' using errcode = '55000';
+  end if;
+  if v_candidate.contributor_id = v_actor then
+    raise exception 'Contributors cannot review their own feedback' using errcode = '42501';
+  end if;
+  if not v_candidate.consent_to_dataset_use or not v_candidate.pii_screened
+     or v_candidate.screening_version is null or v_candidate.license = '' then
+    raise exception 'Candidate has not passed consent, license, and PII gates' using errcode = '55000';
+  end if;
+
+  insert into private.feedback_reviews(candidate_id,reviewer_id,reviewer_role,decision,reason)
+  values (p_candidate_id,v_actor,v_role,p_decision,pg_catalog.btrim(p_reason));
+
+  if p_decision = 'reject' then
+    v_next_status := 'rejected';
+  else
+    select count(*)::integer into v_approval_count
+    from private.feedback_reviews r
+    where r.candidate_id = p_candidate_id and r.decision = 'approve';
+    v_required_approvals := case when v_candidate.domain = 'content_safety' then 2 else 1 end;
+    v_next_status := case when v_approval_count >= v_required_approvals then 'approved' else 'pending' end;
+  end if;
+
+  update private.feedback_candidates set status = v_next_status where id = p_candidate_id;
+  return v_next_status;
+end;
+$function$;
+revoke all on function private.review_learning_feedback_candidate(uuid,text,text) from public, anon, authenticated;
+grant execute on function private.review_learning_feedback_candidate(uuid,text,text) to authenticated;
+
+create or replace function public.review_learning_feedback_candidate(
+  p_candidate_id uuid,
+  p_decision text,
+  p_reason text
+) returns text
+language sql
+security invoker
+set search_path = ''
+as $function$
+  select private.review_learning_feedback_candidate(p_candidate_id,p_decision,p_reason);
+$function$;
+revoke all on function public.review_learning_feedback_candidate(uuid,text,text) from public, anon;
+grant execute on function public.review_learning_feedback_candidate(uuid,text,text) to authenticated;
