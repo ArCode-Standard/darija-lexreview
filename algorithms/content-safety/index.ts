@@ -101,7 +101,7 @@ export function scanContent(input: ScanContentInput, policy: SafetyPolicy): Cont
     score += Math.min(20, (urls - policy.maxUrls) * 5)
     signals.push({ code: 'excessive_urls', category: 'spam', severity: 3, confidence: 'high' })
   }
-  const separatedLetters = /(?:\\p{L}[\\s.*_-]+){2,}\\p{L}/u.test(original)
+  const separatedLetters = /(?:\p{L}[\s.*_-]+){2,}\p{L}/u.test(original)
   if (separatedLetters && signals.some((signal) => signal.category !== 'spam')) {
     score += 6
     signals.push({ code: 'possible_obfuscation', category: 'obfuscation', severity: 2, confidence: 'low' })
