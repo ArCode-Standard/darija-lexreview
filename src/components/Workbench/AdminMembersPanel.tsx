@@ -13,7 +13,6 @@ import {
   Search,
   Send,
   Shield,
-  ShieldAlert,
   ShieldCheck,
   UserCheck,
   Users,
