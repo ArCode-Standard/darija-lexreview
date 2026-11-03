@@ -8,7 +8,6 @@ import {
   CheckCircle2,
   AlertCircle,
   ArrowLeft,
-  FlaskConical,
   GitBranch,
   Wand2,
   X,
@@ -62,16 +61,8 @@ interface NewEntryProposalPanelProps {
   onClearRevisionTarget?: () => void
   onInspectExistingEntry: (entry: LexicalEntry) => void
   onSaveDraft: (draft: LocalDraft) => void
-  onAddSandboxSubmission: (params: {
-    entryId: string
-    proposedData: ProposedFields
-    evidence: EvidenceItem[]
-    reviewerNote: string | null
-    supersedesId?: string | null
-  }) => void
   onRequireLogin: () => void
   onSubmissionSuccess: () => void
-  onOpenModerationSandbox: () => void
 }
 
 export function NewEntryProposalPanel({
@@ -90,12 +81,9 @@ export function NewEntryProposalPanel({
   onClearRevisionTarget,
   onInspectExistingEntry,
   onSaveDraft,
-  onAddSandboxSubmission,
   onRequireLogin,
   onSubmissionSuccess,
-  onOpenModerationSandbox,
 }: NewEntryProposalPanelProps) {
-  void onOpenModerationSandbox
   const [wordAr, setWordAr] = useState('')
   const [arabizi, setArabizi] = useState('')
   const [arabiziManuallyEdited, setArabiziManuallyEdited] = useState(false)
@@ -129,7 +117,6 @@ export function NewEntryProposalPanel({
   const [feedback, setFeedback] = useState<{
     type: 'error' | 'success' | 'info'
     text: string
-    showSandboxJump?: boolean
   } | null>(null)
 
   const corpusArabiziLookup = useMemo(() => buildCorpusArabiziLookup(entries), [entries])
@@ -432,32 +419,6 @@ export function NewEntryProposalPanel({
     })
   }
 
-  function handleSendToSandbox() {
-    const check = validateAllFields()
-    if (!check.valid) {
-      setFeedback({ type: 'error', text: check.error ?? 'تحقق من الحقول الأساسية.' })
-      return
-    }
-
-    onAddSandboxSubmission({
-      entryId: 'NEW',
-      proposedData: buildProposedData(),
-      evidence: check.cleanedEvidence,
-      reviewerNote:
-        reviewerNote.trim() ||
-        `إضافة مفردة جديدة (${sessionPrefs.dialectRegion || 'مشترك عام'})`,
-      supersedesId: revisionTarget ? revisionTarget.id : null,
-    })
-
-    if (revisionTarget) onClearRevisionTarget?.()
-    clearForm()
-    setFeedback({
-      type: 'success',
-      text: 'أُضيفت المفردة الجديدة إلى طابور الاختبار للمحررين.',
-      showSandboxJump: true,
-    })
-  }
-
   async function handleSubmitToSupabase() {
     const check = validateAllFields()
     if (!check.valid) {
@@ -511,7 +472,7 @@ export function NewEntryProposalPanel({
       reviewer_note: autoNote,
       status: 'pending',
     }
-    if (revisionTarget && !revisionTarget.is_sandbox) {
+    if (revisionTarget) {
       baseInsert.supersedes_id = revisionTarget.id
     }
 
