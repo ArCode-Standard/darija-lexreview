@@ -50,6 +50,7 @@ create table if not exists private.content_scan_events (
   engine_version text,
   policy_version text,
   token_id uuid,
+  signals jsonb not null default '[]'::jsonb,
   occurred_at timestamptz not null default now()
 );
 create index if not exists content_scan_events_occurred_idx
@@ -95,6 +96,12 @@ begin
     'role_promotion_requests.create', 'role_promotion_requests.decision'
   ) then
     raise exception 'Unsupported content operation' using errcode = '22023';
+  end if;
+
+  if (select count(*) from private.content_scan_tokens t
+      where t.actor_id = p_actor_id
+        and t.created_at > pg_catalog.clock_timestamp() - interval '1 minute') >= 60 then
+    raise exception 'Content scan rate limit exceeded' using errcode = '54000';
   end if;
 
   delete from private.content_scan_tokens
@@ -852,3 +859,87 @@ as $function$
 $function$;
 revoke all on function public.submit_learning_feedback_candidate(uuid,text,text,text,text,text,text,text,boolean,text,jsonb,text,text) from public, anon, authenticated;
 grant execute on function public.submit_learning_feedback_candidate(uuid,text,text,text,text,text,text,text,boolean,text,jsonb,text,text) to service_role;
+
+
+create or replace function private.record_content_scan_event(
+  p_actor_id uuid,
+  p_operation text,
+  p_decision text,
+  p_content_digest text,
+  p_engine_version text,
+  p_policy_version text,
+  p_signals jsonb
+) returns void
+language plpgsql
+security definer
+set search_path = ''
+as $function$
+declare
+  v_role text := coalesce(
+    nullif(pg_catalog.current_setting('request.jwt.claim.role', true), ''),
+    nullif(pg_catalog.current_setting('role', true), '')
+  );
+  v_signal jsonb;
+begin
+  if v_role <> 'service_role' then
+    raise exception 'Service role required to record content scan events' using errcode = '42501';
+  end if;
+  if p_actor_id is null
+     or p_operation not in (
+       'review_submissions.create','review_submissions.decision','community_attestations.upsert',
+       'reviewer_profiles.update','reviewer_profiles.admin_update','member_messages.create',
+       'member_moderation_reports.create','member_moderation_reports.resolve',
+       'role_promotion_requests.create','role_promotion_requests.decision'
+     )
+     or p_decision not in ('allow','allow_with_context','review','block','urgent_escalation')
+     or p_content_digest !~ '^[a-f0-9]{64}$'
+     or p_engine_version is null or pg_catalog.char_length(p_engine_version) > 80
+     or p_policy_version is null or pg_catalog.char_length(p_policy_version) > 120
+     or p_signals is null or pg_catalog.jsonb_typeof(p_signals) <> 'array'
+     or pg_catalog.jsonb_array_length(p_signals) > 100 then
+    raise exception 'Invalid content scan audit event' using errcode = '22023';
+  end if;
+
+  for v_signal in select value from pg_catalog.jsonb_array_elements(p_signals)
+  loop
+    if pg_catalog.jsonb_typeof(v_signal) <> 'object'
+       or v_signal - array['field','index','code','category','severity','ruleId','confidence'] <> '{}'::jsonb
+       or pg_catalog.char_length(coalesce(v_signal->>'field','')) > 100
+       or pg_catalog.char_length(coalesce(v_signal->>'code','')) > 100
+       or coalesce(v_signal->>'category','') not in ('profanity','personal_abuse','hate_speech','threat','spam','obfuscation')
+       or coalesce((v_signal->>'severity')::integer,0) not between 1 and 5 then
+      raise exception 'Invalid content scan signal metadata' using errcode = '22023';
+    end if;
+  end loop;
+
+  insert into private.content_scan_events(
+    actor_id, table_name, operation, decision, content_digest,
+    engine_version, policy_version, signals
+  ) values (
+    p_actor_id, pg_catalog.split_part(p_operation,'.',1), p_operation, p_decision,
+    p_content_digest, p_engine_version, p_policy_version, p_signals
+  );
+end;
+$function$;
+revoke all on function private.record_content_scan_event(uuid,text,text,text,text,text,jsonb) from public, anon, authenticated;
+grant execute on function private.record_content_scan_event(uuid,text,text,text,text,text,jsonb) to service_role;
+
+create or replace function public.record_content_scan_event(
+  p_actor_id uuid,
+  p_operation text,
+  p_decision text,
+  p_content_digest text,
+  p_engine_version text,
+  p_policy_version text,
+  p_signals jsonb
+) returns void
+language sql
+security invoker
+set search_path = ''
+as $function$
+  select private.record_content_scan_event(
+    p_actor_id,p_operation,p_decision,p_content_digest,p_engine_version,p_policy_version,p_signals
+  );
+$function$;
+revoke all on function public.record_content_scan_event(uuid,text,text,text,text,text,jsonb) from public, anon, authenticated;
+grant execute on function public.record_content_scan_event(uuid,text,text,text,text,text,jsonb) to service_role;
