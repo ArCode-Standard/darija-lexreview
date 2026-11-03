@@ -25,6 +25,7 @@ export interface ContentPayloadScanResult {
   policyVersion: string
   fields: ContentFieldScan[]
 }
+const CONTENT_SURFACES = new Set(['profile', 'lexicon', 'contribution', 'review', 'comment', 'discussion', 'report', 'private_message', 'admin'])
 const MAX_PAYLOAD_FIELDS = 64
 const MAX_ARRAY_ITEMS_PER_FIELD = 200
 const DECISION_RANK: Record<ContentDecision, number> = {
@@ -32,7 +33,9 @@ const DECISION_RANK: Record<ContentDecision, number> = {
 }
 /** Scans all caller-selected text fields; the caller must explicitly map every writable field. */
 export function scanContentPayload(input: ScanContentPayloadInput, policy: SafetyPolicy): ContentPayloadScanResult {
-  if (!input || !input.fields || typeof input.fields !== 'object' || Array.isArray(input.fields)) {
+  if (!input || !CONTENT_SURFACES.has(input.surface)) throw new TypeError('Unsupported content surface')
+  if (input.now && !Number.isFinite(input.now.getTime())) throw new TypeError('input.now must be a valid Date')
+  if (!input.fields || typeof input.fields !== 'object' || Array.isArray(input.fields)) {
     throw new TypeError('fields must be an explicit object of writable text fields')
   }
   const entries = Object.entries(input.fields)
