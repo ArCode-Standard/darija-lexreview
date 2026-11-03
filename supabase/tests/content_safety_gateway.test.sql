@@ -121,7 +121,7 @@ select set_config(
 select set_config('request.jwt.claim.role', 'authenticated', true);
 set local role authenticated;
 select throws_ok(
-  $select public.submit_review_submission(
+  $ public.submit_review_submission(
     '{"entry_id":"gateway-mutated","proposed_data":{"meaning":"tampered"},"evidence":[]}'::jsonb,
     current_setting('app.test_scan_token')
   )$,
@@ -130,7 +130,7 @@ select throws_ok(
   'payload mutation invalidates the token'
 );
 select throws_ok(
-  $select private.consume_content_scan_token(
+  $ private.consume_content_scan_token(
     current_setting('app.test_scan_token'),
     'community_attestations.upsert',
     '{"entry_id":"gateway-original","proposed_data":{"meaning":"original"},"evidence":[]}'::jsonb
@@ -234,7 +234,7 @@ where id in (
 
 select set_config('request.jwt.claim.role', 'service_role', true);
 select throws_ok(
-  $select public.submit_learning_feedback_candidate(
+  $ public.submit_learning_feedback_candidate(
     '00000000-0000-4000-8000-000000000038','linguistic','lexicon_suggestion','private_message',
     'private-message-group','private text','example','rationale',true,'CC-BY-4.0','{}'::jsonb,'pii-regex-1',null
   )$,
@@ -242,7 +242,7 @@ select throws_ok(
   'private messages cannot enter the learning dataset'
 );
 select throws_ok(
-  $select public.submit_learning_feedback_candidate(
+  $ public.submit_learning_feedback_candidate(
     '00000000-0000-4000-8000-000000000038','linguistic','lexicon_suggestion','lexicon',
     'no-consent-group','sample text','example','rationale',false,'CC-BY-4.0','{}'::jsonb,'pii-regex-1',null
   )$,
@@ -264,7 +264,7 @@ select set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000038
 select set_config('request.jwt.claim.role', 'authenticated', true);
 set local role authenticated;
 select throws_ok(
-  $select public.review_learning_feedback_candidate(current_setting('app.test_candidate_id')::uuid,'approve','Self review attempt')$,
+  $ public.review_learning_feedback_candidate(current_setting('app.test_candidate_id')::uuid,'approve','Self review attempt')$,
   '42501', null,
   'contributors cannot review their own training examples'
 );
