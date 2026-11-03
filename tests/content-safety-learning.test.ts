@@ -35,6 +35,8 @@ describe('content safety engine', () => {
     expect(seed.rules.some((rule) => rule.phrase === 'قحبة' && rule.category === 'personal_abuse')).toBe(true)
     expect(seed.rules.some((rule) => rule.phrase === 'سير تقود')).toBe(true)
     expect(seed.rules.some((rule) => rule.phrase === 'تبون')).toBe(false)
+    expect(seed.rules.some((rule) => rule.phrase === 'zamel')).toBe(false)
+    expect(seed.rules.some((rule) => rule.phrase === 'مكلخة')).toBe(true)
   })
   it('detects seeded Darija profanity as a review signal, not an automatic block', () => {
     const seed = createDefaultDarijaSafetyPolicy()
@@ -47,6 +49,12 @@ describe('content safety engine', () => {
     const result = scanContent({ text: '7mar', surface: 'comment' }, seed)
     expect(result.decision).toBe('review')
     expect(result.signals.some((signal) => signal.ruleId === 'darija-lat-009')).toBe(true)
+  })
+  it('recognizes an additional Arabizi spelling without treating it as an automatic block', () => {
+    const seed = createDefaultDarijaSafetyPolicy()
+    const result = scanContent({ text: '9e7ba', surface: 'comment' }, seed)
+    expect(result.decision).toBe('review')
+    expect(result.signals.some((signal) => signal.ruleId === 'darija-lat-019')).toBe(true)
   })
   it('does not block a seeded insult without trusted targeting context', () => {
     const seed = createDefaultDarijaSafetyPolicy()
