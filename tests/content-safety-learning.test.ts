@@ -173,9 +173,43 @@ describe('governed learning pipeline', () => {
       decision: 'approve', reason: 'Second review',
     })).toThrow(/twice/)
   })
+  it('includes provenance in the dataset fingerprint', async () => {
+    const first = reviewFeedbackCandidate({
+      candidate: makeCandidate(), reviewerRef: 'editor-1', role: 'editor',
+      decision: 'approve', reason: 'Verified',
+    })
+    const secondCandidate = { ...makeCandidate(), source: 'moderation_decision' as const }
+    const second = reviewFeedbackCandidate({
+      candidate: secondCandidate, reviewerRef: 'editor-1', role: 'editor',
+      decision: 'approve', reason: 'Verified',
+    })
+    const a = await buildApprovedDataset([first], 'dataset-a')
+    const b = await buildApprovedDataset([second], 'dataset-a')
+    expect(a.fingerprint).not.toBe(b.fingerprint)
+  })
+  it('rejects overlong feedback before it enters the review queue', () => {
+    expect(() => submitFeedbackCandidate({
+      id: 'long', domain: 'linguistic', source: 'editor_correction',
+      sourceSurface: 'lexicon', groupId: 'g', text: 'x'.repeat(5001),
+      label: 'x', rationale: 'y', contributorRef: 'c',
+      consentToDatasetUse: true, license: 'CC0',
+    })).toThrow(RangeError)
+  })
   it('does not export a forged approved status without independent review records', async () => {
     const forged = { ...makeCandidate('content_safety'), status: 'approved' as const }
     const dataset = await buildApprovedDataset([forged], 'dataset-forged')
+    expect(dataset.train.length + dataset.validation.length + dataset.test.length).toBe(0)
+  })
+  it('does not export forged reviewer records with empty rationale or invalid timestamps', async () => {
+    const forged = {
+      ...makeCandidate('content_safety'),
+      status: 'approved' as const,
+      reviews: [
+        { reviewerRef: 'editor-1', role: 'editor' as const, decision: 'approve' as const, reason: '', reviewedAt: 'invalid' },
+        { reviewerRef: 'admin-1', role: 'admin' as const, decision: 'approve' as const, reason: 'Verified', reviewedAt: '2026-01-01T00:00:00.000Z' },
+      ],
+    }
+    const dataset = await buildApprovedDataset([forged], 'dataset-invalid-review')
     expect(dataset.train.length + dataset.validation.length + dataset.test.length).toBe(0)
   })
   it('calculates class metrics and enforces release gates', () => {
