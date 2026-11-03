@@ -126,6 +126,11 @@ function validatePayload(operation: Operation, payload: unknown): Record<string,
   return record;
 }
 
+async function sha256Hex(value: string): Promise<string> {
+  const digest = await crypto.subtle.digest("SHA-256", encoder.encode(value));
+  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
 function scanFields(payload: Record<string, unknown>): Record<string, string | string[] | null> {
   const fields: Record<string, string | string[] | null> = {};
   for (const [key, value] of Object.entries(payload)) {
@@ -257,6 +262,30 @@ Deno.serve(async (req: Request) => {
       contexts: spec.contexts,
     }, policy);
 
+    const auditSignals = scan.fields.flatMap((item) => item.signals.map((signal) => ({
+      field: item.field,
+      ...(item.index === undefined ? {} : { index: item.index }),
+      code: signal.code,
+      category: signal.category,
+      severity: signal.severity,
+      ...(signal.ruleId ? { ruleId: signal.ruleId } : {}),
+      confidence: signal.confidence,
+    })));
+    const contentDigest = await sha256Hex(JSON.stringify(writePayload));
+    const { error: auditError } = await admin.rpc("record_content_scan_event", {
+      p_actor_id: actorId,
+      p_operation: operation,
+      p_decision: scan.decision,
+      p_content_digest: contentDigest,
+      p_engine_version: scan.engineVersion,
+      p_policy_version: scan.policyVersion,
+      p_signals: auditSignals,
+    });
+    if (auditError) {
+      console.error(JSON.stringify({ event: "content_scan_audit_failed", operation, actorId, code: auditError.code }));
+      return json({ error: auditError.code === "54000" ? "scan_rate_limited" : "scan_audit_unavailable" }, auditError.code === "54000" ? 429 : 503, requestOrigin);
+    }
+
     // A review/block/escalation decision never receives a write token.
     if (scan.decision !== "allow" && scan.decision !== "allow_with_context") {
       return json({
@@ -278,7 +307,7 @@ Deno.serve(async (req: Request) => {
     });
     if (tokenError || typeof tokenData !== "string" || !tokenData) {
       console.error(JSON.stringify({ event: "content_scan_token_issue_failed", operation, actorId, code: tokenError?.code }));
-      return json({ error: "scan_authorization_unavailable" }, 503, requestOrigin);
+      return json({ error: tokenError?.code === "54000" ? "scan_rate_limited" : "scan_authorization_unavailable" }, tokenError?.code === "54000" ? 429 : 503, requestOrigin);
     }
 
     return json({
