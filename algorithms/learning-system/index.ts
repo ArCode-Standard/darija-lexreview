@@ -57,10 +57,15 @@ export async function buildApprovedDataset(candidates: FeedbackCandidate[], vers
   const unique = new Map<string, DatasetExample>()
   for (const candidate of approved) {
     const key = candidate.id + ':' + candidate.label
-    if (!unique.has(key)) unique.set(key, {
+    const next: DatasetExample = {
       id: candidate.id, groupId: candidate.groupId, text: candidate.text, label: candidate.label,
       domain: candidate.domain, source: candidate.source, license: candidate.license,
-    })
+    }
+    const existing = unique.get(key)
+    if (existing && JSON.stringify(existing) !== JSON.stringify(next)) {
+      throw new Error('Conflicting approved examples share the same ID and label')
+    }
+    if (!existing) unique.set(key, next)
   }
   const examples = [...unique.values()].sort((a, b) => a.id.localeCompare(b.id))
   const train: DatasetExample[] = [], validation: DatasetExample[] = [], test: DatasetExample[] = []
@@ -101,6 +106,9 @@ export function calculateEvaluationReport(datasetVersion: string, expected: stri
 }
 export function evaluateReleaseGate(report: EvaluationReport, gate: ReleaseGate): { approved: boolean; failures: string[] } {
   const failures: string[] = []
+  if (!Number.isInteger(report.sampleCount) || report.sampleCount < 0 || report.classes.some((item) => [item.precision, item.recall, item.f1, item.falsePositiveRate, item.falseNegativeRate].some((value) => !Number.isFinite(value) || value < 0 || value > 1))) {
+    throw new RangeError('Evaluation report contains invalid sample counts or metric values')
+  }
   const thresholds = [gate.minPrecision, gate.minRecall, gate.minMacroF1, gate.minClassF1, gate.maxFalsePositiveRate, gate.maxFalseNegativeRate]
   if (!Number.isInteger(gate.minSamples) || gate.minSamples < 1 || thresholds.some((value) => !Number.isFinite(value) || value < 0 || value > 1)) {
     throw new RangeError('Release gate thresholds must be within [0, 1] and minSamples must be a positive integer')
