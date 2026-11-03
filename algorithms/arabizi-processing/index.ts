@@ -170,6 +170,13 @@ function transliterateTokenCandidates(token: string, limit: number): PartialHypo
     beam = keepBestByValue(expanded, limit)
     index += width
   }
+  const lexicalHint = SEED_LEXICAL_HINTS[token]
+  if (lexicalHint) {
+    beam = keepBestByValue([
+      ...beam,
+      { value: lexicalHint, score: 1.5, decisions: [`seed-lexicon:${token}`] },
+    ], limit)
+  }
   return beam
 }
 
