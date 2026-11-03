@@ -2,10 +2,10 @@
 
 ## Delivered in this branch
 
-- Pure TypeScript content-safety engine with Unicode normalization and secondary obfuscation skeletons.
+- Pure TypeScript content-safety engine with Unicode normalization, Moroccan Arabizi digit-aware obfuscation skeletons, and hard content-size limits.
 - Configurable, source-controlled lexicon rules. No public hard-coded profanity catalogue is included.
 - Context-aware outcomes distinguishing profanity mentions from targeted abuse and threats.
-- Review-first handling for ambiguous cases; a profanity-only match cannot automatically block.
+- Review-first handling for ambiguous cases; a profanity-only match cannot automatically block. Explicit payload scanning rejects unmapped object values and bounds field and array counts.
 - Feedback intake rejecting private-message sources, requiring explicit dataset-use consent and a documented license, and blocking obvious personal identifiers pending redaction.
 - Human approval workflow, including two independent approvals for content-safety examples.
 - Deterministic group-aware dataset splitting with SHA-256 dataset fingerprints, per-class Precision/Recall/F1/FPR/FNR metrics, and release-gate evaluation.
