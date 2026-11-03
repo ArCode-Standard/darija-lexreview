@@ -7,7 +7,6 @@ export type DarijaContextLabel =
   | 'quoted_evidence'
   | 'linguistic_mention'
   | 'threat_language'
-  | 'group_targeting'
   | 'ambiguous_mixed'
   | 'neutral_or_unclear'
 
@@ -39,14 +38,14 @@ const REPORT_MARKERS = [
   'he said', 'she said', 'threatened me',
 ]
 const LAUGHTER_MARKERS = [
-  'هههه', 'هahaha', 'hahaha', 'lol', 'lmao', 'غير كنضحك',
+  'هههه', 'hahaha', 'lol', 'lmao', 'غير كنضحك',
   'كانضحك', 'غير ضحك', 'غير مزاح', 'راه غير ضحك',
 ]
-const DIRECT_ADDRESS = /(?:^|\\s)(?:nta|nti|ntoma|ntouma|نتا|نتي|نتوما|انتما|ليك|ليكم)(?:$|\\s)/u
+const DIRECT_ADDRESS = /(?:^|\s)(?:nta|nti|ntoma|ntouma|نتا|نتي|نتوما|انتما|ليك|ليكم)(?:$|\s)/u
 const THREAT_PATTERNS = [
-  /(?:^|\\s)غادي\\s+(?:نقتلك|نضربك|نحرقك|نأذيك|نجي\\s+عندك)(?:$|\\s)/u,
-  /(?:^|\\s)راه\\s+غادي\\s+(?:نقتلك|نضربك|نحرقك)(?:$|\\s)/u,
-  /(?:^|\\s)ghadi\\s+n(?:9tlek|drbk|7re9k|2dik)(?:$|\\s)/u,
+  /(?:^|\s)غادي\s+(?:نقتلك|نضربك|نحرقك|نأذيك|نجي\s+عندك)(?:$|\s)/u,
+  /(?:^|\s)راه\s+غادي\s+(?:نقتلك|نضربك|نحرقك)(?:$|\s)/u,
+  /(?:^|\s)ghadi\s+n(?:9tlek|drbk|7re9k|2dik)(?:$|\s)/u,
 ]
 
 function containsAny(text: string, markers: readonly string[]): boolean {
