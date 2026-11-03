@@ -18,8 +18,8 @@ function phraseMatchesWithSeparators(text: string, phrase: string): boolean {
   // boundaries so short rules do not match inside unrelated words.
   const tokenPattern = tokens
     .map((token) => Array.from(token).join('[\s._*-]*'))
-    .join('\\s+')
-  return new RegExp('(?:^|\\s)' + tokenPattern + '(?:$|\\s)', 'u').test(text)
+    .join('\s+')
+  return new RegExp('(?:^|\s)' + tokenPattern + '(?:$|\s)', 'u').test(text)
 }
 function ruleMatches(text: string, skeleton: string, rule: SafetyLexiconRule): boolean {
   const normalizedPhrase = normalizeSafetyText(rule.phrase)
