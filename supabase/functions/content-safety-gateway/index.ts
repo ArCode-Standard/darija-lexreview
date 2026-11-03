@@ -1,4 +1,4 @@
-import { createClient } from "npm:@supabase/supabase-js@2";
+import { createClient } from "npm:@supabase/supabase-js@2.57.0";
 import { scanContentPayload } from "../_shared/content-safety/gateway.ts";
 import type { ContentSurface, SafetyPolicy, TrustedContentContext } from "../_shared/content-safety/types.ts";
 
