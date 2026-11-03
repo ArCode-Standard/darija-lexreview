@@ -370,28 +370,7 @@ export function EditorModerationPanel({
       }
     }
 
-    if (false) {
-      onModerateSandbox({
-        id: activeSubmission.id,
-        status: nextStatus,
-        editorNote: editorNote.trim() || null,
-        proposedData: editableProposed,
-        editorId: profile?.id ?? 'ed-session',
-        editorDisplayName:
-          profile?.display_name?.trim() || userEmail || 'المحرر الحالي (جلسة محاكاة)',
-      })
-      setEditMode(false)
-      setAuditRefreshCounter((c) => c + 1)
-      setActionMessage({
-        type: 'success',
-        text: isRevokingAccepted
-          ? `تم سحب الاعتماد وتحويل الحالة إلى «${formatStatusLabel(nextStatus)}» مع تسجيل الحدث في سجل التدقيق.`
-          : `تم تحديث قرار المحاكاة إلى «${formatStatusLabel(nextStatus)}».`,
-      })
-      return
-    }
-
-    if (!supabase || !isAuthorizedLiveEditor) {
+        if (!supabase || !isAuthorizedLiveEditor) {
       setActionMessage({
         type: 'error',
         text: 'ليست لديك صلاحية محرر (editor/admin) لتحديث سجل المنصة الرسمي.',
@@ -523,27 +502,7 @@ export function EditorModerationPanel({
   }) {
     if (eligibleIds.length === 0) return
 
-    if (false) {
-      onBulkApproveSandbox({
-        ids: eligibleIds,
-        editorNote: justificationComment,
-        editorId: profile?.id ?? 'ed-session',
-        editorDisplayName:
-          profile?.display_name?.trim() || userEmail || 'المحرر الحالي (جلسة محاكاة)',
-      })
-      if (activeSubmission && eligibleIds.includes(activeSubmission.id)) {
-        setEditorNote(justificationComment)
-      }
-      setSelectedBatchIds(new Set())
-      setBulkModalOpen(false)
-      setActionMessage({
-        type: 'success',
-        text: `تم توقيع واعتماد دفعة مكونة من ${eligibleIds.length} مقترحات بنجاح في بيئة المحاكاة.`,
-      })
-      return
-    }
-
-    if (!supabase || !isAuthorizedLiveEditor) {
+        if (!supabase || !isAuthorizedLiveEditor) {
       setBulkError('ليست لديك صلاحية محرر (editor/admin) لتنفيذ اعتماد جماعي في سجل المنصة الرسمي.')
       return
     }
@@ -691,15 +650,7 @@ export function EditorModerationPanel({
           </div>
         )}
 
-        {false && (
-          <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-zinc-300 bg-zinc-50 px-4 py-2.5 text-xs text-zinc-700 dark:border-white/15 dark:bg-[#07070A] dark:text-zinc-300">
-            <span>
-              <strong>وضع المحاكاة التحريرية المعزول:</strong> جميع القرارات هنا محفوظة في متصفحك فقط ولا تختلط بالسجل الرسمي.
-            </span>
-            
-          </div>
-        )}
-        {/* Sub-view Switcher: Submissions Adjudication vs RBAC Role Governance */}
+                {/* Sub-view Switcher: Submissions Adjudication vs RBAC Role Governance */}
         <div className="mt-4 pt-4 border-t border-zinc-200 flex flex-wrap items-center justify-between gap-3 dark:border-white/10">
           <div
             role="tablist"
@@ -731,10 +682,6 @@ export function EditorModerationPanel({
               }`}
             >
               حوكمة الصلاحيات وطلبات الترقية
-              {false &&
-              sandboxPromotionRequests.filter((r) => r.status === 'pending').length > 0
-                ? ` (${sandboxPromotionRequests.filter((r) => r.status === 'pending').length})`
-                : ''}
             </button>
           </div>
 
