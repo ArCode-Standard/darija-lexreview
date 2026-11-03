@@ -384,7 +384,7 @@ create or replace function public.update_reviewer_profile_admin_note(p_payload j
 returns void language plpgsql security invoker set search_path = ''
 as $function$
 begin
-  if p_payload - array['status_reason'] <> '{}'::jsonb then
+  if p_payload - array['id','status_reason'] <> '{}'::jsonb then
     raise exception 'Unsupported admin profile field' using errcode = '22023';
   end if;
   perform private.consume_content_scan_token(p_scan_token, 'reviewer_profiles.admin_update', p_payload);
