@@ -20,8 +20,8 @@ function phraseMatchesWithSeparators(text: string, phrase: string): boolean {
   // boundaries so short rules do not match inside unrelated words.
   const tokenPattern = tokens
     .map((token) => Array.from(token).join('[\s._*-]*'))
-    .join('\\s+')
-  return new RegExp('(?:^|\\s)' + tokenPattern + '(?:$|\\s)', 'u').test(text)
+    .join('\s+')
+  return new RegExp('(?:^|\s)' + tokenPattern + '(?:$|\s)', 'u').test(text)
 }
 function ruleMatches(text: string, skeleton: string, rule: SafetyLexiconRule): boolean {
   const normalizedPhrase = normalizeSafetyText(rule.phrase)
@@ -92,6 +92,9 @@ export function scanContent(input: ScanContentInput, policy: SafetyPolicy): Cont
     signals.push({ code: targeted ? rule.category + '_targeted' : rule.category + '_term_match', category: rule.category, severity: rule.severity, ruleId: rule.id, confidence: 'medium' })
   }
   const contextAssessment = analyzeDarijaContext({ text: original, matchedCategories: signals.map((signal) => signal.category) })
+  if (contextAssessment.labels.includes('directed_abuse')) {
+    signals.push({ code: 'possible_direct_address', category: 'personal_abuse', severity: 1, confidence: 'low' })
+  }
   if (longestRepeatedCharacterRun(original) > policy.maxRepeatedCharacterRun) {
     score += 8
     signals.push({ code: 'character_flooding', category: 'spam', severity: 2, confidence: 'high' })
