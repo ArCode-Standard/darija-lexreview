@@ -40,6 +40,12 @@ describe('content safety engine', () => {
     expect(result.decision).toBe('review')
     expect(result.signals.some((signal) => signal.ruleId === 'darija-prof-001')).toBe(true)
   })
+  it('recognizes a seeded Arabizi spelling', () => {
+    const seed = createDefaultDarijaSafetyPolicy()
+    const result = scanContent({ text: '7mar', surface: 'comment' }, seed)
+    expect(result.decision).toBe('review')
+    expect(result.signals.some((signal) => signal.ruleId === 'darija-lat-009')).toBe(true)
+  })
   it('does not block a seeded insult without trusted targeting context', () => {
     const seed = createDefaultDarijaSafetyPolicy()
     const result = scanContent({ text: 'حمار', surface: 'comment' }, seed)
