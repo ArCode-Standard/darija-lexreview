@@ -18,7 +18,17 @@ function makeSynthetic(size:number) {
   return Array.from({length:size},(_,i)=>({id:`synthetic-${i}`,form:`fixtureword${i.toString(36)}`,senseId:`synthetic-sense-${i}`}))
 }
 
-describe('Darija benchmark quality baseline (provisional fixtures)',()=>{
+function makeVariantScaleFixture(size:number) {
+  const rows:Array<{id:string;form:string}> = []
+  const pairs=Math.floor(size/2)
+  for(let i=0;i<pairs;i++) {
+    const stem=`w${i.toString(36)}x`
+    rows.push({id:`variant-${i}-a`,form:`${stem}a`},{id:`variant-${i}-b`,form:`${stem}b`})
+  }
+  for(let i=rows.length;i<size;i++) rows.push({id:`noise-${i}`,form:`noise${i.toString(36)}z`})
+  return rows
+}
+\ndescribe('Darija benchmark quality baseline (provisional fixtures)',()=>{
   it('reports precision/recall/F1 separately for candidate discovery',()=>{
     const predicted=discoverVariantCandidates(GOLD_FORMS.map(x=>({id:x.id,form:x.form,script:x.script})),0.82)
     const predictedPairs=new Set(predicted.map(x=>[x.leftId,x.rightId].sort().join('|')))
@@ -79,7 +89,7 @@ describe('Darija benchmark quality baseline (provisional fixtures)',()=>{
   })
 
   it('runs indexed variant candidate generation on 50k synthetic records within a bounded pair budget',()=>{
-    const data=makeSynthetic(50_000).map(({id,form})=>({id,form}));
+    const data=makeVariantScaleFixture(50_000);
     const start=performance.now();
     const result=discoverVariantCandidatesWithStats(data,0.9,{maxCandidatesPerItem:32});
     const elapsedMs=Number((performance.now()-start).toFixed(2));
