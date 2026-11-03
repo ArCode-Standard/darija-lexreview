@@ -36,3 +36,12 @@ A profanity-only hit is not an automatic block. Compact or obfuscated matches ar
 This library has no authentication, database, RLS, persistence, or audit storage. It must run in a trusted server process. Calling it from React does not protect a Supabase table from direct REST writes.
 
 Every insert and update must enumerate all writable text fields. Do not assume the payload scanner automatically discovers nested fields or JSON keys. The payload adapter rejects object-valued or otherwise unmapped fields, caps field count and array sizes, and scans only explicit string values. Add explicit field maps and tests for each database table.
+
+
+## Moroccan Darija starter lexicon
+
+- `darija-seed-lexicon.ts` exports `DARIJA_SAFETY_SEED_RULES` and `createDefaultDarijaSafetyPolicy()`.
+- The starter set includes Arabic-script and Latin/Arabizi spellings for common vulgar terms and insults, with separate severity and category labels.
+- General profanity is a review signal, not an automatic ban. Personal-abuse entries require trusted server-side targeting context before they can trigger a targeted-abuse block.
+- The seed is deliberately limited and must be expanded using editor-reviewed regional variants, spelling variants, false-positive reports, and licensed examples. Do not treat it as a complete list of Moroccan profanity.
+- The default policy is an opt-in starter configuration. Production services must explicitly load a versioned policy and must not trust client-provided context.
