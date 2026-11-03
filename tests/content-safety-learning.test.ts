@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { normalizeSafetyText, scanContent, type SafetyPolicy } from '../algorithms/content-safety'
+import { normalizeSafetyText, obfuscationSkeleton, scanContent, type SafetyPolicy } from '../algorithms/content-safety'
 import { scanContentPayload } from '../algorithms/content-safety/gateway'
 import { buildApprovedDataset, calculateEvaluationReport, evaluateReleaseGate, reviewFeedbackCandidate, submitFeedbackCandidate } from '../algorithms/learning-system'
 import type { FeedbackCandidate } from '../algorithms/learning-system'
@@ -72,6 +72,27 @@ describe('content safety engine', () => {
     expect(result.decision).toBe('allow_with_context')
     expect(result.requiresHumanReview).toBe(true)
     expect(result.fields).toHaveLength(3)
+  })
+  it('preserves Moroccan Arabizi digit conventions in obfuscation skeletons', () => {
+    expect(obfuscationSkeleton('3lach 5ayb 7chouma')).toBe('علاش خايب حشوما')
+  })
+  it('hard-blocks content that exceeds the configured maximum size', () => {
+    const result = scanContent({ text: 'x'.repeat(5001), surface: 'comment' }, policy)
+    expect(result.decision).toBe('block')
+    expect(result.score).toBe(100)
+    expect(result.signals[0]?.code).toBe('content_length_limit_exceeded')
+  })
+  it('rejects invalid surfaces and timestamps', () => {
+    expect(() => scanContent({ text: 'hello', surface: 'unknown' as never }, policy)).toThrow(/surface/)
+    expect(() => scanContent({ text: 'hello', surface: 'comment', now: new Date('invalid') }, policy)).toThrow(/valid Date/)
+  })
+  it('rejects payload values that could otherwise hide nested text', () => {
+    expect(() => scanContentPayload({
+      surface: 'comment', fields: { body: { nested: 'sample-threat' } as never },
+    }, policy)).toThrow(/strings, null, or arrays/)
+    expect(() => scanContentPayload({
+      surface: 'comment', fields: { body: ['valid', 42 as never] },
+    }, policy)).toThrow(/only strings/)
   })
   it('normalizes Arabic diacritics and tatweel without changing source text', () => {
     expect(normalizeSafetyText('أَهْلًا ـ')).toBe('اهلا')
