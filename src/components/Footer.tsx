@@ -3,18 +3,12 @@ import { Moon, Sun } from 'lucide-react'
 interface FooterProps {
   darkMode: boolean
   onToggleDarkMode: () => void
-  isStaffRole: boolean
-  editorialPreviewMode: boolean
-  onToggleEditorialPreview: () => void
   onOpenContributors?: () => void
 }
 
 export function Footer({
   darkMode,
   onToggleDarkMode,
-  isStaffRole,
-  editorialPreviewMode,
-  onToggleEditorialPreview,
   onOpenContributors,
 }: FooterProps) {
   return (
@@ -58,18 +52,6 @@ export function Footer({
           <a href="/attribution/" className="hover:text-zinc-950 hover:underline whitespace-nowrap dark:hover:text-white">الإسناد والترخيص</a>
           <span aria-hidden="true">·</span>
           <a href="https://github.com/ArCode-Standard/darija-lexreview" target="_blank" rel="noreferrer" className="hover:text-zinc-950 hover:underline whitespace-nowrap dark:hover:text-white">مستودع المنصة</a>
-          {!isStaffRole && editorialPreviewMode && (
-            <>
-              <span aria-hidden="true">·</span>
-              <button
-                type="button"
-                onClick={onToggleEditorialPreview}
-                className="font-semibold text-amber-700 hover:underline whitespace-nowrap cursor-pointer dark:text-[#D9FF43]"
-              >
-                إغلاق وضع المعاينة التجريبية
-              </button>
-            </>
-          )}
           <span aria-hidden="true">·</span>
           <button type="button" onClick={onToggleDarkMode} className="inline-flex min-h-[36px] items-center gap-1.5 rounded-full border border-zinc-300 bg-white px-3.5 py-1.5 text-xs font-medium text-zinc-800 hover:bg-zinc-100 transition-colors whitespace-nowrap shrink-0 cursor-pointer dark:border-white/15 dark:bg-[#0C0C10] dark:text-zinc-200 dark:hover:border-[#D9FF43]/60">
             {darkMode ? <><Sun className="h-3.5 w-3.5" aria-hidden="true" /><span>الوضع النهاري</span></> : <><Moon className="h-3.5 w-3.5" aria-hidden="true" /><span>الوضع الليلي</span></>}
