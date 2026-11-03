@@ -1343,6 +1343,7 @@ export default function App() {
                   <div className="grid grid-cols-1 gap-6 lg:grid-cols-12 items-start">
                     <div className="lg:col-span-4">
                       <LexiconSidebar
+                        categories={categories}
                         entries={entries}
                         filteredEntries={filteredEntries}
                         activeEntry={activeEntry}
