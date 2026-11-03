@@ -61,6 +61,12 @@ describe('content safety engine', () => {
     const result = scanContent({ text: 'حمار', surface: 'comment' }, seed)
     expect(result.decision).toBe('review')
   })
+  it('uses Darija direct-address words as review cues but never as trusted block authority', () => {
+    const seed = createDefaultDarijaSafetyPolicy()
+    const result = scanContent({ text: 'nta 7mar', surface: 'comment' }, seed)
+    expect(result.decision).toBe('review')
+    expect(result.signals.some((signal) => signal.code === 'possible_direct_address')).toBe(true)
+  })
   it('blocks a seeded personal insult only when trusted context confirms targeting', () => {
     const seed = createDefaultDarijaSafetyPolicy()
     const result = scanContent({ text: 'حمار', surface: 'comment', context: { purpose: 'general', targetedAtPerson: true } }, seed)
