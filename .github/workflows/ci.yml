@@ -45,6 +45,11 @@ jobs:
         run: supabase start -x studio,imgproxy
         env:
           SUPABASE_TELEMETRY_DISABLED: "1"
+      - name: Materialize gateway draft as a generated migration for isolated validation
+        run: |
+          supabase migration new content_safety_gateway_and_learning
+          migration_file="$(ls -t supabase/migrations/*.sql | head -n 1)"
+          cp supabase/drafts/content_safety_gateway_and_learning.sql "$migration_file"
       - name: Rebuild database from migrations
         run: supabase db reset --local
       - name: Run pgTAP database tests
