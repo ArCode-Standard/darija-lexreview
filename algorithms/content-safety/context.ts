@@ -118,7 +118,7 @@ export function analyzeDarijaContext(input: AnalyzeDarijaContextInput): DarijaCo
   } else if (labels.has('directed_abuse')) {
     primary = 'directed_abuse'
     confidence = 'medium'
-  } else if (educational && !hasAbuse) {
+  } else if (educational && !hasThreat && !directAddress) {
     primary = 'linguistic_mention'
     confidence = 'medium'
   } else if (quoted && !hasThreat) {
