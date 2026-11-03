@@ -48,7 +48,7 @@ const THREAT_PATTERNS = [
   /(?:^|\s)ghadi\s+n(?:9tlek|drbk|7re9k|2dik)(?:$|\s)/u,
 ]
 
-function containsAny(text: string, markers: readonly string[]): boolean {
+const NEGATED_THREAT = /(?:^|\\s)(?:ما\\s+غادي\\s+|ما\\s+غاديش\\s+|عمري\\s+)(?:نقتلك|نضربك|نحرقك|نأذيك)(?:$|\\s)/u\n\nfunction containsAny(text: string, markers: readonly string[]): boolean {
   return markers.some((marker) => text.includes(normalizeSafetyText(marker)))
 }
 
@@ -66,7 +66,7 @@ export function analyzeDarijaContext(input: AnalyzeDarijaContextInput): DarijaCo
   const cueCodes: string[] = []
   const labels = new Set<DarijaContextLabel>()
   const hasAbuse = categories.has('personal_abuse') || categories.has('profanity')
-  const hasThreat = categories.has('threat') || THREAT_PATTERNS.some((pattern) => pattern.test(normalized))
+  const negatedThreat = NEGATED_THREAT.test(normalized)\n  const hasThreat = categories.has('threat') || (!negatedThreat && THREAT_PATTERNS.some((pattern) => pattern.test(normalized)))
   const educational = containsAny(normalized, EDUCATIONAL_MARKERS)
   const reportMarker = containsAny(normalized, REPORT_MARKERS)
   const quoted = /["«»“”‘’]/u.test(input.text) || reportMarker
