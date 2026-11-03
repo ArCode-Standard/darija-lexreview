@@ -17,7 +17,6 @@ import { isNewEntrySubmission } from '../../services/exporter'
 interface ModerationAnalyticsDashboardProps {
   submissions: SubmissionRecord[]
   editorNamesMap: Record<string, string>
-  queueSource: 'live' | 'sandbox'
 }
 
 type RangeFilter = 'all' | '7d' | '30d'
@@ -34,9 +33,7 @@ function formatDurationArabic(hours: number | null): string {
 export function ModerationAnalyticsDashboard({
   submissions,
   editorNamesMap,
-  queueSource,
 }: ModerationAnalyticsDashboardProps) {
-  void queueSource
   const [range, setRange] = useState<RangeFilter>('all')
   const [collapsed, setCollapsed] = useState(false)
   const [isDark, setIsDark] = useState(() =>
@@ -62,7 +59,7 @@ export function ModerationAnalyticsDashboard({
       const t = new Date(s.created_at).getTime()
       if (!Number.isNaN(t) && t > maxTs) maxTs = t
     }
-    // If all items are older than current wall clock (e.g. sandbox fixtures), anchor to latest item
+    // If all items are older than the current wall clock, anchor to the latest item
     if (submissions.length > 0) {
       const latestItemTs = Math.max(
         ...submissions
