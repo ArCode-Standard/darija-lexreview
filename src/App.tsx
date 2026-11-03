@@ -6,7 +6,6 @@ import {
   CheckCircle2,
   Database,
   Edit3,
-  Eye,
   Lock,
   LogIn,
   RefreshCw,
@@ -1785,7 +1784,7 @@ export default function App() {
         onQuickAddWord={handleQuickAddWord}
       />
 
-      {/* Mandatory Official Warning Acknowledgment Modal — Strictly Authenticated Members (or Active Sandbox) */}
+      {{/* Mandatory Official Warning Acknowledgment Modal — Authenticated Members Only */}}
       {Boolean(userEmail) && (
         <MandatoryWarningModal
           warning={unacknowledgedWarnings[0] ?? null}
