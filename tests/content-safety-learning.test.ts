@@ -133,9 +133,10 @@ describe('governed learning pipeline', () => {
   it('calculates class metrics and enforces release gates', () => {
     const report = calculateEvaluationReport('dataset-1', ['safe', 'unsafe'], ['safe', 'safe'])
     expect(report.classes.find((item) => item.label === 'unsafe')?.falseNegative).toBe(1)
+    expect(report.classes.find((item) => item.label === 'unsafe')?.falseNegativeRate).toBe(1)
     const gate = evaluateReleaseGate(report, {
       minSamples: 2, minPrecision: 0.9, minRecall: 0.9,
-      minMacroF1: 0.9, minClassF1: 0.9,
+      minMacroF1: 0.9, minClassF1: 0.9, maxFalsePositiveRate: 0.05, maxFalseNegativeRate: 0.05,
     })
     expect(gate.approved).toBe(false)
     expect(gate.failures).toContain('class_f1_below_threshold')
