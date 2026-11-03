@@ -274,7 +274,6 @@ export function AdminMembersPanel({
     }
     setBusyId(actionModal.member.id)
     const res = await onApplyGovernanceAction({
-      source: dataSource,
       targetMember: actionModal.member,
       action: actionModal.action,
       reason: trimmedReason,
@@ -301,7 +300,6 @@ export function AdminMembersPanel({
   async function handleRestoreMember(member: ReviewerProfile) {
     setBusyId(member.id)
     const res = await onApplyGovernanceAction({
-      source: dataSource,
       targetMember: member,
       action: 'restore',
       reason: 'إعادة تفعيل الحساب بعد المراجعة الإدارية.',
@@ -322,7 +320,6 @@ export function AdminMembersPanel({
     }
     setBusyId(messageModalMember.id)
     const res = await onSendMessage({
-      source: dataSource,
       recipientId: messageModalMember.id,
       isBroadcast: false,
       category: msgCategory,
@@ -346,7 +343,6 @@ export function AdminMembersPanel({
       return
     }
     const res = await onSendMessage({
-      source: dataSource,
       recipientId: null,
       isBroadcast: true,
       category: 'announcement',
@@ -375,7 +371,6 @@ export function AdminMembersPanel({
       return
     }
     const res = await onSubmitReport({
-      source: dataSource,
       targetUserId: reportTargetId,
       targetDisplayName: reportTargetName,
       recommendedAction: reportRecommended,
