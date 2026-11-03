@@ -1179,7 +1179,7 @@ export function NewEntryProposalPanel({
               </span>
             </button>
 
-            {canAccessEditorialTools && (
+            {false && canAccessEditorialTools && (
               <button
                 type="button"
                 onClick={handleSendToSandbox}
