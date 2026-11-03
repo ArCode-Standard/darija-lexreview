@@ -28,7 +28,7 @@ function makeVariantScaleFixture(size:number) {
   for(let i=rows.length;i<size;i++) rows.push({id:`noise-${i}`,form:`noise${i.toString(36)}z`})
   return rows
 }
-\ndescribe('Darija benchmark quality baseline (provisional fixtures)',()=>{
+describe('Darija benchmark quality baseline (provisional fixtures)',()=>{
   it('reports precision/recall/F1 separately for candidate discovery',()=>{
     const predicted=discoverVariantCandidates(GOLD_FORMS.map(x=>({id:x.id,form:x.form,script:x.script})),0.82)
     const predictedPairs=new Set(predicted.map(x=>[x.leftId,x.rightId].sort().join('|')))
