@@ -659,7 +659,7 @@ export function EditorModerationPanel({
           ))}
         </div>
 
-        {{/* Permission notice for accounts without editorial privileges */}}
+        {/* Permission notice for accounts without editorial privileges */}
         {queueSource === 'live' && !isAuthorizedLiveEditor && (
           <div className="mt-4 flex flex-wrap items-center justify-between gap-4 rounded-lg border border-amber-300 bg-amber-50/80 p-4 text-xs text-amber-950 dark:border-amber-800/60 dark:bg-amber-950/30 dark:text-amber-200">
             <div className="flex items-start gap-2.5 max-w-[72ch]">
