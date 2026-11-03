@@ -77,4 +77,15 @@ describe('Darija benchmark quality baseline (provisional fixtures)',()=>{
     expect(report.map(x=>x.size)).toEqual(sizes)
     expect(report[2].variantPairCount).toBe(1_249_975_000)
   })
+
+  it('runs indexed variant candidate generation on 50k synthetic records within a bounded pair budget',()=>{
+    const data=makeSynthetic(50_000).map(({id,form})=>({id,form}));
+    const start=performance.now();
+    const result=discoverVariantCandidatesWithStats(data,0.9,{maxCandidatesPerItem:32});
+    const elapsedMs=Number((performance.now()-start).toFixed(2));
+    console.info('[Darija benchmark] indexed variant discovery',JSON.stringify({elapsedMs,...result.stats}));
+    expect(result.stats.strategy).toBe('indexed');
+    expect(result.stats.candidatePairs).toBeLessThan(50_000*49_999/200);
+    expect(result.stats.comparedPairs).toBe(result.stats.candidatePairs);
+  });
 })
