@@ -75,7 +75,7 @@ export async function buildApprovedDataset(candidates: FeedbackCandidate[], vers
     else if (bucket < 85) validation.push(example)
     else test.push(example)
   }
-  const canonical = examples.map((example) => [example.id, example.groupId, example.text, example.label, example.license].join('|')).join('\n')
+  const canonical = examples.map((example) => JSON.stringify([example.id, example.groupId, example.domain, example.source, example.text, example.label, example.license])).join('\n')
   const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(canonical))
   const fingerprint = 'sha256:' + Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('')
   return { train, validation, test, fingerprint, version }
