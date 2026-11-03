@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { GOLD_FORMS, GOLD_ARABIZI, NORMALIZATION_GOLD_PAIRS } from '../benchmarks/dataset'
-import { discoverVariantCandidates, normalizeDarijaSearchKey, transliterateArabizi, findDuplicateCandidates } from '../algorithms'
+import { discoverVariantCandidates, normalizeDarijaSearchKey, transliterateArabizi, findDuplicateCandidates, discoverVariantCandidatesWithStats } from '../algorithms'
 
 const expectedPairs = new Set<string>()
 for (let i=0;i<GOLD_FORMS.length;i++) for(let j=i+1;j<GOLD_FORMS.length;j++) {
