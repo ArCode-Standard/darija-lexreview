@@ -303,7 +303,7 @@ export function useCommunityGovernanceAndMessages({
   }, [isAuthenticatedMember, inboxMessages, currentProfile])
 
   const unacknowledgedWarnings = useMemo(() => {
-    if (!isMemberOrPreview) return []
+    if (!isAuthenticatedMember) return []
     return inboxMessages.filter(
       (m) =>
         m.category === 'warning' &&
@@ -389,7 +389,6 @@ export function useCommunityGovernanceAndMessages({
       reason?: string
       suspendDays?: number
     }): Promise<{ ok: boolean; error?: string }> => {
-      const now = new Date().toISOString()
       const cleanReason = params.reason?.trim() || null
 
       const nextStatus: AccountStatus =
@@ -525,7 +524,6 @@ export function useCommunityGovernanceAndMessages({
       recommendedAction: 'warn' | 'suspend' | 'ban'
       reason: string
     }): Promise<{ ok: boolean; error?: string }> => {
-      const reporterName = currentProfile?.display_name || userEmail?.split('@')[0] || 'محرر معتمد'
 
 
 
