@@ -182,9 +182,8 @@ export function AdminMembersPanel({
   void sandboxMembers
   void sandboxModEvents
   void sandboxModReports
-  void sandboxPromotionRequests
   void onResetSandbox
-  const [dataSource, setDataSource] = useState<'live' | 'sandbox'>('live')
+  const dataSource = 'live' as const
   const [activeTab, setActiveTab] = useState<AdminTab>('members')
   const [memberFilter, setMemberFilter] = useState<MemberFilter>('all')
   const [query, setQuery] = useState('')
@@ -429,17 +428,7 @@ export function AdminMembersPanel({
               aria-label="مصدر بيانات الحوكمة"
               className="inline-flex items-center gap-1 rounded-xl border border-zinc-200 bg-zinc-100 p-1 dark:border-white/10 dark:bg-[#07070A]"
             >
-              <button
-                type="button"
-                onClick={() => setDataSource('live')}
-                className={`min-h-[32px] rounded-lg px-3 py-1 text-xs font-semibold cursor-pointer ${
-                  dataSource === 'live'
-                    ? 'bg-zinc-950 text-white dark:bg-[#D9FF43] dark:text-[#050507]'
-                    : 'text-zinc-600 dark:text-zinc-400'
-                }`}
-              >
-                سجل الأعضاء المعتمد
-              </button>
+              <span className="inline-flex min-h-[32px] items-center rounded-lg px-3 py-1 text-xs font-semibold text-zinc-700 dark:text-zinc-300">سجل الأعضاء المعتمد</span>
               
             </div>
           )}
