@@ -82,6 +82,10 @@ describe('content safety engine', () => {
     expect(result.score).toBe(100)
     expect(result.signals[0]?.code).toBe('content_length_limit_exceeded')
   })
+  it('counts Unicode code points rather than UTF-16 code units for size limits', () => {
+    const result = scanContent({ text: '🙂'.repeat(2501), surface: 'comment' }, policy)
+    expect(result.decision).toBe('allow')
+  })
   it('rejects invalid surfaces and timestamps', () => {
     expect(() => scanContent({ text: 'hello', surface: 'unknown' as never }, policy)).toThrow(/surface/)
     expect(() => scanContent({ text: 'hello', surface: 'comment', now: new Date('invalid') }, policy)).toThrow(/valid Date/)
