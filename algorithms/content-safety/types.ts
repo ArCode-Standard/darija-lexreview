@@ -17,7 +17,6 @@ export interface SafetyLexiconRule {
   phrase: string
   category: Exclude<ContentCategory, 'spam' | 'obfuscation'>
   severity: 1 | 2 | 3 | 4 | 5
-  requiresTargeting?: boolean
 }
 
 export interface SafetyPolicy {
