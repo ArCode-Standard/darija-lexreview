@@ -108,15 +108,16 @@ describe('governed learning pipeline', () => {
     })
     expect(second.status).toBe('approved')
   })
-  it('builds deterministic dataset splits from approved candidates only', () => {
+  it('builds deterministic dataset splits from approved candidates only', async () => {
     const pending = makeCandidate()
     const approved = reviewFeedbackCandidate({
       candidate: pending, reviewerRef: 'editor-1', role: 'editor',
       decision: 'approve', reason: 'Verified',
     })
-    const a = buildApprovedDataset([pending, approved], 'dataset-1')
-    const b = buildApprovedDataset([approved], 'dataset-1')
+    const a = await buildApprovedDataset([pending, approved], 'dataset-1')
+    const b = await buildApprovedDataset([approved], 'dataset-1')
     expect(a.fingerprint).toBe(b.fingerprint)
+    expect(a.fingerprint).toMatch(/^sha256:[a-f0-9]{64}$/)
     expect(a.train.length + a.validation.length + a.test.length).toBe(1)
   })
   it('does not permit a reviewer to approve the same candidate twice', () => {
