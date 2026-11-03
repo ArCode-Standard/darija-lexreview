@@ -7,6 +7,7 @@ type Operation =
   | "review_submissions.decision"
   | "community_attestations.upsert"
   | "reviewer_profiles.update"
+  | "reviewer_profiles.admin_update"
   | "member_messages.create"
   | "member_moderation_reports.create"
   | "member_moderation_reports.resolve"
@@ -40,6 +41,10 @@ const OPERATIONS: Record<Operation, OperationSpec> = {
   "reviewer_profiles.update": {
     surface: "profile", requiredRole: "any_active",
     allowedKeys: ["display_name", "dialect_region", "specialty", "github_handle"],
+  },
+  "reviewer_profiles.admin_update": {
+    surface: "admin", requiredRole: "admin",
+    allowedKeys: ["id", "status_reason"],
   },
   "member_messages.create": {
     surface: "private_message", requiredRole: "editor",
