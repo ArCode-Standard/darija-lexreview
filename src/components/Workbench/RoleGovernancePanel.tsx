@@ -460,7 +460,7 @@ export function RoleGovernancePanel({
               ))}
             </div>
 
-            {queueSource === 'live' ? (
+            {queueSource === 'live' && (
               <button
                 type="button"
                 disabled={loadingLive}
