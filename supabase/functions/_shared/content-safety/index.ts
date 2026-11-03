@@ -1,7 +1,7 @@
 import { countUrls, longestRepeatedCharacterRun, normalizeSafetyText, obfuscationSkeleton } from './normalize.ts'
 import type { ContentSafetyResult, ContentSurface, SafetyLexiconRule, SafetyPolicy, SafetySignal, TrustedContentContext } from './types.ts'
-export * from './normalize'
-export * from './types'
+export * from './normalize.ts'
+export * from './types.ts'
 export const CONTENT_SAFETY_ENGINE_VERSION = '0.2.0'
 const CONTEXTUAL_PURPOSES = new Set(['dictionary_definition', 'linguistic_analysis', 'academic_quote', 'moderation_report'])
 const RULE_CATEGORIES = new Set(['profanity', 'personal_abuse', 'hate_speech', 'threat'])
