@@ -44,19 +44,11 @@ interface AuthDialogProps {
   corpusVersion: string
   canAccessEditorialTools: boolean
   totalAttestationsCount: number
-  sandboxPromotionRequests: RolePromotionRequest[]
   onClearRecovery: () => void
   onAuthChanged: () => void
   onRemoveSyncedDrafts: (entryIds: string[]) => void
   onDraftsSyncedSuccess: () => void
-  onSubmitSandboxPromotion: (params: {
-    requesterId: string
-    requesterName: string
-    dialectRegion: string | null
-    experienceSummary: string
-    sampleLinks: string | null
-  }) => void
-  onJumpToAdminGovernance: (source: 'live' | 'sandbox') => void
+  onJumpToAdminGovernance: () => void
 }
 
 type SignedOutTab = 'signin' | 'signup'
@@ -91,12 +83,10 @@ export function AuthDialog({
   corpusVersion,
   canAccessEditorialTools,
   totalAttestationsCount,
-  sandboxPromotionRequests,
   onClearRecovery,
   onAuthChanged,
   onRemoveSyncedDrafts,
   onDraftsSyncedSuccess,
-  onSubmitSandboxPromotion,
   onJumpToAdminGovernance,
 }: AuthDialogProps) {
   const [signedOutTab, setSignedOutTab] = useState<SignedOutTab>('signin')
@@ -265,7 +255,6 @@ export function AuthDialog({
         ? 'محرر معتمد'
         : 'مراجع مساهم'
 
-  void sandboxPromotionRequests
   const latestPromotionRequest = myLiveRequests[0] ?? null
 
   const githubIdentity = identities.find((id) => id.provider === 'github')
@@ -729,16 +718,7 @@ export function AuthDialog({
       return
     }
 
-    if (false) onSubmitSandboxPromotion({
-      requesterId: profile?.id ?? 'session-reviewer',
-      requesterName: applicantName,
-      dialectRegion: editRegion || profile?.dialect_region || null,
-      experienceSummary: promoExperience.trim(),
-      sampleLinks: safeLink,
-    })
-    setPromoExperience('')
-    setPromoSampleLink('')
-  }
+      }
 
   async function handleInlineSyncDrafts() {
     setSyncingDrafts(true)
@@ -1252,7 +1232,7 @@ export function AuthDialog({
                         type="button"
                         onClick={() => {
                           onClose()
-                          onJumpToAdminGovernance('live')
+                          onJumpToAdminGovernance()
                         }}
                         className={primaryPillBtnClass}
                       >
@@ -1294,19 +1274,7 @@ export function AuthDialog({
                             تاريخ الإرسال:{' '}
                             {new Date(latestPromotionRequest.created_at).toLocaleString('ar-MA')}
                           </p>
-                          {false && latestPromotionRequest.is_sandbox && canAccessEditorialTools && (
-                            <button
-                              type="button"
-                              onClick={() => {
-                                onClose()
-                                onJumpToAdminGovernance('sandbox')
-                              }}
-                              className="mt-1 inline-flex items-center gap-1.5 font-semibold underline cursor-pointer"
-                            >
-                              <span>معاينة الطلب في لوحة المشرف (وضع المحاكاة)</span>
-                              <ArrowLeft className="h-3 w-3" />
-                            </button>
-                          )}
+
                         </div>
                       ) : (
                         <form onSubmit={handleSubmitPromotionRequest} className="space-y-3.5">
