@@ -57,6 +57,7 @@ create index if not exists content_scan_events_occurred_idx
 
 revoke all on private.content_safety_settings, private.content_scan_tokens, private.content_scan_events
   from public, anon, authenticated;
+grant usage on schema private to service_role;
 grant select, insert, update, delete on private.content_safety_settings,
   private.content_scan_tokens, private.content_scan_events to service_role;
 
@@ -95,6 +96,10 @@ begin
   ) then
     raise exception 'Unsupported content operation' using errcode = '22023';
   end if;
+
+  delete from private.content_scan_tokens
+   where expires_at < pg_catalog.clock_timestamp() - interval '1 day'
+      or consumed_at < pg_catalog.clock_timestamp() - interval '1 day';
 
   insert into private.content_scan_tokens(
     token_hash, actor_id, operation, payload_hash, engine_version, policy_version, expires_at
@@ -193,6 +198,8 @@ as $function$
   end;
 $function$;
 
+revoke all on function private.content_scan_projection(text, jsonb) from public, anon, authenticated;
+
 create or replace function private.content_projection_has_text(p_projection jsonb)
 returns boolean
 language sql
@@ -209,6 +216,8 @@ as $function$
       and e.value not in ('{}'::jsonb, '[]'::jsonb)
   );
 $function$;
+
+revoke all on function private.content_projection_has_text(jsonb) from public, anon, authenticated;
 
 create or replace function private.enforce_content_scan_token()
 returns trigger
