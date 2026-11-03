@@ -1416,6 +1416,7 @@ export default function App() {
                           allEntries={entries}
                           corpusVersion={corpusVersion}
                           isAuthenticated={Boolean(userEmail)}
+                          canAccessEditorialTools={canAccessEditorialTools}
                                    currentIndex={activeIndexInFiltered}
                           totalFiltered={filteredEntries.length}
                           existingDraft={drafts[activeEntry.id]}
