@@ -14,8 +14,12 @@ export function cosineSimilarity(left: number[], right: number[]): number {
   if (!left.length) throw new RangeError('vectors must not be empty')
   if (![...left, ...right].every(Number.isFinite)) throw new TypeError('vectors must contain only finite numbers')
 
-  const leftScale = Math.max(...left.map(Math.abs))
-  const rightScale = Math.max(...right.map(Math.abs))
+  let leftScale = 0
+  let rightScale = 0
+  for (let index = 0; index < left.length; index += 1) {
+    leftScale = Math.max(leftScale, Math.abs(left[index]))
+    rightScale = Math.max(rightScale, Math.abs(right[index]))
+  }
   if (leftScale === 0 || rightScale === 0) return 0
 
   let dot = 0
