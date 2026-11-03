@@ -17,6 +17,7 @@ export interface ContentFieldScan {
   riskLevel: 'low' | 'medium' | 'high' | 'critical'
   requiresHumanReview: boolean
   signals: ReturnType<typeof scanContent>['signals']
+  contextAssessment?: ReturnType<typeof scanContent>['contextAssessment']
 }
 export interface ContentPayloadScanResult {
   decision: ContentDecision
@@ -51,13 +52,13 @@ export function scanContentPayload(input: ScanContentPayloadInput, policy: Safet
     }
     if (typeof value === 'string') {
       const result = scanContent({ text: value, surface: input.surface, context: input.contexts?.[field], now: input.now }, policy)
-      fields.push({ field, decision: result.decision, score: result.score, riskLevel: result.riskLevel, requiresHumanReview: result.requiresHumanReview, signals: result.signals })
+      fields.push({ field, decision: result.decision, score: result.score, riskLevel: result.riskLevel, requiresHumanReview: result.requiresHumanReview, signals: result.signals, contextAssessment: result.contextAssessment })
     } else if (Array.isArray(value)) {
       value.forEach((item, index) => {
         if (item === null || item === undefined) return
         if (typeof item !== 'string') throw new TypeError('Content arrays may contain only strings or null values')
         const result = scanContent({ text: item, surface: input.surface, context: input.contexts?.[field], now: input.now }, policy)
-        fields.push({ field, index, decision: result.decision, score: result.score, riskLevel: result.riskLevel, requiresHumanReview: result.requiresHumanReview, signals: result.signals })
+        fields.push({ field, index, decision: result.decision, score: result.score, riskLevel: result.riskLevel, requiresHumanReview: result.requiresHumanReview, signals: result.signals, contextAssessment: result.contextAssessment })
       })
     }
   }

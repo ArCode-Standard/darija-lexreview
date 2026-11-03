@@ -135,6 +135,7 @@ describe('content safety engine', () => {
     expect(result.decision).toBe('allow_with_context')
     expect(result.requiresHumanReview).toBe(true)
     expect(result.fields).toHaveLength(3)
+    expect(result.fields.find((field) => field.field === 'reason')?.contextAssessment?.primary).toBe('threat_language')
   })
   it('preserves Moroccan Arabizi digit conventions in obfuscation skeletons', () => {
     expect(obfuscationSkeleton('3 5 7 8 9')).toBe('ع خ ح غ ق')
@@ -176,6 +177,58 @@ describe('content safety engine', () => {
     expect(() => scanContent({ text: 'hello', surface: 'comment' }, {
       ...policy, reviewThreshold: 90, blockThreshold: 20,
     })).toThrow(RangeError)
+  })
+})
+
+describe('Darija context understanding', () => {
+  it('distinguishes an educational mention from directed abuse', () => {
+    const seed = createDefaultDarijaSafetyPolicy()
+    const result = scanContent({ text: 'شنو معنى خرا؟', surface: 'lexicon' }, seed)
+    expect(result.contextAssessment?.primary).toBe('linguistic_mention')
+    expect(result.contextAssessment?.labels).toContain('linguistic_mention')
+    expect(result.contextAssessment?.trustedForEnforcement).toBe(false)
+  })
+  it('recognizes reported threat language while preserving the quote/evidence label', () => {
+    const seed = createDefaultDarijaSafetyPolicy()
+    const result = scanContent({ text: 'قال ليا "غادي نضربك"', surface: 'report' }, seed)
+    expect(result.contextAssessment?.primary).toBe('threat_language')
+    expect(result.contextAssessment?.labels).toContain('quoted_evidence')
+    expect(result.contextAssessment?.requiresHumanReview).toBe(true)
+    expect(result.decision).toBe('review')
+  })
+  it('marks insult plus laughter as mixed and ambiguous instead of assuming harmless humor', () => {
+    const seed = createDefaultDarijaSafetyPolicy()
+    const result = scanContent({ text: 'nta 7mar hahaha', surface: 'comment' }, seed)
+    expect(result.contextAssessment?.primary).toBe('ambiguous_mixed')
+    expect(result.contextAssessment?.labels).toContain('playful_banter')
+    expect(result.contextAssessment?.labels).toContain('directed_abuse')
+    expect(result.contextAssessment?.requiresHumanReview).toBe(true)
+  })
+  it('recognizes laughter without an abuse signal as a low-confidence banter cue', () => {
+    const seed = createDefaultDarijaSafetyPolicy()
+    const result = scanContent({ text: 'هههه غير كنضحك', surface: 'comment' }, seed)
+    expect(result.contextAssessment?.primary).toBe('playful_banter')
+    expect(result.contextAssessment?.confidence).toBe('low')
+  })
+  it('does not treat text-derived direct address as trusted targeting authority', () => {
+    const seed = createDefaultDarijaSafetyPolicy()
+    const result = scanContent({ text: 'nta 7mar', surface: 'comment' }, seed)
+    expect(result.contextAssessment?.primary).toBe('directed_abuse')
+    expect(result.decision).toBe('review')
+    expect(result.contextAssessment?.trustedForEnforcement).toBe(false)
+  })
+  it('does not label an explicitly negated threat as a threat', () => {
+    const seed = createDefaultDarijaSafetyPolicy()
+    const result = scanContent({ text: 'ما غادي نضربك', surface: 'comment' }, seed)
+    expect(result.contextAssessment?.primary).toBe('neutral_or_unclear')
+    expect(result.contextAssessment?.cueCodes).toContain('negated_threat_pattern')
+    expect(result.contextAssessment?.labels).not.toContain('threat_language')
+  })
+  it('returns an uncertainty label when there are no reliable context cues', () => {
+    const seed = createDefaultDarijaSafetyPolicy()
+    const result = scanContent({ text: 'نهار زوين اليوم', surface: 'comment' }, seed)
+    expect(result.contextAssessment?.primary).toBe('neutral_or_unclear')
+    expect(result.contextAssessment?.confidence).toBe('low')
   })
 })
 

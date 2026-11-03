@@ -37,11 +37,21 @@ export interface SafetySignal {
   confidence: 'low' | 'medium' | 'high'
 }
 
+export interface ContextAssessmentSummary {
+  primary: string
+  labels: string[]
+  confidence: 'low' | 'medium' | 'high'
+  requiresHumanReview: boolean
+  cueCodes: string[]
+  trustedForEnforcement: false
+}
+
 export interface ContentSafetyResult {
   decision: ContentDecision
   riskLevel: 'low' | 'medium' | 'high' | 'critical'
   score: number
   signals: SafetySignal[]
+  contextAssessment?: ContextAssessmentSummary
   requiresHumanReview: boolean
   engineVersion: string
   policyVersion: string

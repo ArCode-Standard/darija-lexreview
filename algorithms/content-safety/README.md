@@ -1,12 +1,13 @@
 # Content Safety Engine
 
-A deterministic, configurable scanning library (engine version 0.2.1). It is an initial policy engine, not a trained classifier.
+A deterministic, configurable scanning library (engine version 0.3.0). It is an initial policy engine, not a trained classifier.
 
 ## Core APIs
 
 - normalizeSafetyText: conservative Unicode and Arabic normalization for comparison only.
 - obfuscationSkeleton: secondary representation for spaced-letter and common digit substitutions.
-- scanContent: scans one text value with a trusted surface and trusted context.
+- analyzeDarijaContext: produces a multi-label, advisory context assessment (directed abuse, banter, quote/evidence, linguistic mention, threat language, or uncertainty). It is text-derived and never trusted for enforcement.
+- scanContent: scans one text value with a trusted surface and trusted context, and attaches the context assessment.
 - scanContentPayload: scans an explicit map of all text fields in a writable payload and aggregates the strongest decision.
 
 ## Policy rules
@@ -26,6 +27,10 @@ The detailed editorial checklist is in [DARIJA-SAFETY-LEXICON-GUIDE.md](../../do
 - Add neutral/educational counterexamples for every high-risk term so benchmarks measure false positives as well as recall.
 - Treat severity as annotation metadata, not a direct probability of abuse.
 - Version the lexicon whenever entries are added, corrected, or retired.
+
+## Context understanding
+
+The context layer combines phrase-level cues with matched lexicon categories. It deliberately keeps multiple labels when signals conflict: laughter does not cancel an insult, and quotation does not prove that a threat is harmless. Its confidence is heuristic, not calibrated probability. Threat-like phrases discovered by this layer trigger review; only server-derived trusted context and the policy engine can authorize enforcement.
 
 ## Context and trust
 
