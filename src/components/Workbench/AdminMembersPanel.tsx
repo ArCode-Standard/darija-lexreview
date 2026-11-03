@@ -10,7 +10,6 @@ import {
   Github,
   Megaphone,
   RefreshCcw,
-  RotateCcw,
   Search,
   Send,
   Shield,
