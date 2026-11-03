@@ -85,9 +85,7 @@ export function DatasetExporterPanel({
   const isAuthorizedLiveEditor =
     Boolean(userEmail) && (profile?.role === 'editor' || profile?.role === 'admin')
 
-  const [exportSource, setExportSource] = useState<'live' | 'sandbox'>(() =>
-    preferredSource === 'live' && isAuthorizedLiveEditor ? 'live' : 'sandbox',
-  )
+  const [exportSource, setExportSource] = useState<'live' | 'sandbox'>('live')
   const [archivedReleaseMap, setArchivedReleaseMap] = useState<Record<string, string>>(
     loadReleaseLedger,
   )
@@ -105,13 +103,7 @@ export function DatasetExporterPanel({
     text: string
   } | null>(null)
 
-  useEffect(() => {
-    if (preferredSource === 'live' && isAuthorizedLiveEditor) {
-      setExportSource('live')
-    } else if (preferredSource === 'sandbox') {
-      setExportSource('sandbox')
-    }
-  }, [preferredSource, isAuthorizedLiveEditor])
+  useEffect(() => { setExportSource('live') }, [preferredSource, isAuthorizedLiveEditor])
 
   const [liveAccepted, setLiveAccepted] = useState<SubmissionRecord[]>([])
   const [loadingLive, setLoadingLive] = useState(false)
@@ -161,9 +153,7 @@ export function DatasetExporterPanel({
 
   const candidateAccepted = useMemo(() => {
     const sourceList =
-      exportSource === 'live'
-        ? liveAccepted
-        : sandboxItems.filter((item) => item.status === 'accepted')
+      liveAccepted
     return sourceList.filter(
       (item) =>
         item.status === 'accepted' &&
@@ -323,7 +313,7 @@ export function DatasetExporterPanel({
     const editorName =
       profile?.display_name?.trim() ||
       userEmail ||
-      (exportSource === 'sandbox' ? 'المحرر الحالي (جلسة محاكاة)' : 'محرر معتمد')
+      (false ? 'المحرر الحالي (جلسة محاكاة)' : 'محرر معتمد')
 
     const manifestDraft: ReleaseManifestRecord = {
       id: `rel-${cleanVersion}-${Date.now()}`,
@@ -341,12 +331,12 @@ export function DatasetExporterPanel({
       exported_by: profile?.id ?? null,
       exported_by_name: editorName,
       created_at: new Date().toISOString(),
-      is_sandbox: exportSource === 'sandbox',
+      is_sandbox: false,
     }
 
     setArchiveFeedback(null)
 
-    if (exportSource === 'sandbox') {
+    if (false) {
       onMarkSandboxMerged({
         ids: appliedIds,
         releaseVersion: cleanVersion,
@@ -440,7 +430,7 @@ export function DatasetExporterPanel({
   }
 
   const displayedManifests = useMemo(() => {
-    if (exportSource === 'sandbox') {
+    if (false) {
       return localManifests
     }
     const byVersion = new Map<string, ReleaseManifestRecord>()
@@ -487,19 +477,9 @@ export function DatasetExporterPanel({
                     : 'text-zinc-600 hover:text-zinc-950 dark:text-zinc-400 dark:hover:text-white'
                 }`}
               >
-                السجل الحي ({exportSource === 'live' ? candidateAccepted.length : liveAccepted.length})
+                السجل الرسمي ({exportSource === 'live' ? candidateAccepted.length : liveAccepted.length})
               </button>
-              <button
-                type="button"
-                onClick={() => setExportSource('sandbox')}
-                className={`min-h-[34px] rounded-full px-3.5 py-1.5 text-xs font-semibold transition-colors whitespace-nowrap cursor-pointer ${
-                  exportSource === 'sandbox'
-                    ? 'bg-zinc-950 text-white dark:bg-[#D9FF43] dark:text-[#050507]'
-                    : 'text-zinc-600 hover:text-zinc-950 dark:text-zinc-400 dark:hover:text-white'
-                }`}
-              >
-                بيئة المحاكاة ({sandboxItems.filter((i) => i.status === 'accepted' && !archivedReleaseMap[i.id]).length})
-              </button>
+              
             </div>
 
             {exportSource === 'live' && (
@@ -852,7 +832,7 @@ export function DatasetExporterPanel({
             {(Object.keys(archivedReleaseMap).length > 0 || mergedSandboxCount > 0) && (
               <span className="font-mono tabular-nums text-emerald-700 dark:text-[#D9FF43]">
                 سجلات مؤرشفة في إصدارات سابقة:{' '}
-                {exportSource === 'sandbox'
+                {false
                   ? Math.max(mergedSandboxCount, Object.keys(archivedReleaseMap).length)
                   : Object.keys(archivedReleaseMap).length}
               </span>
