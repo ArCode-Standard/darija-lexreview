@@ -5,6 +5,8 @@ export * from './types'
 export const CONTENT_SAFETY_ENGINE_VERSION = '0.1.1'
 const CONTEXTUAL_PURPOSES = new Set(['dictionary_definition', 'linguistic_analysis', 'academic_quote', 'moderation_report'])
 const RULE_CATEGORIES = new Set(['profanity', 'personal_abuse', 'hate_speech', 'threat'])
+const CONTENT_SURFACES = new Set(['profile', 'lexicon', 'contribution', 'review', 'comment', 'discussion', 'report', 'private_message', 'admin'])
+const CONTENT_PURPOSES = new Set(['general', 'dictionary_definition', 'linguistic_analysis', 'academic_quote', 'moderation_report'])
 function phraseMatches(text: string, phrase: string): boolean {
   return (' ' + text + ' ').includes(' ' + normalizeSafetyText(phrase) + ' ')
 }
@@ -39,6 +41,9 @@ export interface ScanContentInput {
 }
 export function scanContent(input: ScanContentInput, policy: SafetyPolicy): ContentSafetyResult {
   if (!input || typeof input.text !== 'string') throw new TypeError('input.text must be a string')
+  if (!CONTENT_SURFACES.has(input.surface)) throw new TypeError('Unsupported content surface')
+  if (input.context && !CONTENT_PURPOSES.has(input.context.purpose)) throw new TypeError('Unsupported trusted content purpose')
+  if (input.now && !Number.isFinite(input.now.getTime())) throw new TypeError('input.now must be a valid Date')
   if (!policy || !policy.version.trim()) throw new TypeError('policy.version is required')
   if (!Number.isInteger(policy.maxCharacters) || policy.maxCharacters < 1 ||
       !Number.isInteger(policy.maxRepeatedCharacterRun) || policy.maxRepeatedCharacterRun < 1 ||
@@ -57,7 +62,12 @@ export function scanContent(input: ScanContentInput, policy: SafetyPolicy): Cont
   if (!Number.isFinite(policy.reviewThreshold) || !Number.isFinite(policy.blockThreshold) ||
       policy.reviewThreshold < 0 || policy.reviewThreshold > 100 || policy.blockThreshold < 0 || policy.blockThreshold > 100 ||
       policy.reviewThreshold > policy.blockThreshold) throw new RangeError('Safety thresholds must satisfy 0 <= reviewThreshold <= blockThreshold <= 100')
-  const original = input.text ?? ''
+  const original = input.text
+  if (original.length > policy.maxCharacters) {
+    return makeResult('block', 100, [{
+      code: 'content_length_limit_exceeded', category: 'spam', severity: 2, confidence: 'high',
+    }], true, policy, input.now)
+  }
   const normalized = normalizeSafetyText(original)
   const skeleton = obfuscationSkeleton(original)
   const context = input.context ?? { purpose: 'general' as const }
@@ -82,10 +92,6 @@ export function scanContent(input: ScanContentInput, policy: SafetyPolicy): Cont
   if (urls > policy.maxUrls) {
     score += Math.min(20, (urls - policy.maxUrls) * 5)
     signals.push({ code: 'excessive_urls', category: 'spam', severity: 3, confidence: 'high' })
-  }
-  if (original.length > policy.maxCharacters) {
-    score += 10
-    signals.push({ code: 'content_length_limit_exceeded', category: 'spam', severity: 2, confidence: 'high' })
   }
   const separatedLetters = /(?:\p{L}[\s.*_-]+){2,}\p{L}/u.test(original)
   if (separatedLetters && signals.some((signal) => signal.category !== 'spam')) {
