@@ -407,16 +407,25 @@ $function$;
 create or replace function public.send_member_message(p_payload jsonb, p_scan_token text)
 returns uuid language plpgsql security invoker set search_path = ''
 as $function$
-declare v_id uuid; v_label text;
+declare v_id uuid; v_label text; v_role text; v_display_name text;
 begin
-  if p_payload - array['recipient_id','is_broadcast','category','title','body','requires_ack','pinned_until'] <> '{}'::jsonb then
+  if p_payload - array['recipient_id','is_broadcast','category','title','body','requires_ack','pinned_until','sender_label'] <> '{}'::jsonb then
     raise exception 'Unsupported message field' using errcode = '22023';
   end if;
   perform private.consume_content_scan_token(p_scan_token, 'member_messages.create', p_payload);
-  select coalesce(nullif(pg_catalog.btrim(display_name),''),'فريق Darija LexReview') into v_label
+  select role, nullif(pg_catalog.btrim(display_name),'')
+    into v_role, v_display_name
   from public.reviewer_profiles where id = (select auth.uid());
+  v_label := case v_role
+    when 'admin' then 'الإدارة العامة (' || coalesce(v_display_name,'مشرف') || ')'
+    when 'editor' then 'هيئة التحرير (' || coalesce(v_display_name,'محرر') || ')'
+    else 'إدارة المعجم'
+  end;
+  if p_payload->>'sender_label' is distinct from v_label then
+    raise exception 'Server-derived sender label mismatch' using errcode = '42501';
+  end if;
   insert into public.member_messages(sender_id, sender_label, recipient_id, is_broadcast, category, title, body, requires_ack, pinned_until)
-  values ((select auth.uid()), coalesce(v_label,'فريق Darija LexReview'),
+  values ((select auth.uid()), v_label,
     nullif(p_payload->>'recipient_id','')::uuid, coalesce((p_payload->>'is_broadcast')::boolean,false),
     p_payload->>'category', p_payload->>'title', p_payload->>'body',
     coalesce((p_payload->>'requires_ack')::boolean,false), nullif(p_payload->>'pinned_until','')::timestamptz)
