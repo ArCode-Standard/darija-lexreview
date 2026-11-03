@@ -393,11 +393,15 @@ create or replace function public.update_reviewer_profile_admin_note(p_payload j
 returns void language plpgsql security invoker set search_path = ''
 as $function$
 begin
-  if p_payload - array['id','status_reason'] <> '{}'::jsonb then
+  if p_payload - array['id','role','account_status','status_reason','suspended_until'] <> '{}'::jsonb then
     raise exception 'Unsupported admin profile field' using errcode = '22023';
   end if;
   perform private.consume_content_scan_token(p_scan_token, 'reviewer_profiles.admin_update', p_payload);
-  update public.reviewer_profiles set status_reason = p_payload->>'status_reason'
+  update public.reviewer_profiles set
+    role = case when p_payload ? 'role' then p_payload->>'role' else role end,
+    account_status = case when p_payload ? 'account_status' then p_payload->>'account_status' else account_status end,
+    status_reason = case when p_payload ? 'status_reason' then p_payload->>'status_reason' else status_reason end,
+    suspended_until = case when p_payload ? 'suspended_until' then nullif(p_payload->>'suspended_until','')::timestamptz else suspended_until end
   where id = nullif(p_payload->>'id','')::uuid
     and (select private.is_lexreview_admin());
   if not found then raise exception 'Profile not found or admin permission required' using errcode = '42501'; end if;
