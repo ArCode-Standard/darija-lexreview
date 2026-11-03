@@ -404,7 +404,7 @@ export function WorkspaceShell({
                     <ShieldCheck className="h-4 w-4 shrink-0" />
                     <span>تحكيم المحررين</span>
                   </span>
-                  {!isStaffRole && pendingSandboxCount > 0 && (
+                  {false && !isStaffRole && pendingSandboxCount > 0 && (
                     <span className="font-mono text-[11px] tabular-nums opacity-85">
                       {pendingSandboxCount}
                     </span>
