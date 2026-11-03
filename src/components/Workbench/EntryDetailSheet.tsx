@@ -584,7 +584,7 @@ export function EntryDetailSheet({
       reviewer_note: autoNote,
       status: 'pending',
     }
-    if (activeRevision && !activeRevision.is_sandbox) {
+    if (activeRevision) {
       baseInsert.supersedes_id = activeRevision.id
     }
 
