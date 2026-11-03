@@ -239,7 +239,6 @@ export function PublicContributorsPage({
                           <h3 className="truncate font-display text-base font-bold text-zinc-950 dark:text-white">
                             {person.display_name}
                           </h3>
-)}
                         </div>
                         <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
                           {ROLE_LABELS[person.role]} · انضم {person.joined_year}
