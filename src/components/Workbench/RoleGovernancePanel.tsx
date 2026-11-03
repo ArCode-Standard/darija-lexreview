@@ -132,8 +132,8 @@ export function RoleGovernancePanel({
     }
   }, [queueSource, isLiveAdmin, fetchLiveGovernanceData])
 
-  const activeProfiles = queueSource === 'live' ? liveProfiles : sandboxProfiles
-  const activeRequests = queueSource === 'live' ? liveRequests : sandboxPromotionRequests
+  const activeProfiles = liveProfiles
+  const activeRequests = liveRequests
 
   const submissionStatsByUser = useMemo(() => {
     const map = new Map<string, { total: number; accepted: number }>()
@@ -330,7 +330,7 @@ export function RoleGovernancePanel({
                 يبدأ كل مساهم بصلاحية «مراجع مساهم»، وتتم الترقية إلى «محرر معتمد» حصرياً بقرار موثق من المشرف العام للمنصة.
               </p>
               <p className="mt-2 text-xs leading-relaxed text-zinc-600 dark:text-zinc-400">
-                يمكنك تقديم «طلب صلاحية محرر» من نافذة حسابك الشخصي، أو التبديل إلى وضع المحاكاة لتجربة واجهة المشرف في مراجعة الطلبات وترقية الأعضاء مباشرة.
+                يمكنك تقديم «طلب صلاحية محرر» من نافذة حسابك الشخصي. تتم مراجعة الطلبات وتغيير الصلاحيات حصرياً عبر السجل الرسمي وبواسطة المشرف العام.
               </p>
             </div>
           </div>
@@ -345,13 +345,7 @@ export function RoleGovernancePanel({
                 تسجيل الدخول / إنشاء حساب
               </button>
             )}
-            <button
-              type="button"
-              onClick={() => onSwitchQueueSource('sandbox')}
-              className="min-h-[38px] rounded-full border border-zinc-300 bg-zinc-50 px-4 py-2 text-xs font-semibold text-zinc-800 hover:bg-zinc-100 cursor-pointer dark:border-white/15 dark:bg-[#07070A] dark:text-zinc-200 dark:hover:border-white/30"
-            >
-              معاينة لوحة المشرف في المحاكاة
-            </button>
+            
           </div>
         </div>
       </div>
