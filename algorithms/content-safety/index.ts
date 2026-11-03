@@ -11,16 +11,13 @@ const CONTENT_PURPOSES = new Set(['general', 'dictionary_definition', 'linguisti
 function phraseMatches(text: string, phrase: string): boolean {
   return (' ' + text + ' ').includes(' ' + normalizeSafetyText(phrase) + ' ')
 }
-function escapeRegexCharacter(character: string): string {
-  return character.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-}
 function phraseMatchesWithSeparators(text: string, phrase: string): boolean {
   const tokens = normalizeSafetyText(phrase).split(' ').filter(Boolean)
   if (!tokens.length) return false
   // Permit spaces and common punctuation between letters, but retain token
   // boundaries so short rules do not match inside unrelated words.
   const tokenPattern = tokens
-    .map((token) => Array.from(token).map(escapeRegexCharacter).join('[\\s._*-]*'))
+    .map((token) => Array.from(token).join('[\s._*-]*'))
     .join('\\s+')
   return new RegExp('(?:^|\\s)' + tokenPattern + '(?:$|\\s)', 'u').test(text)
 }
