@@ -142,7 +142,15 @@ Deno.serve(async (req: Request) => {
       });
       if (error || typeof candidateId !== "string") {
         console.error(JSON.stringify({ event: "learning_candidate_submission_failed", actorId: auth.user.id, code: error?.code }));
-        return response({ error: error?.code === "54000" ? "submission_rate_limited" : "submission_unavailable" }, 503, origin);
+        const statusCode = error?.code === "54000" ? 429
+          : error?.code === "23505" ? 409
+          : error?.code === "42501" ? 403
+          : error?.code === "22023" ? 422 : 503;
+        const errorCode = error?.code === "54000" ? "submission_rate_limited"
+          : error?.code === "23505" ? "duplicate_feedback"
+          : error?.code === "42501" ? "submission_not_authorized"
+          : error?.code === "22023" ? "invalid_feedback" : "submission_unavailable";
+        return response({ error: errorCode }, statusCode, origin);
       }
       return response({ candidateId, status: "pending", message: "feedback_received_for_independent_review" }, 201, origin);
     }
