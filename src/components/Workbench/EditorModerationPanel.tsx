@@ -393,7 +393,7 @@ export function EditorModerationPanel({
     if (!supabase || !isAuthorizedLiveEditor) {
       setActionMessage({
         type: 'error',
-        text: 'ليست لديك صلاحية محرر (editor/admin) لتحديث قاعدة البيانات الحية.',
+        text: 'ليست لديك صلاحية محرر (editor/admin) لتحديث سجل المنصة الرسمي.',
       })
       return
     }
@@ -543,7 +543,7 @@ export function EditorModerationPanel({
     }
 
     if (!supabase || !isAuthorizedLiveEditor) {
-      setBulkError('ليست لديك صلاحية محرر (editor/admin) لتنفيذ اعتماد جماعي في قاعدة البيانات الحية.')
+      setBulkError('ليست لديك صلاحية محرر (editor/admin) لتنفيذ اعتماد جماعي في سجل المنصة الرسمي.')
       return
     }
 
@@ -685,13 +685,7 @@ export function EditorModerationPanel({
                   تسجيل الدخول
                 </button>
               )}
-              <button
-                type="button"
-                onClick={() => setQueueSource('sandbox')}
-                className="min-h-[36px] rounded-lg border border-amber-400 bg-white px-3.5 py-1.5 text-xs font-semibold text-amber-950 hover:bg-amber-100/50 whitespace-nowrap cursor-pointer dark:border-amber-700 dark:bg-[#07070A] dark:text-amber-200"
-              >
-                التبديل إلى المحاكاة المحلية
-              </button>
+              
             </div>
           </div>
         )}
