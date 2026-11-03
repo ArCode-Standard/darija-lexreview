@@ -135,6 +135,7 @@ describe('content safety engine', () => {
     expect(result.decision).toBe('allow_with_context')
     expect(result.requiresHumanReview).toBe(true)
     expect(result.fields).toHaveLength(3)
+    expect(result.fields.find((field) => field.field === 'reason')?.contextAssessment?.primary).toBe('threat_language')
   })
   it('preserves Moroccan Arabizi digit conventions in obfuscation skeletons', () => {
     expect(obfuscationSkeleton('3 5 7 8 9')).toBe('ع خ ح غ ق')
