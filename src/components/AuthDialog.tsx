@@ -89,7 +89,7 @@ export function AuthDialog({
 }: AuthDialogProps) {
   const GOOGLE_AUTH_ENABLED = import.meta.env.VITE_SUPABASE_GOOGLE_ENABLED === 'true'
 
-const [signedOutTab, setSignedOutTab] = useState<SignedOutTab>('signin')
+  const [signedOutTab, setSignedOutTab] = useState<SignedOutTab>('signin')
   const [signedInTab, setSignedInTab] = useState<SignedInTab>('profile')
 
   // Sign-in / Sign-up / Recovery fields
