@@ -88,6 +88,10 @@ export function analyzeDarijaContext(input: AnalyzeDarijaContextInput): DarijaCo
     labels.add('playful_banter')
     cueCodes.push('laughter_or_banter_marker')
   }
+  if (negatedThreat && !categories.has('threat')) {
+    labels.add('neutral_or_unclear')
+    cueCodes.push('negated_threat_pattern')
+  }
   if (hasThreat) {
     labels.add('threat_language')
     cueCodes.push('threat_pattern_or_lexicon_signal')
