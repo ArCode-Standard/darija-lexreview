@@ -80,11 +80,24 @@ function buildCandidatePairs(
 
   const postings = new Map<string, number[]>()
   const exact = new Map<string, number[]>()
+  const perItem = new Map<number, number>()
+  const truncated = new Set<number>()
   for (const item of eligible) {
     const sameKey = exact.get(item.key) ?? []
-    for (const otherIndex of sameKey) {
+    for (let cursor = sameKey.length - 1; cursor >= 0; cursor -= 1) {
+      const otherIndex = sameKey[cursor]
       const other = items[otherIndex]
-      if (other.id !== item.id) pairs.add(`${Math.min(otherIndex, item.index)}:${Math.max(otherIndex, item.index)}`)
+      if (other.id === item.id) continue
+      const itemCount = perItem.get(item.index) ?? 0
+      const otherCount = perItem.get(otherIndex) ?? 0
+      if (itemCount >= options.maxCandidatesPerItem || otherCount >= options.maxCandidatesPerItem) {
+        truncated.add(item.index)
+        if (otherCount >= options.maxCandidatesPerItem) truncated.add(otherIndex)
+        continue
+      }
+      pairs.add(`${Math.min(otherIndex, item.index)}:${Math.max(otherIndex, item.index)}`)
+      perItem.set(item.index, itemCount + 1)
+      perItem.set(otherIndex, otherCount + 1)
     }
     sameKey.push(item.index)
     exact.set(item.key, sameKey)
@@ -96,9 +109,7 @@ function buildCandidatePairs(
     }
   }
 
-  const perItem = new Map<number, number>()
   const skipped = new Set<string>()
-  const truncated = new Set<number>()
   for (const [gram, posting] of postings) {
     if (posting.length > options.maxBlockSize) {
       skipped.add(gram)
