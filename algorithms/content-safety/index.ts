@@ -1,6 +1,8 @@
+import { analyzeDarijaContext } from './context'
 import { countUrls, longestRepeatedCharacterRun, normalizeSafetyText, obfuscationSkeleton } from './normalize'
 import type { ContentSafetyResult, ContentSurface, SafetyLexiconRule, SafetyPolicy, SafetySignal, TrustedContentContext } from './types'
 export * from './normalize'
+export * from './context'
 export * from './types'
 export * from './darija-seed-lexicon'
 export const CONTENT_SAFETY_ENGINE_VERSION = '0.2.1'
@@ -78,7 +80,7 @@ export function scanContent(input: ScanContentInput, policy: SafetyPolicy): Cont
   const context = input.context ?? { purpose: 'general' as const }
   const signals: SafetySignal[] = []
   let score = 0
-  if (!original.trim()) return makeResult('allow', 0, [], false, policy, input.now)
+  if (!original.trim()) return makeResult('allow', 0, [], false, policy, input.now, analyzeDarijaContext({ text: original }))
   for (const rule of policy.rules) {
     if (!ruleMatches(normalized, skeleton, rule)) continue
     const targeted = rule.category === 'threat' ? true
@@ -89,13 +91,7 @@ export function scanContent(input: ScanContentInput, policy: SafetyPolicy): Cont
     score += rule.category === 'profanity' && contextual && !targeted ? Math.min(8, weight) : weight
     signals.push({ code: targeted ? rule.category + '_targeted' : rule.category + '_term_match', category: rule.category, severity: rule.severity, ruleId: rule.id, confidence: 'medium' })
   }
-  const hasPersonalAbuseSignal = signals.some((signal) => signal.category === 'personal_abuse')
-  const hasDarijaDirectAddress = /(?:^|\s)(?:nta|nti|ntoma|ntouma|نتا|نتي|نتوما|انتما)(?:$|\s)/u.test(normalized)
-  if (hasPersonalAbuseSignal && hasDarijaDirectAddress) {
-    // Text-derived cues only increase review confidence; they are never trusted
-    // authorization to block. Blocking still requires server-derived context.
-    signals.push({ code: 'possible_direct_address', category: 'personal_abuse', severity: 1, confidence: 'low' })
-  }
+  const contextAssessment = analyzeDarijaContext({ text: original, matchedCategories: signals.map((signal) => signal.category) })
   if (longestRepeatedCharacterRun(original) > policy.maxRepeatedCharacterRun) {
     score += 8
     signals.push({ code: 'character_flooding', category: 'spam', severity: 2, confidence: 'high' })
@@ -133,12 +129,13 @@ export function scanContent(input: ScanContentInput, policy: SafetyPolicy): Cont
   } else if (score >= policy.reviewThreshold || unique.length > 0) {
     decision = 'review'; review = true
   }
-  return makeResult(decision, Math.min(100, score), unique, review, policy, input.now)
+  if (contextAssessment.requiresHumanReview && decision === 'allow') { decision = 'review'; review = true }
+  return makeResult(decision, Math.min(100, score), unique, review || contextAssessment.requiresHumanReview, policy, input.now, contextAssessment)
 }
-function makeResult(decision: ContentSafetyResult['decision'], score: number, signals: SafetySignal[], requiresHumanReview: boolean, policy: SafetyPolicy, now?: Date): ContentSafetyResult {
+function makeResult(decision: ContentSafetyResult['decision'], score: number, signals: SafetySignal[], requiresHumanReview: boolean, policy: SafetyPolicy, now?: Date, contextAssessment?: ReturnType<typeof analyzeDarijaContext>): ContentSafetyResult {
   return {
     decision, riskLevel: score >= 85 ? 'critical' : score >= 60 ? 'high' : score >= 25 ? 'medium' : 'low',
-    score, signals, requiresHumanReview, engineVersion: CONTENT_SAFETY_ENGINE_VERSION,
+    score, signals, ...(contextAssessment ? { contextAssessment } : {}), requiresHumanReview, engineVersion: CONTENT_SAFETY_ENGINE_VERSION,
     policyVersion: policy.version, processedAt: (now ?? new Date()).toISOString(),
   }
 }
