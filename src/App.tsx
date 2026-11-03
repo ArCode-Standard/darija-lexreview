@@ -1331,8 +1331,7 @@ export default function App() {
                         entries={entries}
                         filteredEntries={filteredEntries}
                         activeEntry={activeEntry}
-                        categories={categories}
-                        query={query}
+                             query={query}
                         selectedCategory={selectedCategory}
                         exampleFilter={exampleFilter}
                         selectedEntryType={selectedEntryType}
@@ -1401,8 +1400,7 @@ export default function App() {
                           allEntries={entries}
                           corpusVersion={corpusVersion}
                           isAuthenticated={Boolean(userEmail)}
-                          canAccessEditorialTools={canAccessEditorialTools}
-                          currentIndex={activeIndexInFiltered}
+                                   currentIndex={activeIndexInFiltered}
                           totalFiltered={filteredEntries.length}
                           existingDraft={drafts[activeEntry.id]}
                           revisionTarget={revisionTarget}
