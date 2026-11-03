@@ -884,7 +884,7 @@ begin
   if v_role <> 'service_role' then
     raise exception 'Service role required to record content scan events' using errcode = '42501';
   end if;
-  if p_actor_id is null
+  if p_actor_id is null or p_operation is null or p_decision is null or p_content_digest is null
      or p_operation not in (
        'review_submissions.create','review_submissions.decision','community_attestations.upsert',
        'reviewer_profiles.update','reviewer_profiles.admin_update','member_messages.create',
@@ -895,19 +895,100 @@ begin
      or p_content_digest !~ '^[a-f0-9]{64}$'
      or p_engine_version is null or pg_catalog.char_length(p_engine_version) > 80
      or p_policy_version is null or pg_catalog.char_length(p_policy_version) > 120
-     or p_signals is null or pg_catalog.jsonb_typeof(p_signals) <> 'array'
-     or pg_catalog.jsonb_array_length(p_signals) > 100 then
+     or p_signals is null or pg_catalog.jsonb_typeof(p_signals) <> 'array' then
     raise exception 'Invalid content scan audit event' using errcode = '22023';
+  end if;
+
+  if pg_catalog.jsonb_array_length(p_signals) > 100 then
+    raise exception 'Too many content scan signals' using errcode = '22023';
+  end if;
+  if (select count(*) from private.content_scan_events e where e.actor_id = p_actor_id and e.occurred_at > pg_catalog.clock_timestamp() - interval '1 minute') >= 120 then
+    raise exception 'Content scan audit rate limit exceeded' using errcode = '54000';
   end if;
 
   for v_signal in select value from pg_catalog.jsonb_array_elements(p_signals)
   loop
     if pg_catalog.jsonb_typeof(v_signal) <> 'object'
        or v_signal - array['field','index','code','category','severity','ruleId','confidence'] <> '{}'::jsonb
-       or pg_catalog.char_length(coalesce(v_signal->>'field','')) > 100
-       or pg_catalog.char_length(coalesce(v_signal->>'code','')) > 100
+       or pg_catalog.char_length(coalesce(v_signal->>'field','')) not between 1 and 100
+       or pg_catalog.char_length(coalesce(v_signal->>'code','')) not between 1 and 100
        or coalesce(v_signal->>'category','') not in ('profanity','personal_abuse','hate_speech','threat','spam','obfuscation')
-       or coalesce((v_signal->>'severity')::integer,0) not between 1 and 5 then
+       or coalesce(v_signal->>'severity','') !~ '^[1-5]
+      raise exception 'Invalid content scan signal metadata' using errcode = '22023';
+    end if;
+  end loop;
+
+  insert into private.content_scan_events(
+    actor_id, table_name, operation, decision, content_digest,
+    engine_version, policy_version, signals
+  ) values (
+    p_actor_id, pg_catalog.split_part(p_operation,'.',1), p_operation, p_decision,
+    p_content_digest, p_engine_version, p_policy_version, p_signals
+  );
+end;
+$function$;
+revoke all on function private.record_content_scan_event(uuid,text,text,text,text,text,jsonb) from public, anon, authenticated;
+grant execute on function private.record_content_scan_event(uuid,text,text,text,text,text,jsonb) to service_role;
+
+create or replace function public.record_content_scan_event(
+  p_actor_id uuid,
+  p_operation text,
+  p_decision text,
+  p_content_digest text,
+  p_engine_version text,
+  p_policy_version text,
+  p_signals jsonb
+) returns void
+language sql
+security invoker
+set search_path = ''
+as $function$
+  select private.record_content_scan_event(
+    p_actor_id,p_operation,p_decision,p_content_digest,p_engine_version,p_policy_version,p_signals
+  );
+$function$;
+revoke all on function public.record_content_scan_event(uuid,text,text,text,text,text,jsonb) from public, anon, authenticated;
+grant execute on function public.record_content_scan_event(uuid,text,text,text,text,text,jsonb) to service_role;
+
+       or coalesce(v_signal->>'confidence','') not in ('low','medium','high')
+       or (v_signal ? 'index' and coalesce(v_signal->>'index','') !~ '^[0-9]{1,4}
+      raise exception 'Invalid content scan signal metadata' using errcode = '22023';
+    end if;
+  end loop;
+
+  insert into private.content_scan_events(
+    actor_id, table_name, operation, decision, content_digest,
+    engine_version, policy_version, signals
+  ) values (
+    p_actor_id, pg_catalog.split_part(p_operation,'.',1), p_operation, p_decision,
+    p_content_digest, p_engine_version, p_policy_version, p_signals
+  );
+end;
+$function$;
+revoke all on function private.record_content_scan_event(uuid,text,text,text,text,text,jsonb) from public, anon, authenticated;
+grant execute on function private.record_content_scan_event(uuid,text,text,text,text,text,jsonb) to service_role;
+
+create or replace function public.record_content_scan_event(
+  p_actor_id uuid,
+  p_operation text,
+  p_decision text,
+  p_content_digest text,
+  p_engine_version text,
+  p_policy_version text,
+  p_signals jsonb
+) returns void
+language sql
+security invoker
+set search_path = ''
+as $function$
+  select private.record_content_scan_event(
+    p_actor_id,p_operation,p_decision,p_content_digest,p_engine_version,p_policy_version,p_signals
+  );
+$function$;
+revoke all on function public.record_content_scan_event(uuid,text,text,text,text,text,jsonb) from public, anon, authenticated;
+grant execute on function public.record_content_scan_event(uuid,text,text,text,text,text,jsonb) to service_role;
+)
+       or pg_catalog.char_length(coalesce(v_signal->>'ruleId','')) > 120 then
       raise exception 'Invalid content scan signal metadata' using errcode = '22023';
     end if;
   end loop;
