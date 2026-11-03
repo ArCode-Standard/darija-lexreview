@@ -96,11 +96,6 @@ export function scanContent(input: ScanContentInput, policy: SafetyPolicy): Cont
     // authorization to block. Blocking still requires server-derived context.
     signals.push({ code: 'possible_direct_address', category: 'personal_abuse', severity: 1, confidence: 'low' })
   }
-  const hasPersonalAbuseSignal = signals.some((signal) => signal.category === 'personal_abuse')
-  const hasDarijaDirectAddress = /(?:^|\s)(?:nta|nti|ntoma|ntouma|نتا|نتي|نتوما|انتما)(?:$|\s)/u.test(normalized)
-  if (hasPersonalAbuseSignal && hasDarijaDirectAddress) {
-    signals.push({ code: 'possible_direct_address', category: 'personal_abuse', severity: 1, confidence: 'low' })
-  }
   if (longestRepeatedCharacterRun(original) > policy.maxRepeatedCharacterRun) {
     score += 8
     signals.push({ code: 'character_flooding', category: 'spam', severity: 2, confidence: 'high' })
