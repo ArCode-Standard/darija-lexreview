@@ -47,6 +47,21 @@ describe('content safety engine', () => {
   it('escalates threat signals', () => {
     expect(scanContent({ text: 'sample-threat', surface: 'discussion' }, policy).decision).toBe('urgent_escalation')
   })
+  it('normalizes Arabic marks and catches a separated-letter evasion candidate', () => {
+    const result = scanContent({
+      text: 's a m p l e - p r o f a n i t y', surface: 'comment',
+    }, policy)
+    expect(result.decision).toBe('review')
+    expect(result.signals.some((signal) => signal.category === 'profanity')).toBe(true)
+  })
+  it('allows quoted threat evidence to enter the report review path', () => {
+    const result = scanContent({
+      text: 'sample-threat', surface: 'report',
+      context: { purpose: 'moderation_report', quotedForEvidence: true },
+    }, policy)
+    expect(result.decision).toBe('allow_with_context')
+    expect(result.requiresHumanReview).toBe(true)
+  })
   it('rejects invalid threshold configurations', () => {
     expect(() => scanContent({ text: 'hello', surface: 'comment' }, {
       ...policy, reviewThreshold: 90, blockThreshold: 20,
@@ -66,6 +81,14 @@ describe('governed learning pipeline', () => {
       sourceSurface: 'lexicon', groupId: 'g', text: 'x', label: 'y',
       rationale: 'z', contributorRef: 'c', consentToDatasetUse: false, license: 'CC0',
     })).toThrow(/consent/)
+  })
+  it('rejects obvious personal identifiers before a candidate enters review', () => {
+    expect(() => submitFeedbackCandidate({
+      id: 'pii', domain: 'linguistic', source: 'editor_correction',
+      sourceSurface: 'lexicon', groupId: 'g', text: 'contact me at user@example.com',
+      label: 'x', rationale: 'y', contributorRef: 'c',
+      consentToDatasetUse: true, license: 'CC0',
+    })).toThrow(/personal data/)
   })
   it('prevents contributors from approving their own examples', () => {
     expect(() => reviewFeedbackCandidate({
@@ -95,6 +118,16 @@ describe('governed learning pipeline', () => {
     const b = buildApprovedDataset([approved], 'dataset-1')
     expect(a.fingerprint).toBe(b.fingerprint)
     expect(a.train.length + a.validation.length + a.test.length).toBe(1)
+  })
+  it('does not permit a reviewer to approve the same candidate twice', () => {
+    const first = reviewFeedbackCandidate({
+      candidate: makeCandidate('content_safety'), reviewerRef: 'editor-1',
+      role: 'editor', decision: 'approve', reason: 'Confirmed',
+    })
+    expect(() => reviewFeedbackCandidate({
+      candidate: first, reviewerRef: 'editor-1', role: 'editor',
+      decision: 'approve', reason: 'Second review',
+    })).toThrow(/twice/)
   })
   it('calculates class metrics and enforces release gates', () => {
     const report = calculateEvaluationReport('dataset-1', ['safe', 'unsafe'], ['safe', 'safe'])
