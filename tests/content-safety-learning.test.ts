@@ -83,7 +83,7 @@ describe('content safety engine', () => {
     expect(result.signals[0]?.code).toBe('content_length_limit_exceeded')
   })
   it('counts Unicode code points rather than UTF-16 code units for size limits', () => {
-    const result = scanContent({ text: '🙂'.repeat(2501), surface: 'comment' }, policy)
+    const result = scanContent({ text: Array.from({ length: 2501 }, (_, index) => index % 2 ? '🙂' : '🙃').join(''), surface: 'comment' }, policy)
     expect(result.decision).toBe('allow')
   })
   it('rejects invalid surfaces and timestamps', () => {
