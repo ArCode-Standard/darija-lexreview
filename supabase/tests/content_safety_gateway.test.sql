@@ -1,6 +1,6 @@
 begin;
 
-select plan(32);
+select plan(36);
 
 select ok(to_regclass('private.content_scan_tokens') is not null, 'private one-time token table exists');
 select ok(to_regclass('private.feedback_candidates') is not null, 'private governed feedback table exists');
@@ -41,6 +41,21 @@ values
   ('00000000-0000-4000-8000-000000000038', 'authenticated', 'authenticated', 'gateway-test-38@example.invalid', '{}'::jsonb, '{}'::jsonb, now(), now()),
   ('00000000-0000-4000-8000-000000000039', 'authenticated', 'authenticated', 'gateway-test-39@example.invalid', '{}'::jsonb, '{}'::jsonb, now(), now())
 on conflict (id) do nothing;
+
+select ok(to_regprocedure('public.record_content_scan_event(uuid,text,text,text,text,text,jsonb)') is not null, 'privacy-preserving scan audit RPC exists');
+select is(has_function_privilege('anon', 'public.record_content_scan_event(uuid,text,text,text,text,text,jsonb)', 'EXECUTE'), false, 'anon cannot forge scan audit events');
+select is(has_function_privilege('service_role', 'public.record_content_scan_event(uuid,text,text,text,text,text,jsonb)', 'EXECUTE'), true, 'service_role can persist scan audit metadata');
+select set_config('request.jwt.claim.role', 'service_role', true);
+select public.record_content_scan_event(
+  '00000000-0000-4000-8000-000000000038',
+  'review_submissions.create',
+  'allow',
+  repeat('a',64),
+  '0.2.0',
+  'test-policy-1',
+  '[]'::jsonb
+);
+select ok(exists(select 1 from private.content_scan_events where decision='allow' and content_digest=repeat('a',64)), 'scan decisions are persisted without raw text');
 
 select set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000038', true);
 select set_config('request.jwt.claim.role', 'authenticated', true);
