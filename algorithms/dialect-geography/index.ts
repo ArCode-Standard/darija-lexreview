@@ -21,8 +21,8 @@ export function summarizeRegionalDistribution(rows: RegionalObservation[]): Regi
     const entryId = row.entryId?.trim()
     if (!entryId) throw new TypeError('Every regional observation requires an entry ID')
     const count = row.count === undefined ? 1 : row.count
-    if (!Number.isFinite(count) || count < 0) throw new RangeError('Observation counts must be finite and non-negative')
-    const amount = Math.floor(count)
+    if (!Number.isSafeInteger(count) || count < 0) throw new RangeError('Observation counts must be non-negative safe integers')
+    const amount = count
     if (amount === 0) continue
     const group = groups.get(entryId) ?? { regions: new Map<string, number>(), unknown: 0 }
     const region = row.region?.trim()
