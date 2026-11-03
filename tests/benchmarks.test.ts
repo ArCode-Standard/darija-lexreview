@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { GOLD_FORMS, GOLD_ARABIZI, NORMALIZATION_GOLD_PAIRS } from '../benchmarks/dataset'
-import { discoverVariantCandidates, normalizeDarijaSearchKey, transliterateArabizi, findDuplicateCandidates } from '../algorithms'
+import { discoverVariantCandidates, normalizeDarijaSearchKey, transliterateArabizi, findDuplicateCandidates, discoverVariantCandidatesWithStats } from '../algorithms'
 
 const expectedPairs = new Set<string>()
 for (let i=0;i<GOLD_FORMS.length;i++) for(let j=i+1;j<GOLD_FORMS.length;j++) {
@@ -18,6 +18,16 @@ function makeSynthetic(size:number) {
   return Array.from({length:size},(_,i)=>({id:`synthetic-${i}`,form:`fixtureword${i.toString(36)}`,senseId:`synthetic-sense-${i}`}))
 }
 
+function makeVariantScaleFixture(size:number) {
+  const rows:Array<{id:string;form:string}> = []
+  const pairs=Math.floor(size/2)
+  for(let i=0;i<pairs;i++) {
+    const stem=`w${i.toString(36)}x`
+    rows.push({id:`variant-${i}-a`,form:`${stem}a`},{id:`variant-${i}-b`,form:`${stem}b`})
+  }
+  for(let i=rows.length;i<size;i++) rows.push({id:`noise-${i}`,form:`noise${i.toString(36)}z`})
+  return rows
+}
 describe('Darija benchmark quality baseline (provisional fixtures)',()=>{
   it('reports precision/recall/F1 separately for candidate discovery',()=>{
     const predicted=discoverVariantCandidates(GOLD_FORMS.map(x=>({id:x.id,form:x.form,script:x.script})),0.82)
@@ -77,4 +87,15 @@ describe('Darija benchmark quality baseline (provisional fixtures)',()=>{
     expect(report.map(x=>x.size)).toEqual(sizes)
     expect(report[2].variantPairCount).toBe(1_249_975_000)
   })
+
+  it('runs indexed variant candidate generation on 50k synthetic records within a bounded pair budget',()=>{
+    const data=makeVariantScaleFixture(50_000);
+    const start=performance.now();
+    const result=discoverVariantCandidatesWithStats(data,0.9,{maxCandidatesPerItem:32});
+    const elapsedMs=Number((performance.now()-start).toFixed(2));
+    console.info('[Darija benchmark] indexed variant discovery',JSON.stringify({elapsedMs,...result.stats}));
+    expect(result.stats.strategy).toBe('indexed');
+    expect(result.stats.candidatePairs).toBeLessThan(50_000*49_999/200);
+    expect(result.stats.comparedPairs).toBe(result.stats.candidatePairs);
+  });
 })
