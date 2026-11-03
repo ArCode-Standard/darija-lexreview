@@ -26,7 +26,6 @@ import type {
   MemberModerationAction,
   MemberModerationEvent,
   MemberModerationReport,
-  RolePromotionRequest,
   ReviewerProfile,
   UserRole,
 } from '../../types/lexicon'
