@@ -37,7 +37,7 @@ The candidate limit defaults to 5 and is bounded to 1–20. The default token po
 
 - These are grapheme-to-grapheme heuristics, not a trained transliteration model.
 - The ranking score is not calibrated and must not be presented as a probability.
-- There is no lexical language model, morphological disambiguator, dialect-specific user profile, or speaker adaptation in this version.
+- The seed lexical hints are a tiny provisional lookup table, not a lexical language model, morphological disambiguator, dialect-specific user profile, or speaker adaptation.
 - A context-sensitive rule is a ranking hint, not proof of pronunciation. Moroccan speakers use inconsistent spellings and regional conventions.
 - English/Arabizi distinction is heuristic. The default policy uses digit and spelling hints plus a small provisional Darija token list; unknown plain-letter Arabizi may be preserved. Use `latinTokenPolicy: 'all'` when the caller knows the input is Arabizi.
 - Outputs are advisory. Never auto-create, merge, reject, or publish a lexical entry from a transliteration result.
@@ -55,7 +55,7 @@ Report top-1 exact match, top-k recall, character error rate, ambiguity calibrat
 
 ## Next research increments
 
-1. Add a reviewed lexicon/context prior that is optional, versioned, and source-attributed.
+1. Replace the provisional seed hints with a reviewed, optional, versioned, source-attributed lexicon/context prior.
 2. Add word-boundary and morphology-aware decoding with an explicit unknown-token path.
 3. Add dialect-conditioned mappings only when backed by speaker-labelled evidence.
 4. Compare the deterministic beam-search baseline with a trained sequence model after the gold corpus is large and diverse enough.
