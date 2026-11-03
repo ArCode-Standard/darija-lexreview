@@ -63,14 +63,6 @@ interface DatasetExporterPanelProps {
   rawCorpus: RawOfficialCorpus
   userEmail: string | null
   profile: ReviewerProfile | null
-  sandboxItems: SubmissionRecord[]
-  preferredSource: 'live' | 'sandbox'
-  onMarkSandboxMerged: (params: {
-    ids: string[]
-    releaseVersion: string
-    editorId?: string
-    editorDisplayName?: string
-  }) => void
 }
 
 export function DatasetExporterPanel({
@@ -78,14 +70,10 @@ export function DatasetExporterPanel({
   rawCorpus,
   userEmail,
   profile,
-  sandboxItems,
-  preferredSource,
-  onMarkSandboxMerged,
 }: DatasetExporterPanelProps) {
   const isAuthorizedLiveEditor =
     Boolean(userEmail) && (profile?.role === 'editor' || profile?.role === 'admin')
 
-  const [exportSource, setExportSource] = useState<'live' | 'sandbox'>('live')
   const [archivedReleaseMap, setArchivedReleaseMap] = useState<Record<string, string>>(
     loadReleaseLedger,
   )
@@ -103,7 +91,6 @@ export function DatasetExporterPanel({
     text: string
   } | null>(null)
 
-  useEffect(() => { setExportSource('live') }, [preferredSource, isAuthorizedLiveEditor])
 
   const [liveAccepted, setLiveAccepted] = useState<SubmissionRecord[]>([])
   const [loadingLive, setLoadingLive] = useState(false)
@@ -146,10 +133,8 @@ export function DatasetExporterPanel({
 
   useEffect(() => {
     fetchLiveReleaseManifests()
-    if (exportSource === 'live') {
-      fetchLiveAccepted()
-    }
-  }, [exportSource, fetchLiveAccepted, fetchLiveReleaseManifests])
+    fetchLiveAccepted()
+  }, [fetchLiveAccepted, fetchLiveReleaseManifests])
 
   const candidateAccepted = useMemo(() => {
     const sourceList =
@@ -160,12 +145,7 @@ export function DatasetExporterPanel({
         !item.exported_in_version &&
         !archivedReleaseMap[item.id],
     )
-  }, [exportSource, liveAccepted, sandboxItems, archivedReleaseMap])
-
-  const mergedSandboxCount = useMemo(
-    () => sandboxItems.filter((item) => item.status === 'merged').length,
-    [sandboxItems],
-  )
+  }, [liveAccepted, archivedReleaseMap])
 
   const [excludedIds, setExcludedIds] = useState<Set<string>>(new Set())
   const [previewTab, setPreviewTab] = useState<'patch' | 'pr'>('patch')
@@ -331,7 +311,6 @@ export function DatasetExporterPanel({
       exported_by: profile?.id ?? null,
       exported_by_name: editorName,
       created_at: new Date().toISOString(),
-      is_sandbox: false,
     }
 
     setArchiveFeedback(null)
@@ -378,7 +357,7 @@ export function DatasetExporterPanel({
 
         if (fallbackErr) {
           persistArchivedIds(appliedIds, cleanVersion)
-          persistLocalManifest({ ...manifestDraft, is_sandbox: false })
+          persistLocalManifest(manifestDraft)
           setArchivingRelease(false)
           setHasDownloadedCurrentBatch(false)
           setArchiveFeedback({
@@ -388,7 +367,7 @@ export function DatasetExporterPanel({
           return
         }
       }
-      persistLocalManifest({ ...manifestDraft, is_sandbox: false })
+      persistLocalManifest(manifestDraft)
     }
 
     persistArchivedIds(appliedIds, cleanVersion)
@@ -414,14 +393,14 @@ export function DatasetExporterPanel({
         const byVersion = new Map<string, ReleaseManifestRecord>()
     for (const m of liveManifests) byVersion.set(m.version, m)
     for (const m of localManifests) {
-      if (!m.is_sandbox && !byVersion.has(m.version)) {
+      if (!(m as ReleaseManifestRecord & { is_sandbox?: boolean }).is_sandbox && !byVersion.has(m.version)) {
         byVersion.set(m.version, m)
       }
     }
     return Array.from(byVersion.values()).sort(
       (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
     )
-  }, [exportSource, liveManifests, localManifests])
+  }, [liveManifests, localManifests])
 
   return (
     <div className="space-y-6">
@@ -441,26 +420,11 @@ export function DatasetExporterPanel({
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
-            <div
-              role="group"
-              aria-label="مصدر المقترحات المعتمدة"
-              className="inline-flex items-center gap-1 rounded-full border border-zinc-200 bg-zinc-100 p-1 dark:border-white/12 dark:bg-[#07070A]"
-            >
-              <button
-                type="button"
-                onClick={() => setExportSource('live')}
-                className={`min-h-[34px] rounded-full px-3.5 py-1.5 text-xs font-semibold transition-colors whitespace-nowrap cursor-pointer ${
-                  exportSource === 'live'
-                    ? 'bg-zinc-950 text-white dark:bg-[#D9FF43] dark:text-[#050507]'
-                    : 'text-zinc-600 hover:text-zinc-950 dark:text-zinc-400 dark:hover:text-white'
-                }`}
-              >
-                السجل الرسمي ({exportSource === 'live' ? candidateAccepted.length : liveAccepted.length})
-              </button>
-              
-            </div>
+            <span className="text-xs font-semibold text-zinc-600 dark:text-zinc-300">
+              السجل الرسمي ({candidateAccepted.length})
+            </span>
 
-            {exportSource === 'live' && (
+            {(
               <button
                 type="button"
                 onClick={fetchLiveAccepted}
@@ -807,7 +771,7 @@ export function DatasetExporterPanel({
             <span>
               بعد تنزيل ملفات الإصدار ورفع طلب الدمج في GitHub، استخدم «تثبيت وأرشفة الدفعة كمدمجة» لتوثيق بصمة SHA-256 في سجل الإصدارات ومنع تكرار تصديرها.
             </span>
-            {(Object.keys(archivedReleaseMap).length > 0 || mergedSandboxCount > 0) && (
+            {(Object.keys(archivedReleaseMap).length > 0) && (
               <span className="font-mono tabular-nums text-emerald-700 dark:text-[#D9FF43]">
                 سجلات مؤرشفة في إصدارات سابقة:{' '}
                 {Object.keys(archivedReleaseMap).length}
