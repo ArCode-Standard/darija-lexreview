@@ -607,18 +607,6 @@ export function SubmissionsPanel({
       </div>
 
       {/* Section 3: Staff-Only Test Queue */}
-      {false && canAccessEditorialTools && sandboxRevisableOrRecent.length > 0 && (
-        <div className="pt-8 border-t border-zinc-200 dark:border-white/10">
-          <div className="pb-3 border-b border-zinc-200 dark:border-white/10">
-            <h4 className="font-display text-sm font-bold text-zinc-950 dark:text-[#F5F5F7]">
-              طابور الاختبار للمحررين ({sandboxRevisableOrRecent.length})
-            </h4>
           </div>
-          <div className="divide-y divide-zinc-200 dark:divide-white/10">
-            {sandboxRevisableOrRecent.map((sub) => renderSubmissionRow(sub))}
-          </div>
-        </div>
-      )}
-    </div>
   )
 }
