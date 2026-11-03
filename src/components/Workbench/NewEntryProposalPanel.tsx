@@ -95,6 +95,7 @@ export function NewEntryProposalPanel({
   onSubmissionSuccess,
   onOpenModerationSandbox,
 }: NewEntryProposalPanelProps) {
+  void onOpenModerationSandbox
   const [wordAr, setWordAr] = useState('')
   const [arabizi, setArabizi] = useState('')
   const [arabiziManuallyEdited, setArabiziManuallyEdited] = useState(false)
@@ -1220,16 +1221,7 @@ export function NewEntryProposalPanel({
               )}
               <span>{feedback.text}</span>
             </div>
-            {false && feedback.showSandboxJump && canAccessEditorialTools && (
-              <button
-                type="button"
-                onClick={onOpenModerationSandbox}
-                className="inline-flex items-center gap-1 font-semibold text-emerald-700 hover:underline whitespace-nowrap cursor-pointer dark:text-[#D9FF43]"
-              >
-                <span>افتح لوحة المحررين</span>
-                <ArrowLeft className="h-3.5 w-3.5" />
-              </button>
-            )}
+
           </div>
         )}
       </div>
