@@ -47,7 +47,7 @@ The client must then pass the unchanged payload and returned `writeToken` to the
 | `review_submissions.decision` | review | editor | `decide_review_submission` |
 | `community_attestations.upsert` | comment | active contributor | `submit_community_attestation` |
 | `reviewer_profiles.update` | profile | active member | `update_reviewer_profile_content` |
-| `reviewer_profiles.admin_update` | admin | admin | `update_reviewer_profile_admin_note` |
+| `reviewer_profiles.admin_update` | admin | admin | `update_reviewer_profile_governance` |
 | `member_messages.create` | private_message | editor | `send_member_message` |
 | `member_moderation_reports.create` | report | editor | `submit_moderation_report` |
 | `member_moderation_reports.resolve` | admin | admin | `resolve_moderation_report` |
