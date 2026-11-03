@@ -142,7 +142,7 @@ function loadPolicy(): SafetyPolicy {
   const raw = Deno.env.get("CONTENT_SAFETY_POLICY_JSON");
   if (!raw) throw new Error("CONTENT_SAFETY_POLICY_NOT_CONFIGURED");
   const policy = JSON.parse(raw) as SafetyPolicy;
-  if (!policy.version || !Array.isArray(policy.rules)) throw new Error("CONTENT_SAFETY_POLICY_INVALID");
+  if (!policy.version || !Array.isArray(policy.rules) || policy.rules.length === 0) throw new Error("CONTENT_SAFETY_POLICY_INVALID");
   return policy;
 }
 
@@ -171,7 +171,7 @@ Deno.serve(async (req: Request) => {
       return json({ error: "payload_too_large" }, 413, requestOrigin);
     }
     const body = JSON.parse(rawBody) as { operation?: string; payload?: unknown };
-    if (!body.operation || !(body.operation in OPERATIONS)) {
+    if (!body.operation || !Object.hasOwn(OPERATIONS, body.operation)) {
       return json({ error: "unsupported_operation" }, 400, requestOrigin);
     }
     const operation = body.operation as Operation;
