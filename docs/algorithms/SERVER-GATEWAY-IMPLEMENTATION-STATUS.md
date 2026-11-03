@@ -27,8 +27,8 @@
 
 ## Important limitations — not complete or production-ready
 
-- The SQL is deliberately under supabase/drafts/, not supabase/migrations/. The Supabase CLI is not available in this execution environment, so a migration has not been generated with supabase migration new.
-- The draft has not been applied to an isolated database and has not passed pgTAP. Its SQL must be reviewed, generated as a proper migration, and tested against a fresh database before it can be considered executable.
+- The SQL is deliberately under supabase/drafts/, not supabase/migrations/. CI uses the pinned Supabase CLI to create a temporary migration in its isolated runner; that generated migration is not committed or applied to production.
+- The first isolated reset exposed a duplicated malformed tail in the SQL draft. That block has been removed. The pgTAP file also had malformed dollar-quoted assertions; those delimiters have been repaired. The latest CI run after these fixes is pending, so neither migration reset nor pgTAP is yet confirmed successful.
 - The Edge Function requires CONTENT_GATEWAY_ALLOWED_ORIGINS and a reviewed CONTENT_SAFETY_POLICY_JSON secret. Neither secret has been configured. If policy is absent, the function fails closed with 503.
 - No Moroccan profanity catalogue is fabricated or shipped. A policy must be curated, licensed, benchmarked, and reviewed by Darija editors before the gateway can issue write tokens.
 - The frontend write paths are not yet migrated to the new Edge Function and RPCs. Existing direct REST writes remain in shadow mode until every client path is moved and verified.
@@ -37,7 +37,7 @@
 
 ## Required next steps
 
-1. The CI workflow now runs supabase migration new and materializes the SQL draft as a generated migration in its isolated runner; review the DDL/functions/grants after CI and generate/commit the proper migration when the CLI is available locally.
+1. Wait for the latest CI run to finish. It now uses `supabase migration new` to materialize the draft only inside the isolated runner, then runs `supabase db reset` and pgTAP. Review every SQL/RPC/trigger/grant result before creating a committed migration.
 2. Run supabase db reset --local and supabase test db in CI. Add pgTAP coverage for:
    - direct REST INSERT/UPDATE rejection in enforce mode;
    - valid token + matching payload + matching actor success;
@@ -52,3 +52,14 @@
 ## Security note
 
 The Edge Function is not a complete write boundary until the database migration is applied and all write RPCs are used. A scan endpoint alone does not prevent direct PostgREST writes. Do not describe the platform as fully protected based on this branch.
+
+
+## Read-only production snapshot (2026-11-03 18:00 UTC)
+
+The linked Supabase project was inspected without writes:
+
+- The production migration ledger still ends at `20261103145945_enforce_member_standing_and_expiry`; the gateway migration is not present.
+- No Edge Functions are deployed in the project.
+- No database migration, secret, RLS policy, or production data was changed during this work.
+- Security advisors report existing SECURITY DEFINER RPC exposure warnings (3 callable by anon and 8 by authenticated) and disabled leaked-password protection. These findings predate this gateway branch and were not modified here; they need a separate, function-by-function review.
+- Performance advisors report eight unindexed foreign keys and eight unused indexes. These are observations, not proof that every index should be removed or every FK is currently a bottleneck.
