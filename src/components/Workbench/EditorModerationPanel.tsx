@@ -119,6 +119,8 @@ export function EditorModerationPanel({
   onOpenAuth,
   onGoToExporter,
 }: EditorModerationPanelProps) {
+  void sandboxItems
+  void onResetSandbox
   const isAuthorizedLiveEditor =
     Boolean(userEmail) && (profile?.role === 'editor' || profile?.role === 'admin')
 
