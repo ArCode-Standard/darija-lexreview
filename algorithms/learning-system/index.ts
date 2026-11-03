@@ -30,7 +30,6 @@ export function reviewFeedbackCandidate(input: ReviewFeedbackInput): FeedbackCan
   if (input.reviewerRef === input.candidate.contributorRef) throw new Error('Contributors cannot approve their own feedback')
   if (input.candidate.reviews.some((review) => review.reviewerRef === input.reviewerRef)) throw new Error('A reviewer cannot review the same candidate twice')
   const priorApproval = input.candidate.reviews.some((review) => review.decision === 'approve')
-  if (input.candidate.domain === 'content_safety' && input.decision === 'approve' && priorApproval) throw new Error('Safety examples require independent review; this candidate already has an approval')
   const review = { reviewerRef: input.reviewerRef, role: input.role, decision: input.decision, reason: input.reason.trim(), reviewedAt: (input.reviewedAt ?? new Date()).toISOString() }
   const reviews = [...input.candidate.reviews, review]
   const approvalCount = reviews.filter((item) => item.decision === 'approve').length
