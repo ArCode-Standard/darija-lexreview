@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { normalizeSafetyText, scanContent, type SafetyPolicy } from '../algorithms/content-safety'
+import { scanContentPayload } from '../algorithms/content-safety/gateway'
 import { buildApprovedDataset, calculateEvaluationReport, evaluateReleaseGate, reviewFeedbackCandidate, submitFeedbackCandidate } from '../algorithms/learning-system'
 import type { FeedbackCandidate } from '../algorithms/learning-system'
 
@@ -61,6 +62,16 @@ describe('content safety engine', () => {
     }, policy)
     expect(result.decision).toBe('allow_with_context')
     expect(result.requiresHumanReview).toBe(true)
+  })
+  it('aggregates decisions across all explicitly mapped payload fields', () => {
+    const result = scanContentPayload({
+      surface: 'report',
+      fields: { title: 'A neutral report', reason: 'sample-threat', evidence: ['sample-threat'] },
+      contexts: { reason: { purpose: 'moderation_report', quotedForEvidence: true }, evidence: { purpose: 'moderation_report', quotedForEvidence: true } },
+    }, policy)
+    expect(result.decision).toBe('allow_with_context')
+    expect(result.requiresHumanReview).toBe(true)
+    expect(result.fields).toHaveLength(3)
   })
   it('normalizes Arabic diacritics and tatweel without changing source text', () => {
     expect(normalizeSafetyText('أَهْلًا ـ')).toBe('اهلا')
