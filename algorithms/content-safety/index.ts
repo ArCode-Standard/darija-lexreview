@@ -73,7 +73,7 @@ export function scanContent(input: ScanContentInput, policy: SafetyPolicy): Cont
   const hasThreat = unique.some((signal) => signal.category === 'threat')
   const targetedHate = unique.some((signal) => signal.category === 'hate_speech') && Boolean(context.targetedAtGroup || context.explicitIncitement)
   const targetedAbuse = unique.some((signal) => signal.category === 'personal_abuse') && Boolean(context.targetedAtPerson)
-  const contextualEvidence = input.surface === 'report' && context.purpose === 'moderation_report' && Boolean(context.quotedForEvidence)
+  const contextualEvidence = CONTEXTUAL_PURPOSES.has(context.purpose) && Boolean(context.quotedForEvidence)
   const contextualOnlyProfanity = unique.length > 0 && unique.every((signal) => signal.category === 'profanity' || signal.category === 'obfuscation') &&
     CONTEXTUAL_PURPOSES.has(context.purpose) && Boolean(context.quotedForEvidence || context.purpose !== 'general')
   let decision: ContentSafetyResult['decision'] = 'allow'
