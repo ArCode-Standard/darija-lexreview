@@ -48,7 +48,17 @@ const LETTERS: Record<string, string> = {
   y: 'ي', z: 'ز',
 }
 
-// Provisional spelling hints only; these entries are not a speaker-validated lexicon.\nconst SEED_LEXICAL_HINTS: Record<string, string> = {\n  '3lach': 'علاش', a3lach: 'علاش', salam: 'سلام', salamo: 'سلام', labas: 'لاباس',\n  wach: 'واش', wash: 'واش', chno: 'شنو', chnou: 'شنو', kifach: 'كيفاش', kifash: 'كيفاش',\n  bghit: 'بغيت', bghiti: 'بغيتي', bghina: 'بغينا', mzyan: 'مزيان', daba: 'دابا',\n  fin: 'فين', ghadi: 'غادي', khoya: 'خويا', khouya: 'خويا', chokran: 'شكرا',\n  choukran: 'شكرا', zwina: 'زوينة', zwine: 'زوين', machi: 'ماشي', safi: 'صافي',\n  ma3lich: 'معليش', marhba: 'مرحبا', merhba: 'مرحبا', kidayr: 'كيداير', kidayra: 'كيدايرة',\n}\n\nconst COMMON_DARIJA_ARABIZI = new Set([
+// Provisional spelling hints only; these entries are not a speaker-validated lexicon.
+const SEED_LEXICAL_HINTS: Record<string, string> = {
+  '3lach': 'علاش', a3lach: 'علاش', salam: 'سلام', salamo: 'سلام', labas: 'لاباس',
+  wach: 'واش', wash: 'واش', chno: 'شنو', chnou: 'شنو', kifach: 'كيفاش', kifash: 'كيفاش',
+  bghit: 'بغيت', bghiti: 'بغيتي', bghina: 'بغينا', mzyan: 'مزيان', daba: 'دابا',
+  fin: 'فين', ghadi: 'غادي', khoya: 'خويا', khouya: 'خويا', chokran: 'شكرا',
+  choukran: 'شكرا', zwina: 'زوينة', zwine: 'زوين', machi: 'ماشي', safi: 'صافي',
+  ma3lich: 'معليش', marhba: 'مرحبا', merhba: 'مرحبا', kidayr: 'كيداير', kidayra: 'كيدايرة',
+}
+
+const COMMON_DARIJA_ARABIZI = new Set([
   '3lach', 'a3lach', '3andi', '3ndek', '3ndna', '7it', 'bghit', 'bghiti',
   'bghina', 'bghaw', 'bslama', 'beslama', 'chno', 'chnou', 'chhal',
   'chokran', 'choukran', 'daba', 'fin', 'ghadi', 'kidayr', 'kidayra',
@@ -56,7 +66,6 @@ const LETTERS: Record<string, string> = {
   'ma3lich', 'machi', 'marhba', 'merhba', 'mzyan', 'safi', 'salam',
   'salamo', 'wach', 'wash', 'zwina', 'zwine',
 ])
-
 const DEFAULT_MAX_CANDIDATES = 5
 const MAX_ALLOWED_CANDIDATES = 20
 
