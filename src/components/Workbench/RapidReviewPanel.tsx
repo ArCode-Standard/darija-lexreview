@@ -125,6 +125,7 @@ export function RapidReviewPanel({
   onRequireLogin,
   onSubmissionSuccess,
 }: RapidReviewPanelProps) {
+  void onAddSandboxSubmission
   const [microTask, setMicroTask] = useState<RapidMicroTask>('verify_words')
   const [categoryFilter, setCategoryFilter] = useState<string>('all')
   const [showAlreadyReviewed, setShowAlreadyReviewed] = useState(false)
