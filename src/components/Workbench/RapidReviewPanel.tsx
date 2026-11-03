@@ -1015,7 +1015,7 @@ export function RapidReviewPanel({
             <div
               role="tablist"
               aria-label="نوع المهمة السريعة"
-              className="inline-flex flex-wrap items-center gap-1 rounded-full border border-zinc-200 bg-zinc-100 p-1 dark:border-white/10 dark:bg-[#07070A]"
+              className="inline-flex flex-wrap items-center gap-1 rounded-2xl border border-zinc-200 bg-zinc-100 p-1 dark:border-white/10 dark:bg-[#07070A]"
             >
               <button
                 type="button"
@@ -1025,7 +1025,7 @@ export function RapidReviewPanel({
                   setForcedEntryId(null)
                   setMicroTask('verify_words')
                 }}
-                className={`min-h-[34px] rounded-full px-3.5 py-1.5 text-xs font-semibold transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
+                className={`min-h-[34px] rounded-xl px-3.5 py-1.5 text-xs font-semibold transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
                   microTask === 'verify_words'
                     ? 'bg-zinc-950 text-white shadow-2xs dark:bg-[#D9FF43] dark:text-[#050507]'
                     : 'text-zinc-600 hover:text-zinc-950 dark:text-zinc-400 dark:hover:text-white'
@@ -1041,7 +1041,7 @@ export function RapidReviewPanel({
                   setForcedEntryId(null)
                   setMicroTask('verify_examples')
                 }}
-                className={`min-h-[34px] rounded-full px-3.5 py-1.5 text-xs font-semibold transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
+                className={`min-h-[34px] rounded-xl px-3.5 py-1.5 text-xs font-semibold transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
                   microTask === 'verify_examples'
                     ? 'bg-zinc-950 text-white shadow-2xs dark:bg-[#D9FF43] dark:text-[#050507]'
                     : 'text-zinc-600 hover:text-zinc-950 dark:text-zinc-400 dark:hover:text-white'
@@ -1057,7 +1057,7 @@ export function RapidReviewPanel({
                   setForcedEntryId(null)
                   setMicroTask('enrich_examples')
                 }}
-                className={`min-h-[34px] rounded-full px-3.5 py-1.5 text-xs font-semibold transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
+                className={`min-h-[34px] rounded-xl px-3.5 py-1.5 text-xs font-semibold transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
                   microTask === 'enrich_examples'
                     ? 'bg-zinc-950 text-white shadow-2xs dark:bg-[#D9FF43] dark:text-[#050507]'
                     : 'text-zinc-600 hover:text-zinc-950 dark:text-zinc-400 dark:hover:text-white'
@@ -1073,7 +1073,7 @@ export function RapidReviewPanel({
                   setForcedEntryId(null)
                   setMicroTask('regional_usage')
                 }}
-                className={`min-h-[34px] rounded-full px-3.5 py-1.5 text-xs font-semibold transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
+                className={`min-h-[34px] rounded-xl px-3.5 py-1.5 text-xs font-semibold transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
                   microTask === 'regional_usage'
                     ? 'bg-zinc-950 text-white shadow-2xs dark:bg-[#D9FF43] dark:text-[#050507]'
                     : 'text-zinc-600 hover:text-zinc-950 dark:text-zinc-400 dark:hover:text-white'
@@ -1415,7 +1415,7 @@ export function RapidReviewPanel({
               <div
                 className={`hidden sm:grid gap-3 ${
                   microTask === 'verify_words' && !activeCalibrationCard
-                    ? 'sm:grid-cols-4'
+                    ? 'sm:grid-cols-2 xl:grid-cols-4'
                     : 'sm:grid-cols-3'
                 }`}
               >

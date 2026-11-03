@@ -450,24 +450,66 @@ export function WorkspaceShell({
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 px-1 text-[11px] text-zinc-500 dark:text-zinc-400">
-            <a href="/about/" className="hover:text-zinc-950 hover:underline dark:hover:text-white">
+          <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1.5 px-1 text-[11px] text-zinc-500 dark:text-zinc-400">
+            <a
+              href="/about/"
+              className="hover:text-emerald-700 hover:underline underline-offset-4 transition-colors dark:hover:text-[#D9FF43]"
+            >
               عن المنصة
             </a>
-            <span>·</span>
-            <a href="/methodology/" className="hover:text-zinc-950 hover:underline dark:hover:text-white">
+            <span aria-hidden="true" className="text-zinc-300 dark:text-white/20">
+              ·
+            </span>
+            <a
+              href="/methodology/"
+              className="hover:text-emerald-700 hover:underline underline-offset-4 transition-colors dark:hover:text-[#D9FF43]"
+            >
               المنهجية
             </a>
-            <span>·</span>
-            <a href="/privacy/" className="hover:text-zinc-950 hover:underline dark:hover:text-white">
+            <span aria-hidden="true" className="text-zinc-300 dark:text-white/20">
+              ·
+            </span>
+            <a
+              href="/privacy/"
+              className="hover:text-emerald-700 hover:underline underline-offset-4 transition-colors dark:hover:text-[#D9FF43]"
+            >
               الخصوصية
             </a>
-            <span>·</span>
+            <span aria-hidden="true" className="text-zinc-300 dark:text-white/20">
+              ·
+            </span>
+            <a
+              href="/terms/"
+              className="hover:text-emerald-700 hover:underline underline-offset-4 transition-colors dark:hover:text-[#D9FF43]"
+            >
+              الشروط
+            </a>
+            <span aria-hidden="true" className="text-zinc-300 dark:text-white/20">
+              ·
+            </span>
+            <a
+              href="/reporting/"
+              className="hover:text-emerald-700 hover:underline underline-offset-4 transition-colors dark:hover:text-[#D9FF43]"
+            >
+              الإبلاغ
+            </a>
+            <span aria-hidden="true" className="text-zinc-300 dark:text-white/20">
+              ·
+            </span>
+            <a
+              href="/attribution/"
+              className="hover:text-emerald-700 hover:underline underline-offset-4 transition-colors dark:hover:text-[#D9FF43]"
+            >
+              الإسناد والترخيص
+            </a>
+            <span aria-hidden="true" className="text-zinc-300 dark:text-white/20">
+              ·
+            </span>
             <a
               href="https://github.com/ArCode-Standard/moroccan-darija-dataset"
               target="_blank"
               rel="noreferrer"
-              className="inline-flex items-center gap-0.5 hover:text-zinc-950 hover:underline dark:hover:text-white"
+              className="inline-flex items-center gap-0.5 hover:text-emerald-700 hover:underline underline-offset-4 transition-colors dark:hover:text-[#D9FF43]"
             >
               <span>المعجم</span>
               <ExternalLink className="h-2.5 w-2.5" />
@@ -482,14 +524,14 @@ export function WorkspaceShell({
     <div className="min-h-screen flex flex-col bg-[#FAFAFC] text-zinc-950 dark:bg-[#050507] dark:text-zinc-100">
       {/* Sticky Precision Workspace Top Bar */}
       <header className="sticky top-0 z-30 h-14 border-b border-zinc-200 bg-[#FAFAFC]/90 backdrop-blur-md dark:border-white/10 dark:bg-[#050507]/90">
-        <div className="mx-auto flex h-full max-w-[1440px] items-center justify-between gap-3 px-4 sm:px-6">
-          <div className="flex items-center gap-3 min-w-0">
+        <div className="mx-auto flex h-full max-w-[1440px] items-center justify-between gap-2.5 px-4 sm:px-6">
+          <div className="flex items-center gap-2.5 min-w-0 flex-1">
             {!isFocusMode && (
               <button
                 type="button"
                 onClick={() => setMobileMenuOpen(true)}
                 aria-label="فتح قائمة الصفحات"
-                className="inline-flex lg:hidden h-9 w-9 items-center justify-center rounded-xl border border-zinc-200 text-zinc-700 hover:bg-zinc-100 cursor-pointer dark:border-white/12 dark:text-zinc-200 dark:hover:bg-white/10"
+                className="inline-flex lg:hidden h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-zinc-200 text-zinc-700 hover:bg-zinc-100 cursor-pointer dark:border-white/12 dark:text-zinc-200 dark:hover:bg-white/10"
               >
                 <Menu className="h-4 w-4" />
               </button>
@@ -510,42 +552,51 @@ export function WorkspaceShell({
                 aria-hidden="true"
                 className="h-7 w-auto object-contain select-none"
               />
-              <span dir="ltr" className="hidden sm:inline">
+              <span dir="ltr" className="hidden md:inline">
                 Darija <span className="text-emerald-700 dark:text-[#D9FF43]">LexReview</span>
               </span>
             </a>
 
             <ChevronLeft className="h-3.5 w-3.5 shrink-0 text-zinc-400 dark:text-zinc-600" aria-hidden="true" />
 
-            <span className="truncate text-xs sm:text-sm font-semibold text-zinc-800 dark:text-zinc-200">
+            <span className="min-w-0 truncate text-xs sm:text-sm font-semibold text-zinc-800 dark:text-zinc-200">
               {currentBreadcrumb}
             </span>
           </div>
 
-          <div className="flex items-center gap-2 sm:gap-2.5 shrink-0">
-            {!isFocusMode && <PWAInstallButton variant="compact" />}
+          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+            {!isFocusMode && (
+              <div className="hidden xl:block">
+                <PWAInstallButton variant="compact" />
+              </div>
+            )}
 
             {isFocusMode ? (
               <button
                 type="button"
                 onClick={onExitFocusMode}
-                className="inline-flex min-h-[34px] items-center gap-1.5 rounded-full border border-emerald-500/40 bg-emerald-50 px-3.5 py-1 text-xs font-semibold text-emerald-800 cursor-pointer dark:border-[#D9FF43]/50 dark:bg-[#D9FF43]/10 dark:text-[#D9FF43]"
+                className="inline-flex min-h-[34px] items-center gap-1.5 rounded-full border border-emerald-500/40 bg-emerald-50 px-3.5 py-1 text-xs font-semibold text-emerald-800 shrink-0 whitespace-nowrap cursor-pointer dark:border-[#D9FF43]/50 dark:bg-[#D9FF43]/10 dark:text-[#D9FF43]"
               >
                 <span>إنهاء وضع التركيز</span>
               </button>
-            ) : (
+            ) : isAuthenticated ? (
               <button
                 type="button"
                 onClick={onOpenCommandPalette}
-                className="inline-flex min-h-[36px] items-center gap-2 rounded-full border border-zinc-200 bg-white px-3 sm:px-4 py-1.5 text-xs text-zinc-500 hover:border-zinc-400 hover:text-zinc-900 transition-colors cursor-pointer dark:border-white/12 dark:bg-[#0C0C10] dark:text-zinc-400 dark:hover:border-[#D9FF43]/50 dark:hover:text-white"
+                aria-label="بحث أو انتقال سريع (⌘K)"
+                title="بحث أو انتقال سريع (⌘K)"
+                className="inline-flex min-h-[36px] items-center gap-1.5 rounded-full border border-zinc-200 bg-white px-2.5 sm:px-3.5 py-1.5 text-xs text-zinc-500 hover:border-zinc-400 hover:text-zinc-900 shrink-0 whitespace-nowrap transition-colors cursor-pointer dark:border-white/12 dark:bg-[#0C0C10] dark:text-zinc-400 dark:hover:border-[#D9FF43]/50 dark:hover:text-white"
               >
-                <Search className="h-3.5 w-3.5 text-emerald-700 dark:text-[#D9FF43]" />
-                <span className="hidden md:inline">بحث أو انتقال سريع...</span>
-                <kbd className="hidden sm:inline font-mono text-[10px] text-zinc-400 dark:text-zinc-500">
+                <Search className="h-3.5 w-3.5 shrink-0 text-emerald-700 dark:text-[#D9FF43]" />
+                <span className="hidden xl:inline">بحث أو انتقال سريع...</span>
+                <kbd
+                  dir="ltr"
+                  className="hidden sm:inline font-mono text-[10px] text-zinc-400 dark:text-zinc-500"
+                >
                   ⌘K
                 </kbd>
               </button>
-            )}
+            ) : null}
 
             {/* Member Inbox Bell — Strictly Hidden from Unauthenticated Visitors */}
             {!isFocusMode && isAuthenticated && (
@@ -561,7 +612,7 @@ export function WorkspaceShell({
                     : 'صندوق الرسائل والتنبيهات'
                 }
                 title="صندوق رسائل الأعضاء والتنبيهات"
-                className="relative inline-flex h-9 w-9 items-center justify-center rounded-full border border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-100 transition-colors cursor-pointer dark:border-white/12 dark:bg-[#0C0C10] dark:text-zinc-200 dark:hover:border-[#D9FF43]/50"
+                className="relative inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-100 transition-colors cursor-pointer dark:border-white/12 dark:bg-[#0C0C10] dark:text-zinc-200 dark:hover:border-[#D9FF43]/50"
               >
                 <Bell className="h-4 w-4" />
                 {unreadMessagesCount > 0 && (
@@ -575,8 +626,9 @@ export function WorkspaceShell({
             <button
               type="button"
               onClick={onToggleDarkMode}
-              aria-label={darkMode ? 'التبديل للوضع النهاري' : 'التبديل للوضع الليلي'}
-              className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-100 transition-colors cursor-pointer dark:border-white/12 dark:bg-[#0C0C10] dark:text-zinc-200 dark:hover:border-[#D9FF43]/50"
+              aria-label={darkMode ? 'التبديل إلى الوضع النهاري' : 'التبديل إلى الوضع الليلي'}
+              title={darkMode ? 'التبديل إلى الوضع النهاري' : 'التبديل إلى الوضع الليلي'}
+              className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-zinc-200 bg-white text-zinc-700 hover:border-zinc-400 hover:text-emerald-700 transition-colors cursor-pointer dark:border-white/12 dark:bg-[#0C0C10] dark:text-zinc-200 dark:hover:border-[#D9FF43]/60 dark:hover:text-[#D9FF43]"
             >
               {darkMode ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
             </button>
@@ -587,15 +639,18 @@ export function WorkspaceShell({
                 e.preventDefault()
                 onNavigatePage(isAuthenticated ? 'profile' : 'auth')
               }}
-              className="inline-flex min-h-[36px] items-center gap-1.5 rounded-full border border-zinc-950 bg-zinc-950 px-4 py-1.5 text-xs font-semibold text-white hover:bg-zinc-800 transition-colors whitespace-nowrap cursor-pointer dark:border-[#D9FF43]/75 dark:bg-[#D9FF43]/10 dark:text-white dark:hover:bg-[#D9FF43] dark:hover:text-[#050507]"
+              className="inline-flex min-h-[36px] items-center gap-1.5 rounded-full border border-zinc-950 bg-zinc-950 px-3 sm:px-4 py-1.5 text-xs font-semibold text-white hover:bg-zinc-800 transition-colors whitespace-nowrap shrink-0 cursor-pointer dark:border-[#D9FF43]/75 dark:bg-[#D9FF43]/10 dark:text-white dark:hover:bg-[#D9FF43] dark:hover:text-[#050507]"
             >
               {isAuthenticated ? (
                 <>
-                  <Avatar source={userAvatarSource} path={userAvatarPath} seed={userAvatarSeed} githubHandle={userGithubHandle} displayName={userDisplayName} size={25} />
-                  <span className="max-w-[116px] truncate">{userDisplayName || 'حسابي'}</span>
+                  <Avatar source={userAvatarSource} path={userAvatarPath} seed={userAvatarSeed} githubHandle={userGithubHandle} displayName={userDisplayName} size={24} />
+                  <span className="max-w-[92px] sm:max-w-[116px] truncate">{userDisplayName || 'حسابي'}</span>
                 </>
               ) : (
-                <span>دخول / تسجيل</span>
+                <>
+                  <span className="sm:hidden">دخول</span>
+                  <span className="hidden sm:inline">دخول / تسجيل</span>
+                </>
               )}
             </a>
           </div>

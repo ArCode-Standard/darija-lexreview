@@ -11,7 +11,6 @@ import {
   FolderKanban,
   Home,
   Layers,
-  LogIn,
   Search,
   ShieldCheck,
   Sparkles,
@@ -113,64 +112,37 @@ export function CommandPalette({
         icon: Award,
         action: () => onNavigatePage('contributors'),
       },
-      ...(isAuthenticated
-        ? [
-            {
-              id: 'contribute' as const,
-              label: 'إضافة مفردة أو شاهد جديد',
-              hint: '/contribute',
-              icon: FilePlus2,
-              action: () => onNavigatePage('contribute'),
-            },
-            {
-              id: 'submissions' as const,
-              label: 'مساهماتي ومسوداتي المحفوظة',
-              hint: '/submissions',
-              icon: FolderKanban,
-              action: () => onNavigatePage('submissions'),
-            },
-            {
-              id: 'messages' as const,
-              label: 'صندوق رسائل الأعضاء والتنبيهات',
-              hint: '/messages',
-              icon: Bell,
-              action: () => onNavigatePage('messages'),
-            },
-            {
-              id: 'profile' as const,
-              label: 'ملفي الشخصي وربط GitHub / Google',
-              hint: '/profile',
-              icon: UserRound,
-              action: () => onNavigatePage('profile'),
-            },
-          ]
-        : [
-            {
-              id: 'auth' as const,
-              label: 'تسجيل الدخول أو إنشاء حساب مساهم',
-              hint: '/auth',
-              icon: LogIn,
-              action: () => onNavigatePage('auth'),
-            },
-            {
-              id: 'contribute' as const,
-              label: 'اقترح مفردة جديدة (حفظ مسودة زائر)',
-              hint: '/contribute',
-              icon: FilePlus2,
-              action: () => onNavigatePage('contribute'),
-            },
-            ...(draftsCount > 0
-              ? [
-                  {
-                    id: 'submissions' as const,
-                    label: `مسودات المتصفح المحفوظة (${draftsCount})`,
-                    hint: '/submissions',
-                    icon: FolderKanban,
-                    action: () => onNavigatePage('submissions'),
-                  },
-                ]
-              : []),
-          ]),
+      {
+        id: 'contribute' as const,
+        label: 'إضافة مفردة أو شاهد جديد',
+        hint: '/contribute',
+        icon: FilePlus2,
+        action: () => onNavigatePage('contribute'),
+      },
+      {
+        id: 'submissions' as const,
+        label:
+          draftsCount > 0
+            ? `مساهماتي ومسوداتي المحفوظة (${draftsCount})`
+            : 'مساهماتي ومسوداتي المحفوظة',
+        hint: '/submissions',
+        icon: FolderKanban,
+        action: () => onNavigatePage('submissions'),
+      },
+      {
+        id: 'messages' as const,
+        label: 'صندوق رسائل الأعضاء والتنبيهات',
+        hint: '/messages',
+        icon: Bell,
+        action: () => onNavigatePage('messages'),
+      },
+      {
+        id: 'profile' as const,
+        label: 'ملفي الشخصي وربط GitHub / Google',
+        hint: '/profile',
+        icon: UserRound,
+        action: () => onNavigatePage('profile'),
+      },
       ...(canAccessEditorialTools
         ? [
             {
@@ -215,7 +187,7 @@ export function CommandPalette({
     return entries.filter((e) => matchesDarijaQuery(e, trimmed)).slice(0, 8)
   }, [entries, trimmed])
 
-  if (!open) return null
+  if (!open || !isAuthenticated) return null
 
   return (
     <div
@@ -229,7 +201,7 @@ export function CommandPalette({
     >
       <div className="w-full max-w-2xl overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-2xl dark:border-white/15 dark:bg-[#0B0B10]">
         {/* Search Input Header */}
-        <div className="relative flex items-center border-b border-zinc-200 px-4 dark:border-white/10">
+        <div className="relative flex items-center gap-2.5 border-b border-zinc-200 px-4 dark:border-white/10">
           <Search className="h-4 w-4 shrink-0 text-zinc-400 dark:text-[#D9FF43]" aria-hidden="true" />
           <input
             ref={inputRef}
@@ -237,15 +209,25 @@ export function CommandPalette({
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="ابحث عن مفردة دارجة أو انتقل مباشرةً لأي صفحة مستقلة..."
-            className="w-full min-h-[54px] bg-transparent px-3.5 text-sm text-zinc-950 placeholder:text-zinc-400 focus:outline-none dark:text-white dark:placeholder:text-zinc-500"
+            className="min-w-0 flex-1 min-h-[54px] bg-transparent py-2 text-sm text-zinc-950 placeholder:text-zinc-400 focus:outline-none dark:text-white dark:placeholder:text-zinc-500"
           />
+          {query && (
+            <button
+              type="button"
+              onClick={() => setQuery('')}
+              aria-label="مسح البحث"
+              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-zinc-400 hover:bg-zinc-100 hover:text-zinc-900 cursor-pointer dark:hover:bg-white/10 dark:hover:text-white"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          )}
           <button
             type="button"
             onClick={onClose}
             aria-label="إغلاق البحث السريع"
-            className="flex h-8 w-8 items-center justify-center rounded-full text-zinc-400 hover:bg-zinc-100 hover:text-zinc-900 cursor-pointer dark:hover:bg-white/10 dark:hover:text-white"
+            className="inline-flex h-7 shrink-0 items-center justify-center rounded-lg border border-zinc-200 px-2 font-mono text-[10px] text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900 cursor-pointer dark:border-white/12 dark:text-zinc-400 dark:hover:bg-white/10 dark:hover:text-white"
           >
-            <X className="h-4 w-4" />
+            ESC
           </button>
         </div>
 
@@ -256,7 +238,7 @@ export function CommandPalette({
               <p className="px-2.5 pb-2 font-mono text-[10px] tracking-[0.14em] uppercase text-zinc-500 dark:text-zinc-400">
                 الصفحات المستقلة
               </p>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-1.5">
                 {filteredPages.map((p) => {
                   const Icon = p.icon
                   return (
@@ -267,13 +249,16 @@ export function CommandPalette({
                         p.action()
                         onClose()
                       }}
-                      className="flex items-center justify-between gap-2.5 rounded-xl px-3 py-2.5 text-start text-xs font-medium text-zinc-800 hover:bg-zinc-100 transition-colors cursor-pointer dark:text-zinc-200 dark:hover:bg-white/[0.06]"
+                      className="flex items-center justify-between gap-3 rounded-xl px-3 py-2.5 text-start text-xs font-medium text-zinc-800 hover:bg-zinc-100 transition-colors cursor-pointer dark:text-zinc-200 dark:hover:bg-white/[0.06]"
                     >
-                      <span className="flex items-center gap-2.5 min-w-0">
+                      <span className="flex items-center gap-2.5 min-w-0 flex-1">
                         <Icon className="h-4 w-4 shrink-0 text-emerald-700 dark:text-[#D9FF43]" />
                         <span className="truncate font-semibold">{p.label}</span>
                       </span>
-                      <span dir="ltr" className="font-mono text-[10px] text-zinc-400 dark:text-zinc-500">
+                      <span
+                        dir="ltr"
+                        className="shrink-0 font-mono text-[10px] text-zinc-400 dark:text-zinc-500"
+                      >
                         {p.hint}
                       </span>
                     </button>

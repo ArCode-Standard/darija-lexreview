@@ -82,7 +82,7 @@ export function LexiconSidebar({
   return (
     <aside
       aria-label="فهرس المفردات"
-      className="rounded-2xl border border-zinc-200 bg-white p-4 sm:p-5 lg:sticky lg:top-20 dark:border-white/12 dark:bg-[#0B0B10]"
+      className="rounded-2xl border border-zinc-200 bg-white p-4 sm:p-5 xl:sticky xl:top-20 dark:border-white/12 dark:bg-[#0B0B10]"
     >
       <div className="flex items-center justify-between gap-2 pb-3.5 border-b border-zinc-200 dark:border-white/10">
         <div>

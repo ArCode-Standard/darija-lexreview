@@ -21,12 +21,14 @@ export function PWAInstallButton({ variant = 'compact' }: PWAInstallButtonProps)
   const buttonClass =
     variant === 'sidebar'
       ? 'flex w-full items-center justify-between gap-2 rounded-xl border border-emerald-500/35 bg-emerald-50/70 px-3 py-2 text-[11px] font-semibold text-emerald-900 hover:bg-emerald-100/70 transition-colors cursor-pointer dark:border-[#D9FF43]/35 dark:bg-[#D9FF43]/10 dark:text-[#D9FF43] dark:hover:bg-[#D9FF43]/18'
-      : 'inline-flex h-9 sm:h-10 items-center gap-1.5 rounded-full border border-zinc-200 bg-white px-3.5 text-xs font-semibold text-zinc-800 hover:border-zinc-400 hover:text-zinc-950 transition-colors cursor-pointer dark:border-white/15 dark:bg-[#0C0C10] dark:text-zinc-200 dark:hover:border-[#D9FF43]/60 dark:hover:text-[#D9FF43]'
+      : 'inline-flex h-9 w-9 2xl:w-auto items-center justify-center gap-1.5 rounded-full border border-zinc-200 bg-white 2xl:px-3.5 text-xs font-semibold text-zinc-800 hover:border-zinc-400 hover:text-zinc-950 shrink-0 whitespace-nowrap transition-colors cursor-pointer dark:border-white/15 dark:bg-[#0C0C10] dark:text-zinc-200 dark:hover:border-[#D9FF43]/60 dark:hover:text-[#D9FF43]'
 
   return (
     <>
       <button
         type="button"
+        title="تثبيت المنصة كتطبيق مستقل (PWA)"
+        aria-label="تثبيت المنصة كتطبيق"
         onClick={() => {
           if (isInstallable) {
             void install()
@@ -42,7 +44,9 @@ export function PWAInstallButton({ variant = 'compact' }: PWAInstallButtonProps)
           ) : (
             <Download className="h-3.5 w-3.5 shrink-0 text-emerald-700 dark:text-[#D9FF43]" />
           )}
-          <span>{variant === 'sidebar' ? 'تثبيت المنصة كتطبيق (PWA)' : 'تثبيت التطبيق'}</span>
+          <span className={variant === 'sidebar' ? '' : 'hidden 2xl:inline'}>
+            {variant === 'sidebar' ? 'تثبيت المنصة كتطبيق (PWA)' : 'تثبيت التطبيق'}
+          </span>
         </span>
       </button>
 

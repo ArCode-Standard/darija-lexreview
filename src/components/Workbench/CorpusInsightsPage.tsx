@@ -130,7 +130,7 @@ export function CorpusInsightsPage({
   return (
     <div className="space-y-8">
       {/* 1. Architectural Telemetry Matrix */}
-      <section aria-label="مؤشرات تغطية المعجم" className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <section aria-label="مؤشرات تغطية المعجم" className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <div className="rounded-2xl border border-zinc-200 bg-white p-5 dark:border-white/12 dark:bg-[#0B0B10]">
           <p className="font-mono text-[10px] tracking-[0.14em] uppercase text-zinc-500 dark:text-zinc-400">
             CORPUS VOLUME · v{corpusVersion}
@@ -182,11 +182,11 @@ export function CorpusInsightsPage({
       </section>
 
       {/* 2. Two-Column Coverage Map: Moroccan Regions & Semantic Categories */}
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-12 items-start">
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-12 items-start">
         {/* Regional Dialect Distribution */}
         <section
           aria-labelledby="regional-coverage-heading"
-          className="lg:col-span-5 rounded-2xl border border-zinc-200 bg-white p-6 space-y-5 dark:border-white/12 dark:bg-[#0B0B10]"
+          className="min-w-0 xl:col-span-5 rounded-2xl border border-zinc-200 bg-white p-6 space-y-5 dark:border-white/12 dark:bg-[#0B0B10]"
         >
           <div className="flex items-start justify-between gap-3">
             <div>
@@ -255,7 +255,7 @@ export function CorpusInsightsPage({
         {/* Semantic Category Example Completeness */}
         <section
           aria-labelledby="category-completeness-heading"
-          className="lg:col-span-7 rounded-2xl border border-zinc-200 bg-white p-6 space-y-5 dark:border-white/12 dark:bg-[#0B0B10]"
+          className="min-w-0 xl:col-span-7 rounded-2xl border border-zinc-200 bg-white p-6 space-y-5 dark:border-white/12 dark:bg-[#0B0B10]"
         >
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
@@ -410,7 +410,7 @@ export function CorpusInsightsPage({
         </div>
 
         {activeQueue.length > 0 ? (
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
             {activeQueue.map((entry) => (
               <div
                 key={entry.id}

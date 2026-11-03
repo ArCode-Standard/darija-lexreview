@@ -329,8 +329,14 @@ export default function App() {
     const root = document.documentElement
     if (darkMode) {
       root.classList.add('dark')
+      root.setAttribute('data-theme', 'dark')
     } else {
       root.classList.remove('dark')
+      root.setAttribute('data-theme', 'light')
+    }
+    const metaTheme = document.querySelector('meta[name="theme-color"]')
+    if (metaTheme) {
+      metaTheme.setAttribute('content', darkMode ? '#050507' : '#FAFAFC')
     }
     try {
       localStorage.setItem('arcode_lexreview_theme', darkMode ? 'dark' : 'light')
@@ -339,8 +345,23 @@ export default function App() {
     }
   }, [darkMode])
 
-  // Global Command Palette shortcut (Ctrl+K / Cmd+K)
+  // Sync theme if changed from institutional pages (/about/, /privacy/, etc.) in another tab
   useEffect(() => {
+    const onStorage = (event: StorageEvent) => {
+      if (event.key === 'arcode_lexreview_theme' && event.newValue) {
+        setDarkMode(event.newValue !== 'light')
+      }
+    }
+    window.addEventListener('storage', onStorage)
+    return () => window.removeEventListener('storage', onStorage)
+  }, [])
+
+  // Global Command Palette shortcut (Ctrl+K / Cmd+K) — Strictly for Registered Members
+  useEffect(() => {
+    if (!userEmail) {
+      setCommandPaletteOpen(false)
+      return
+    }
     const onKeyDown = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
         e.preventDefault()
@@ -349,7 +370,7 @@ export default function App() {
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [])
+  }, [userEmail])
 
   const syncUserSession = useCallback(async () => {
     if (!supabase) {
@@ -970,8 +991,10 @@ export default function App() {
             userRole={reviewerProfile?.role ?? null}
             canAccessEditorialTools={canAccessEditorialTools}
             unreadMessagesCount={unreadMessagesCount}
+            darkMode={darkMode}
+            onToggleDarkMode={() => setDarkMode((prev) => !prev)}
             onOpenAuth={() => navigatePage('auth')}
-            onOpenCommandPalette={() => setCommandPaletteOpen(true)}
+            onOpenCommandPalette={userEmail ? () => setCommandPaletteOpen(true) : undefined}
             onSelectWorkbenchTab={handleLegacyWorkbenchTabSelect}
             onNavigatePage={navigatePage}
           />
@@ -1012,11 +1035,7 @@ export default function App() {
             </main>
           </Suspense>
 
-          <Footer
-            darkMode={darkMode}
-            onToggleDarkMode={() => setDarkMode((prev) => !prev)}
-            onOpenContributors={() => navigatePage('contributors')}
-          />
+          <Footer onOpenContributors={() => navigatePage('contributors')} />
         </div>
       ) : (
         <WorkspaceShell
@@ -1043,7 +1062,9 @@ export default function App() {
           draftsCount={draftsList.length}
           unreadMessagesCount={unreadMessagesCount}
           onReloadCorpus={loadCorpus}
-          onOpenCommandPalette={() => setCommandPaletteOpen(true)}
+          onOpenCommandPalette={() => {
+            if (userEmail) setCommandPaletteOpen(true)
+          }}
           onNavigatePage={navigatePage}
         >
           <Suspense
@@ -1186,7 +1207,7 @@ export default function App() {
                   <div
                     role="group"
                     aria-label="طريقة استعراض المعجم"
-                    className="inline-flex items-center gap-1 rounded-xl border border-zinc-200 bg-zinc-100 p-1 dark:border-white/10 dark:bg-[#0C0C10]"
+                    className="inline-flex flex-wrap items-center gap-1 rounded-xl border border-zinc-200 bg-zinc-100 p-1 dark:border-white/10 dark:bg-[#0C0C10]"
                   >
                     <button
                       type="button"
@@ -1250,7 +1271,7 @@ export default function App() {
                       <div
                         role="group"
                         aria-label="نمط عرض المفردة"
-                        className="inline-flex items-center gap-1 rounded-xl border border-zinc-200 bg-zinc-100 p-1 dark:border-white/10 dark:bg-[#0C0C10]"
+                        className="inline-flex flex-wrap items-center gap-1 rounded-xl border border-zinc-200 bg-zinc-100 p-1 dark:border-white/10 dark:bg-[#0C0C10]"
                       >
                         <button
                           type="button"
@@ -1337,8 +1358,8 @@ export default function App() {
                     />
                   </div>
                 ) : (
-                  <div className="grid grid-cols-1 gap-6 lg:grid-cols-12 items-start">
-                    <div className="lg:col-span-4">
+                  <div className="grid grid-cols-1 gap-6 xl:grid-cols-12 items-start">
+                    <div className="min-w-0 xl:col-span-4">
                       <LexiconSidebar
                         categories={categories}
                         entries={entries}
@@ -1370,7 +1391,7 @@ export default function App() {
                       />
                     </div>
 
-                    <div className="lg:col-span-8">
+                    <div className="min-w-0 xl:col-span-8">
                       {lexiconDetailMode === 'reference' ? (
                         <DictionaryReferenceCard
                           entry={activeEntry}
@@ -1710,20 +1731,22 @@ export default function App() {
         />
       </Suspense>
 
-      {/* Global Command Palette (Ctrl+K / Cmd+K) for Instant Cross-Page & Word Navigation */}
-      <CommandPalette
-        open={commandPaletteOpen}
-        onClose={() => setCommandPaletteOpen(false)}
-        entries={entries}
-        isAuthenticated={Boolean(userEmail)}
-        canAccessEditorialTools={canAccessEditorialTools}
-        draftsCount={draftsList.length}
-        onNavigatePage={navigatePage}
-        onSelectEntry={(entry) => handleSelectEntryAndOpenPage(entry, true)}
-        onQuickAddWord={handleQuickAddWord}
-      />
+      {/* Global Command Palette (Ctrl+K / Cmd+K) — Strictly for Authenticated Members */}
+      {Boolean(userEmail) && (
+        <CommandPalette
+          open={commandPaletteOpen}
+          onClose={() => setCommandPaletteOpen(false)}
+          entries={entries}
+          isAuthenticated
+          canAccessEditorialTools={canAccessEditorialTools}
+          draftsCount={draftsList.length}
+          onNavigatePage={navigatePage}
+          onSelectEntry={(entry) => handleSelectEntryAndOpenPage(entry, true)}
+          onQuickAddWord={handleQuickAddWord}
+        />
+      )}
 
-      {{/* Mandatory Official Warning Acknowledgment Modal — Authenticated Members Only */}}
+      {/* Mandatory Official Warning Acknowledgment Modal — Authenticated Members Only */}
       {Boolean(userEmail) && (
         <MandatoryWarningModal
           warning={unacknowledgedWarnings[0] ?? null}

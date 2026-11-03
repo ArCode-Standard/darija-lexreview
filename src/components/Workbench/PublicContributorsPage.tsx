@@ -86,7 +86,7 @@ export function PublicContributorsPage({
   return (
     <section className="space-y-6" aria-labelledby="contributors-honor-title">
       {/* Telemetry Strip */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <div className="rounded-2xl border border-zinc-200 bg-white p-4 dark:border-white/10 dark:bg-[#0B0B10]">
           <p className="font-mono text-[10px] tracking-[0.14em] uppercase text-zinc-500 dark:text-zinc-400">
             PUBLIC CONTRIBUTORS
@@ -156,7 +156,7 @@ export function PublicContributorsPage({
           <div
             role="group"
             aria-label="تصفية المساهمين حسب الدور"
-            className="inline-flex items-center gap-1 rounded-xl border border-zinc-200 bg-zinc-100 p-1 dark:border-white/10 dark:bg-[#07070A]"
+            className="inline-flex flex-wrap items-center gap-1 rounded-xl border border-zinc-200 bg-zinc-100 p-1 dark:border-white/10 dark:bg-[#07070A]"
           >
             {(
               [
@@ -207,7 +207,7 @@ export function PublicContributorsPage({
           </p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 2xl:grid-cols-3">
           {filteredContributors.map((person) => {
             const badges = computeContributorBadges({
               role: person.role,
@@ -224,7 +224,7 @@ export function PublicContributorsPage({
                 <div className="space-y-4">
                   {/* Top Identity Row */}
                   <div className="flex items-start justify-between gap-3">
-                    <div className="flex items-center gap-3 min-w-0">
+                    <div className="flex items-center gap-3 min-w-0 flex-1">
                       <Avatar
                         source={person.avatar_source}
                         path={person.avatar_path}
@@ -234,7 +234,7 @@ export function PublicContributorsPage({
                         size={44}
                         className="rounded-xl border border-zinc-200 dark:border-white/10"
                       />
-                      <div className="min-w-0">
+                      <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-center gap-1.5">
                           <h3 className="truncate font-display text-base font-bold text-zinc-950 dark:text-white">
                             {person.display_name}
@@ -252,13 +252,13 @@ export function PublicContributorsPage({
                         target="_blank"
                         rel="noopener noreferrer"
                         title={`حساب GitHub: @${person.github_handle}`}
-                        className="inline-flex h-8 items-center gap-1 rounded-lg border border-zinc-200 bg-zinc-50 px-2.5 font-mono text-[11px] text-zinc-700 hover:border-zinc-400 hover:text-zinc-950 dark:border-white/10 dark:bg-[#07070A] dark:text-zinc-300 dark:hover:border-[#D9FF43]/50 dark:hover:text-white"
+                        className="inline-flex h-8 shrink-0 items-center gap-1 rounded-lg border border-zinc-200 bg-zinc-50 px-2.5 font-mono text-[11px] text-zinc-700 hover:border-zinc-400 hover:text-zinc-950 dark:border-white/10 dark:bg-[#07070A] dark:text-zinc-300 dark:hover:border-[#D9FF43]/50 dark:hover:text-white"
                       >
                         <Github className="h-3.5 w-3.5 shrink-0" />
                         <span dir="ltr" className="max-w-[92px] truncate">
                           @{person.github_handle}
                         </span>
-                        <ExternalLink className="h-2.5 w-2.5 opacity-60" />
+                        <ExternalLink className="h-2.5 w-2.5 shrink-0 opacity-60" />
                       </a>
                     )}
                   </div>

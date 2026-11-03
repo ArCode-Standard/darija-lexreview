@@ -775,9 +775,9 @@ export function AuthDialog({
       }}
     >
       <div className={`relative w-full max-w-[880px] overflow-hidden rounded-3xl border border-zinc-200 bg-white dark:border-white/12 dark:bg-[#0B0B10] ${isPage ? '' : 'my-auto shadow-2xl'}`}>
-        <div className="grid grid-cols-1 md:grid-cols-12">
-          {/* Architectural Identity Rail (Hidden on very small screens, monumental on desktop) */}
-          <aside className="relative hidden md:flex md:col-span-5 flex-col justify-between overflow-hidden border-e border-zinc-200 bg-zinc-950 p-7 text-white dark:border-white/10 dark:bg-[#060609]">
+        <div className={`grid grid-cols-1 ${isPage ? 'xl:grid-cols-12' : 'lg:grid-cols-12'}`}>
+          {/* Architectural Identity Rail (Hidden on narrow viewports, monumental on wide desktop) */}
+          <aside className={`relative hidden ${isPage ? 'xl:flex xl:col-span-5' : 'lg:flex lg:col-span-5'} flex-col justify-between overflow-hidden border-e border-zinc-200 bg-zinc-950 p-7 text-white dark:border-white/10 dark:bg-[#060609]`}>
             {/* Ambient Glow */}
             <div aria-hidden="true" className="pointer-events-none absolute inset-0">
               <div className="absolute -top-12 -right-12 h-56 w-56 rounded-full bg-[#D9FF43]/12 blur-[80px]" />
@@ -828,7 +828,7 @@ export function AuthDialog({
           </aside>
 
           {/* Interactive Auth & Governance Column */}
-          <div className="md:col-span-7 p-5 sm:p-7 lg:p-8">
+          <div className={`${isPage ? 'xl:col-span-7' : 'lg:col-span-7'} min-w-0 p-5 sm:p-7 lg:p-8`}>
             {/* Modal Header */}
             <div className="flex items-start justify-between gap-4 border-b border-zinc-200 pb-4 dark:border-white/10">
               <div>
@@ -1000,9 +1000,9 @@ export function AuthDialog({
                   {signedInTab === 'profile' ? (
                     <form onSubmit={handleSaveProfileMetadata} className="space-y-4">
                       <dl className="divide-y divide-zinc-200 rounded-xl border border-zinc-200 bg-zinc-50/60 px-4 dark:divide-white/10 dark:border-white/10 dark:bg-[#060609]">
-                        <div className="py-2.5 flex items-center justify-between gap-2 text-xs">
-                          <dt className="text-zinc-500 dark:text-zinc-400">البريد الإلكتروني</dt>
-                          <dd dir="ltr" className="font-mono text-zinc-950 dark:text-white">
+                        <div className="py-2.5 flex items-center justify-between gap-3 text-xs">
+                          <dt className="shrink-0 text-zinc-500 dark:text-zinc-400">البريد الإلكتروني</dt>
+                          <dd dir="ltr" className="min-w-0 truncate font-mono text-zinc-950 dark:text-white">
                             {userEmail}
                           </dd>
                         </div>
@@ -1539,20 +1539,20 @@ export function AuthDialog({
                               نسيت كلمة المرور؟
                             </button>
                           </div>
-                          <div className="relative">
+                          <div className="relative" dir="ltr">
                             <input
                               type={showPassword ? 'text' : 'password'}
                               dir="ltr"
                               autoComplete="current-password"
                               value={password}
                               onChange={(e) => setPassword(e.target.value)}
-                              className={`${inputBaseClass} text-left pe-10`}
+                              className={`${inputBaseClass} text-left pl-3.5 pr-10`}
                             />
                             <button
                               type="button"
                               onClick={() => setShowPassword((prev) => !prev)}
                               aria-label={showPassword ? 'إخفاء كلمة المرور' : 'إظهار كلمة المرور'}
-                              className="absolute inset-y-0 end-2.5 mt-1.5 flex items-center text-zinc-400 hover:text-zinc-900 cursor-pointer dark:hover:text-white"
+                              className="absolute inset-y-0 right-3 mt-1.5 flex items-center text-zinc-400 hover:text-zinc-900 cursor-pointer dark:hover:text-white"
                             >
                               {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                             </button>
@@ -1656,7 +1656,7 @@ export function AuthDialog({
                           <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300">
                             كلمة المرور (8 أحرف فأكثر) *
                           </label>
-                          <div className="relative">
+                          <div className="relative" dir="ltr">
                             <input
                               type={showPassword ? 'text' : 'password'}
                               required
@@ -1664,13 +1664,13 @@ export function AuthDialog({
                               autoComplete="new-password"
                               value={password}
                               onChange={(e) => setPassword(e.target.value)}
-                              className={`${inputBaseClass} text-left pe-10`}
+                              className={`${inputBaseClass} text-left pl-3.5 pr-10`}
                             />
                             <button
                               type="button"
                               onClick={() => setShowPassword((prev) => !prev)}
                               aria-label={showPassword ? 'إخفاء كلمة المرور' : 'إظهار كلمة المرور'}
-                              className="absolute inset-y-0 end-2.5 mt-1.5 flex items-center text-zinc-400 hover:text-zinc-900 cursor-pointer dark:hover:text-white"
+                              className="absolute inset-y-0 right-3 mt-1.5 flex items-center text-zinc-400 hover:text-zinc-900 cursor-pointer dark:hover:text-white"
                             >
                               {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                             </button>

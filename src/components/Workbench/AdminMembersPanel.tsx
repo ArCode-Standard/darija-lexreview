@@ -451,7 +451,7 @@ export function AdminMembersPanel({
       {effectiveIsAdmin ? (
         <>
           {/* Admin KPI Strip */}
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-5">
             <div className="rounded-2xl border border-zinc-200 bg-white p-4 dark:border-white/10 dark:bg-[#0B0B10]">
               <p className="font-mono text-[10px] tracking-[0.14em] uppercase text-zinc-500">
                 TOTAL MEMBERS

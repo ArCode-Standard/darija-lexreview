@@ -8,13 +8,25 @@
 }
 
 @layer base {
-  html {
+  html,
+  body {
     font-family: var(--font-sans);
     scroll-padding-top: 5rem;
     text-rendering: optimizeLegibility;
+    overflow-x: clip;
   }
   h1, h2, h3, h4, .font-display { font-family: var(--font-display); }
   .tabular-nums { font-variant-numeric: tabular-nums; }
+
+  /* Prevent native WebKit/Blink search clear buttons from colliding with custom RTL icons */
+  input[type="search"]::-webkit-search-decoration,
+  input[type="search"]::-webkit-search-cancel-button,
+  input[type="search"]::-webkit-search-results-button,
+  input[type="search"]::-webkit-search-results-decoration {
+    -webkit-appearance: none;
+    appearance: none;
+    display: none;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

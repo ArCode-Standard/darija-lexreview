@@ -75,9 +75,9 @@ export function HeroSection({
 
       {/* SECTION 01: MONUMENTAL OBSIDIAN HERO */}
       <section className="relative mx-auto max-w-[1280px] px-5 pt-10 pb-14 sm:px-8 lg:pt-14 lg:pb-20">
-        <div className="grid grid-cols-1 items-stretch gap-8 lg:grid-cols-12 lg:gap-8">
+        <div className="grid grid-cols-1 items-stretch gap-8 xl:grid-cols-12 xl:gap-8">
           {/* Column 1 (Start): Dot-Matrix Glyph + Headline + Instant Omnibox + Pill CTAs */}
-          <div className="flex flex-col justify-between lg:col-span-5">
+          <div className="flex flex-col justify-between xl:col-span-5">
             <div>
               <div className="relative inline-block select-none">
                 <DarijaDotMatrixLogo variant="full" width={212} />
@@ -87,7 +87,7 @@ export function HeroSection({
                 ARCODE STANDARD / المعجم المفتوح للدارجة المغربية
               </p>
 
-              <h1 className="mt-3 font-display text-[clamp(2.25rem,4vw,3.55rem)] font-bold leading-[1.15] tracking-tight text-zinc-950 [text-wrap:balance] dark:text-white">
+              <h1 className="mt-3 font-display text-[clamp(2rem,3.6vw,3.35rem)] font-bold leading-[1.18] tracking-tight text-zinc-950 [text-wrap:balance] dark:text-white">
                 الدارجة المغربية تصبح موثّقة بدقة.
               </h1>
 
@@ -108,7 +108,7 @@ export function HeroSection({
                     onChange={(e) => setHeroQuery(e.target.value)}
                     aria-label="ابحث فورياً في معجم الدارجة"
                     placeholder="ابحث عن مفردة بالعربية أو اللاتينية أو الفرنسية (بزاف / bzzaf)..."
-                    className="w-full min-h-[48px] rounded-full border border-zinc-300 bg-white ps-11 pe-10 py-2.5 text-xs sm:text-sm text-zinc-950 placeholder:text-zinc-400 focus:border-zinc-950 focus:outline-none transition-colors dark:border-white/15 dark:bg-[#0C0C10]/90 dark:text-white dark:placeholder:text-zinc-500 dark:focus:border-[#D9FF43]"
+                    className="w-full min-h-[48px] rounded-full border border-zinc-300 bg-white ps-11 pe-11 py-2.5 text-xs sm:text-sm text-zinc-950 placeholder:text-zinc-400 focus:border-zinc-950 focus:outline-none transition-colors dark:border-white/15 dark:bg-[#0C0C10]/90 dark:text-white dark:placeholder:text-zinc-500 dark:focus:border-[#D9FF43]"
                   />
                   {trimmedQuery && (
                     <button
@@ -217,8 +217,8 @@ export function HeroSection({
           </div>
 
           {/* Column 2 (Center): High-Contrast Framed Visual Anchor */}
-          <figure className="flex flex-col lg:col-span-4">
-            <div className="relative flex-1 overflow-hidden rounded-2xl border border-zinc-200 bg-zinc-100 min-h-[300px] lg:min-h-[420px] dark:border-white/10 dark:bg-[#0A0A0E]">
+          <figure className="flex flex-col xl:col-span-4">
+            <div className="relative flex-1 overflow-hidden rounded-2xl border border-zinc-200 bg-zinc-100 min-h-[300px] xl:min-h-[420px] dark:border-white/10 dark:bg-[#0A0A0E]">
               {!imgFailed ? (
                 <>
                   <img
@@ -260,7 +260,7 @@ export function HeroSection({
           </figure>
 
           {/* Column 3 (End): Two Stacked Precision Corpus Modules (100% Real Data) */}
-          <div className="flex flex-col justify-between gap-4 lg:col-span-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:flex xl:flex-col justify-between gap-4 xl:col-span-3">
             {/* Module 1: Documented Entries */}
             <div className="flex-1 flex flex-col justify-between rounded-2xl border border-zinc-200 bg-white p-5 dark:border-white/10 dark:bg-[#0B0B0F]/90">
               <div className="flex items-center justify-between text-[11px] font-mono tracking-wider uppercase text-zinc-500 dark:text-zinc-400">
@@ -359,13 +359,13 @@ export function HeroSection({
             </p>
           </div>
 
-          {/* 4-Column Architectural Crosshair Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 border border-zinc-200 dark:border-white/12">
+          {/* 4-Column Architectural Crosshair Grid (1px Hairline Matrix — Zero RTL Border Overlap) */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-px border border-zinc-200 bg-zinc-200 dark:border-white/12 dark:bg-white/12">
             {/* Cell 1: Rapid Review */}
             <button
               type="button"
               onClick={() => jumpToTab('rapid_review')}
-              className="group relative flex min-h-[200px] flex-col items-center justify-center gap-4 border-b sm:border-e border-zinc-200 p-6 text-center hover:bg-zinc-100/70 transition-colors cursor-pointer dark:border-white/12 dark:hover:bg-white/[0.03]"
+              className="group relative flex min-h-[200px] flex-col items-center justify-center gap-4 bg-[#FAFAFC] p-6 text-center hover:bg-zinc-100 transition-colors cursor-pointer dark:bg-[#050507] dark:hover:bg-[#0B0B10]"
             >
               <span
                 aria-hidden="true"
@@ -399,7 +399,7 @@ export function HeroSection({
             <button
               type="button"
               onClick={() => jumpToTab('explorer')}
-              className="group relative flex min-h-[200px] flex-col items-center justify-center gap-4 border-b lg:border-e border-zinc-200 p-6 text-center hover:bg-zinc-100/70 transition-colors cursor-pointer dark:border-white/12 dark:hover:bg-white/[0.03]"
+              className="group relative flex min-h-[200px] flex-col items-center justify-center gap-4 bg-[#FAFAFC] p-6 text-center hover:bg-zinc-100 transition-colors cursor-pointer dark:bg-[#050507] dark:hover:bg-[#0B0B10]"
             >
               <span
                 aria-hidden="true"
@@ -434,7 +434,7 @@ export function HeroSection({
             <button
               type="button"
               onClick={() => jumpToTab('new_entry')}
-              className="group relative flex min-h-[200px] flex-col items-center justify-center gap-4 border-b sm:border-b-0 sm:border-e border-zinc-200 p-6 text-center hover:bg-zinc-100/70 transition-colors cursor-pointer dark:border-white/12 dark:hover:bg-white/[0.03]"
+              className="group relative flex min-h-[200px] flex-col items-center justify-center gap-4 bg-[#FAFAFC] p-6 text-center hover:bg-zinc-100 transition-colors cursor-pointer dark:bg-[#050507] dark:hover:bg-[#0B0B10]"
             >
               <span
                 aria-hidden="true"

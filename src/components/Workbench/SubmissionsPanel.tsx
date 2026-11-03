@@ -233,8 +233,10 @@ export function SubmissionsPanel({
   function renderSubmissionRow(sub: SubmissionRecord) {
     const isNew = isNewEntrySubmission(sub)
     const target = entryById.get(sub.entry_id)
+    const proposedWordAr =
+      typeof sub.proposed_data?.word_ar === 'string' ? sub.proposed_data.word_ar.trim() : ''
     const titleLabel = isNew
-      ? `${sub.proposed_data?.word_ar || 'مفردة جديدة'} · إضافة جديدة`
+      ? `${proposedWordAr || 'مفردة جديدة'} · إضافة جديدة`
       : canAccessEditorialTools
         ? `${target?.word ?? sub.entry_id} (${formatAccessionCode(sub.entry_id, target?.numericId ?? null)})`
         : target?.word ?? 'مفردة في المعجم'
@@ -290,18 +292,20 @@ export function SubmissionsPanel({
             </span>
           </div>
 
-          {sub.proposed_data?.msa_translation && (
-            <p className="text-xs text-zinc-600 dark:text-zinc-400">
-              المعنى المقترح: {sub.proposed_data.msa_translation}
-            </p>
-          )}
-          {sub.proposed_data?.example_darija && (
-            <p className="text-xs text-zinc-600 dark:text-zinc-400">
-              المثال: «{sub.proposed_data.example_darija}»
-            </p>
-          )}
+          {typeof sub.proposed_data?.msa_translation === 'string' &&
+            sub.proposed_data.msa_translation.trim() !== '' && (
+              <p className="text-xs text-zinc-600 dark:text-zinc-400">
+                المعنى المقترح: {sub.proposed_data.msa_translation}
+              </p>
+            )}
+          {typeof sub.proposed_data?.example_darija === 'string' &&
+            sub.proposed_data.example_darija.trim() !== '' && (
+              <p className="text-xs text-zinc-600 dark:text-zinc-400">
+                المثال: «{sub.proposed_data.example_darija}»
+              </p>
+            )}
 
-          {sub.editor_note && (
+          {typeof sub.editor_note === 'string' && sub.editor_note.trim() !== '' && (
             <div className="mt-1 rounded-xl border border-amber-300/80 bg-amber-50/70 px-3 py-2 text-xs leading-relaxed text-amber-950 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200">
               <strong className="font-semibold">رد المحرر اللغوي:</strong> {sub.editor_note}
             </div>
