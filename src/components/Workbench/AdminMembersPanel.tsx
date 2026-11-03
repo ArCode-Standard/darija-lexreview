@@ -38,15 +38,10 @@ interface AdminMembersPanelProps {
   isAdmin: boolean
   isEditor: boolean
   liveMembers: ReviewerProfile[]
-  sandboxMembers: ReviewerProfile[]
   loadingMembers: boolean
   liveModEvents: MemberModerationEvent[]
-  sandboxModEvents: MemberModerationEvent[]
   liveModReports: MemberModerationReport[]
-  sandboxModReports: MemberModerationReport[]
-  sandboxPromotionRequests: RolePromotionRequest[]
   onApplyGovernanceAction: (params: {
-    source: 'live' | 'sandbox'
     targetMember: ReviewerProfile
     action: MemberModerationAction
     nextRole?: UserRole
@@ -54,7 +49,6 @@ interface AdminMembersPanelProps {
     suspendDays?: number
   }) => Promise<{ ok: boolean; error?: string }>
   onSendMessage: (params: {
-    source: 'live' | 'sandbox'
     recipientId: string | null
     isBroadcast: boolean
     category: MemberMessageCategory
@@ -64,7 +58,6 @@ interface AdminMembersPanelProps {
     pinDays?: number
   }) => Promise<{ ok: boolean; error?: string }>
   onSubmitReport: (params: {
-    source: 'live' | 'sandbox'
     targetUserId: string
     targetDisplayName: string
     recommendedAction: 'warn' | 'suspend' | 'ban'
@@ -75,7 +68,6 @@ interface AdminMembersPanelProps {
     resolution: 'resolved' | 'dismissed'
     adminNote?: string
   }) => Promise<void>
-  onResetSandbox: () => void
   onOpenPublicDirectory: () => void
 }
 
@@ -161,24 +153,15 @@ export function AdminMembersPanel({
   isAdmin,
   isEditor,
   liveMembers,
-  sandboxMembers,
   loadingMembers,
   liveModEvents,
-  sandboxModEvents,
   liveModReports,
-  sandboxModReports,
   onApplyGovernanceAction,
   onSendMessage,
   onSubmitReport,
   onResolveReport,
-  onResetSandbox,
   onOpenPublicDirectory,
 }: AdminMembersPanelProps) {
-  void sandboxMembers
-  void sandboxModEvents
-  void sandboxModReports
-  void onResetSandbox
-  const dataSource = 'live' as const
   const [activeTab, setActiveTab] = useState<AdminTab>('members')
   const [memberFilter, setMemberFilter] = useState<MemberFilter>('all')
   const [query, setQuery] = useState('')
@@ -267,7 +250,6 @@ export function AdminMembersPanel({
         ? 'promote'
         : 'demote'
     const res = await onApplyGovernanceAction({
-      source: dataSource,
       targetMember: member,
       action,
       nextRole,
