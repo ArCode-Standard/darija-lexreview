@@ -565,6 +565,7 @@ create table if not exists private.feedback_candidates (
   source_surface text not null check (source_surface in ('profile','lexicon','contribution','review','comment','discussion','report','benchmark')),
   group_id text not null,
   text_value text not null check (char_length(text_value) between 1 and 5000),
+  text_digest bytea not null,
   label text not null check (char_length(label) between 1 and 120),
   rationale text not null check (char_length(rationale) between 1 and 2000),
   contributor_id uuid not null references auth.users(id),
@@ -578,6 +579,10 @@ create table if not exists private.feedback_candidates (
   source_reference text,
   created_at timestamptz not null default now()
 );
+create unique index if not exists feedback_candidates_deduplicate_idx
+  on private.feedback_candidates(contributor_id,domain,text_digest)
+  where status in ('pending','approved');
+
 create table if not exists private.feedback_reviews (
   id uuid primary key default gen_random_uuid(),
   candidate_id uuid not null references private.feedback_candidates(id) on delete cascade,
@@ -712,13 +717,18 @@ begin
     raise exception 'Editor role required for this feedback source' using errcode = '42501';
   end if;
 
+  if (select count(*) from private.feedback_candidates c where c.contributor_id = p_actor_id and c.created_at > pg_catalog.now() - interval '1 hour') >= 20 then
+    raise exception 'Feedback submission rate limit exceeded' using errcode = '54000';
+  end if;
+
   insert into private.feedback_candidates(
-    domain,source,source_surface,group_id,text_value,label,rationale,
+    domain,source,source_surface,group_id,text_value,text_digest,label,rationale,
     contributor_id,consent_to_dataset_use,license,provenance,
     pii_screened,screening_version,source_reference
   ) values (
     p_domain,p_source,p_source_surface,pg_catalog.btrim(p_group_id),
-    pg_catalog.btrim(p_text),pg_catalog.btrim(p_label),pg_catalog.btrim(p_rationale),
+    pg_catalog.btrim(p_text),extensions.digest(pg_catalog.convert_to(pg_catalog.btrim(p_text),'UTF8'),'sha256'),
+    pg_catalog.btrim(p_label),pg_catalog.btrim(p_rationale),
     p_actor_id,true,pg_catalog.btrim(p_license),p_provenance,
     true,pg_catalog.btrim(p_screening_version),
     nullif(pg_catalog.btrim(coalesce(p_source_reference,'')),'')
