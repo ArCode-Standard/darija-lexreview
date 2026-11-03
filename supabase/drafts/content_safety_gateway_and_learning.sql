@@ -389,7 +389,7 @@ begin
 end;
 $function$;
 
-create or replace function public.update_reviewer_profile_admin_note(p_payload jsonb, p_scan_token text)
+create or replace function public.update_reviewer_profile_governance(p_payload jsonb, p_scan_token text)
 returns void language plpgsql security invoker set search_path = ''
 as $function$
 begin
@@ -519,7 +519,7 @@ $function$;
 revoke all on function public.submit_review_submission(jsonb,text) from public, anon;
 revoke all on function public.submit_community_attestation(jsonb,text) from public, anon;
 revoke all on function public.update_reviewer_profile_content(jsonb,text) from public, anon;
-revoke all on function public.update_reviewer_profile_admin_note(jsonb,text) from public, anon;
+revoke all on function public.update_reviewer_profile_governance(jsonb,text) from public, anon;
 revoke all on function public.send_member_message(jsonb,text) from public, anon;
 revoke all on function public.submit_moderation_report(jsonb,text) from public, anon;
 revoke all on function public.resolve_moderation_report(jsonb,text) from public, anon;
@@ -529,7 +529,7 @@ revoke all on function public.decide_review_submission(jsonb,text) from public, 
 grant execute on function public.submit_review_submission(jsonb,text) to authenticated;
 grant execute on function public.submit_community_attestation(jsonb,text) to authenticated;
 grant execute on function public.update_reviewer_profile_content(jsonb,text) to authenticated;
-grant execute on function public.update_reviewer_profile_admin_note(jsonb,text) to authenticated;
+grant execute on function public.update_reviewer_profile_governance(jsonb,text) to authenticated;
 grant execute on function public.send_member_message(jsonb,text) to authenticated;
 grant execute on function public.submit_moderation_report(jsonb,text) to authenticated;
 grant execute on function public.resolve_moderation_report(jsonb,text) to authenticated;
