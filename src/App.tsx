@@ -39,8 +39,6 @@ import {
 } from './utils/urlState'
 import { syncPageSeo } from './utils/seo'
 import { useLocalDrafts } from './hooks/useLocalDrafts'
-import { useSandboxModeration } from './hooks/useSandboxModeration'
-import { useRoleGovernance } from './hooks/useRoleGovernance'
 import { useCommunityAttestations } from './hooks/useCommunityAttestations'
 import { useCommunityGovernanceAndMessages } from './hooks/useCommunityGovernanceAndMessages'
 import { Navbar } from './components/Navbar'
@@ -238,9 +236,7 @@ export default function App() {
 
   const [resumedNewDraft, setResumedNewDraft] = useState<LocalDraft | null>(null)
   const [revisionTarget, setRevisionTarget] = useState<SubmissionRecord | null>(null)
-  const [forceSandboxModeration, setForceSandboxModeration] = useState(false)
   const [forceGovernanceSection, setForceGovernanceSection] = useState(false)
-  const [preferredExportSource, setPreferredExportSource] = useState<'live' | 'sandbox'>('live')
 
   const [authDialogOpen, setAuthDialogOpen] = useState(false)
   const [recoveryMode, setRecoveryMode] = useState(false)
@@ -266,24 +262,6 @@ export default function App() {
 
   const { drafts, draftsList, saveDraft, removeDraft, removeMultipleDrafts } = useLocalDrafts()
   const {
-    sandboxItems,
-    sandboxEvents,
-    addSandboxSubmission,
-    withdrawSandboxSubmission,
-    moderateSandboxSubmission,
-    bulkApproveSandboxSubmissions,
-    markSandboxSubmissionsMerged,
-    resetSandboxQueue,
-  } = useSandboxModeration()
-  const {
-    sandboxProfiles,
-    sandboxPromotionRequests,
-    submitSandboxPromotionRequest,
-    reviewSandboxPromotionRequest,
-    updateSandboxMemberRole,
-    resetSandboxGovernance,
-  } = useRoleGovernance()
-  const {
     userVerdictsByEntryId,
     userVerdictsByExampleId,
     summariesByEntryId,
@@ -307,12 +285,9 @@ export default function App() {
     publicContributors,
     loadingDirectory,
     liveAdminMembers,
-    sandboxMembers,
     loadingMembers,
     liveModEvents,
-    sandboxModEvents,
     liveModReports,
-    sandboxModReports,
     inboxMessages,
     unreadMessagesCount,
     unacknowledgedWarnings,
@@ -325,12 +300,10 @@ export default function App() {
     sendDirectOrBroadcastMessage,
     submitModerationReport,
     resolveModerationReport,
-    resetSandboxCommunityState,
     refreshPublicDirectory,
   } = useCommunityGovernanceAndMessages({
     currentProfile: reviewerProfile,
     userEmail,
-    editorialPreviewMode: false,
     totalAttestationsCount,
   })
 
@@ -523,7 +496,6 @@ export default function App() {
     ) => {
       setFocusMode(false)
       if (nextPage !== 'editorial') {
-        setForceSandboxModeration(false)
       }
 
       const resolvedSubView =
@@ -743,23 +715,15 @@ export default function App() {
     }
   }
 
-  function handleOpenModerationSandbox() {
+  function handleJumpToAdminGovernance() {
     setFocusMode(false)
-    setForceSandboxModeration(true)
-    navigatePage('editorial')
-  }
-
-  function handleJumpToAdminGovernance(source: 'live' | 'sandbox') {
-    setFocusMode(false)
-    setForceSandboxModeration(source === 'sandbox')
     setForceGovernanceSection(true)
     setAuthDialogOpen(false)
     navigatePage('editorial')
   }
 
-  function handleGoToExporter(source: 'live' | 'sandbox') {
+  function handleGoToExporter() {
     setFocusMode(false)
-    setPreferredExportSource(source)
     navigatePage('export')
   }
 
@@ -1196,10 +1160,8 @@ export default function App() {
                 onSkipEntry={skipEntry}
                 onUndoLastStep={undoLastStep}
                 onResetSessionSkips={resetSessionSkips}
-                onAddSandboxSubmission={addSandboxSubmission}
                 onSaveDraft={saveDraft}
                 onOpenDetailedEntry={(entry) => handleSelectEntryAndOpenPage(entry, true)}
-                onOpenModerationSandbox={handleOpenModerationSandbox}
                 onRequireLogin={() => setAuthDialogOpen(true)}
                 onSubmissionSuccess={() => setSubmissionsRefreshCounter((c) => c + 1)}
               />
@@ -1477,8 +1439,6 @@ export default function App() {
                           }}
                           onSaveDraft={saveDraft}
                           onRemoveDraft={removeDraft}
-                          onAddSandboxSubmission={addSandboxSubmission}
-                          onOpenModerationSandbox={handleOpenModerationSandbox}
                           onRequireLogin={() => setAuthDialogOpen(true)}
                           onSubmissionSuccess={() => setSubmissionsRefreshCounter((c) => c + 1)}
                           initialOpenEdit
@@ -1556,10 +1516,8 @@ export default function App() {
                 onClearRevisionTarget={() => setRevisionTarget(null)}
                 onInspectExistingEntry={handleInspectExistingFromNewForm}
                 onSaveDraft={saveDraft}
-                onAddSandboxSubmission={addSandboxSubmission}
                 onRequireLogin={() => setAuthDialogOpen(true)}
                 onSubmissionSuccess={() => setSubmissionsRefreshCounter((c) => c + 1)}
-                onOpenModerationSandbox={handleOpenModerationSandbox}
               />
             )}
 
@@ -1572,12 +1530,10 @@ export default function App() {
                   corpusVersion={corpusVersion}
                   canAccessEditorialTools={canAccessEditorialTools}
                   totalAttestationsCount={totalAttestationsCount}
-                  sandboxItems={sandboxItems}
                   userEmail={userEmail}
                   refreshTrigger={submissionsRefreshCounter}
                   onResumeDraft={handleResumeDraft}
                   onStartRevision={handleStartRevision}
-                  onWithdrawSandboxSubmission={withdrawSandboxSubmission}
                   onDeleteDraft={removeDraft}
                   onRemoveMultipleDrafts={removeMultipleDrafts}
                   onOpenAuth={() => navigatePage('auth')}
@@ -1635,12 +1591,10 @@ export default function App() {
                   corpusVersion={corpusVersion}
                   canAccessEditorialTools={canAccessEditorialTools}
                   totalAttestationsCount={totalAttestationsCount}
-                  sandboxPromotionRequests={sandboxPromotionRequests}
                   onClearRecovery={() => setRecoveryMode(false)}
                   onAuthChanged={syncUserSession}
                   onRemoveSyncedDrafts={removeMultipleDrafts}
                   onDraftsSyncedSuccess={() => setSubmissionsRefreshCounter((c) => c + 1)}
-                  onSubmitSandboxPromotion={submitSandboxPromotionRequest}
                   onJumpToAdminGovernance={handleJumpToAdminGovernance}
                 />
               ))}
@@ -1654,20 +1608,9 @@ export default function App() {
                   corpusVersion={corpusVersion}
                   userEmail={userEmail}
                   profile={reviewerProfile}
-                  sandboxItems={sandboxItems}
-                  sandboxEvents={sandboxEvents}
-                  sandboxProfiles={sandboxProfiles}
-                  sandboxPromotionRequests={sandboxPromotionRequests}
                   attestationSummaries={summariesByEntryId}
-                  forceSandboxMode={forceSandboxModeration}
                   forceGovernanceSection={forceGovernanceSection}
                   onClearForceGovernanceSection={() => setForceGovernanceSection(false)}
-                  onModerateSandbox={moderateSandboxSubmission}
-                  onBulkApproveSandbox={bulkApproveSandboxSubmissions}
-                  onResetSandbox={resetSandboxQueue}
-                  onReviewSandboxPromotion={reviewSandboxPromotionRequest}
-                  onUpdateSandboxMemberRole={updateSandboxMemberRole}
-                  onResetSandboxGovernance={resetSandboxGovernance}
                   onOpenAuth={() => setAuthDialogOpen(true)}
                   onGoToExporter={handleGoToExporter}
                 />
@@ -1684,18 +1627,13 @@ export default function App() {
                   isAdmin={reviewerProfile?.role === 'admin'}
                   isEditor={reviewerProfile?.role === 'editor'}
                   liveMembers={liveAdminMembers}
-                  sandboxMembers={sandboxMembers}
                   loadingMembers={loadingMembers}
                   liveModEvents={liveModEvents}
-                  sandboxModEvents={sandboxModEvents}
                   liveModReports={liveModReports}
-                  sandboxModReports={sandboxModReports}
-                  sandboxPromotionRequests={sandboxPromotionRequests}
                   onApplyGovernanceAction={applyMemberGovernanceAction}
                   onSendMessage={sendDirectOrBroadcastMessage}
                   onSubmitReport={submitModerationReport}
                   onResolveReport={resolveModerationReport}
-                  onResetSandbox={resetSandboxCommunityState}
                   onOpenPublicDirectory={() => navigatePage('contributors')}
                 />
               ) : (
@@ -1710,9 +1648,7 @@ export default function App() {
                   rawCorpus={rawCorpus}
                   userEmail={userEmail}
                   profile={reviewerProfile}
-                  sandboxItems={sandboxItems}
-                  preferredSource={preferredExportSource}
-                  onMarkSandboxMerged={markSandboxSubmissionsMerged}
+                  preferredSource={'live'}
                 />
               ) : (
                 renderEditorialRestrictedCard('صفحة تصدير حزم المعجم الرسمية')
@@ -1733,12 +1669,10 @@ export default function App() {
                 corpusVersion={corpusVersion}
                 canAccessEditorialTools={canAccessEditorialTools}
                 totalAttestationsCount={totalAttestationsCount}
-                sandboxPromotionRequests={sandboxPromotionRequests}
                 onClearRecovery={() => setRecoveryMode(false)}
                 onAuthChanged={syncUserSession}
                 onRemoveSyncedDrafts={removeMultipleDrafts}
                 onDraftsSyncedSuccess={() => setSubmissionsRefreshCounter((c) => c + 1)}
-                onSubmitSandboxPromotion={submitSandboxPromotionRequest}
                 onJumpToAdminGovernance={handleJumpToAdminGovernance}
               />
             )}
@@ -1761,12 +1695,10 @@ export default function App() {
           corpusVersion={corpusVersion}
           canAccessEditorialTools={canAccessEditorialTools}
           totalAttestationsCount={totalAttestationsCount}
-          sandboxPromotionRequests={sandboxPromotionRequests}
           onClearRecovery={() => setRecoveryMode(false)}
           onAuthChanged={syncUserSession}
           onRemoveSyncedDrafts={removeMultipleDrafts}
           onDraftsSyncedSuccess={() => setSubmissionsRefreshCounter((c) => c + 1)}
-          onSubmitSandboxPromotion={submitSandboxPromotionRequest}
           onJumpToAdminGovernance={handleJumpToAdminGovernance}
         />
       </Suspense>
