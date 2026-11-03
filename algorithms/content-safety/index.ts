@@ -2,7 +2,7 @@ import { countUrls, longestRepeatedCharacterRun, normalizeSafetyText, obfuscatio
 import type { ContentSafetyResult, ContentSurface, SafetyLexiconRule, SafetyPolicy, SafetySignal, TrustedContentContext } from './types'
 export * from './normalize'
 export * from './types'
-export const CONTENT_SAFETY_ENGINE_VERSION = '0.1.1'
+export const CONTENT_SAFETY_ENGINE_VERSION = '0.2.0'
 const CONTEXTUAL_PURPOSES = new Set(['dictionary_definition', 'linguistic_analysis', 'academic_quote', 'moderation_report'])
 const RULE_CATEGORIES = new Set(['profanity', 'personal_abuse', 'hate_speech', 'threat'])
 const CONTENT_SURFACES = new Set(['profile', 'lexicon', 'contribution', 'review', 'comment', 'discussion', 'report', 'private_message', 'admin'])
