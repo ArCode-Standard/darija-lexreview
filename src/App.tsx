@@ -1587,7 +1587,6 @@ export default function App() {
                   draftsList={draftsList}
                   entries={entries}
                   corpusVersion={corpusVersion}
-                  canAccessEditorialTools={canAccessEditorialTools}
                   totalAttestationsCount={totalAttestationsCount}
                   onClearRecovery={() => setRecoveryMode(false)}
                   onAuthChanged={syncUserSession}
@@ -1602,7 +1601,6 @@ export default function App() {
               (canAccessEditorialTools ? (
                 <EditorModerationPanel
                   entries={entries}
-                  categories={categories}
                   corpusVersion={corpusVersion}
                   userEmail={userEmail}
                   profile={reviewerProfile}
@@ -1646,7 +1644,6 @@ export default function App() {
                   rawCorpus={rawCorpus}
                   userEmail={userEmail}
                   profile={reviewerProfile}
-                  preferredSource={'live'}
                 />
               ) : (
                 renderEditorialRestrictedCard('صفحة تصدير حزم المعجم الرسمية')
@@ -1665,7 +1662,6 @@ export default function App() {
                 draftsList={draftsList}
                 entries={entries}
                 corpusVersion={corpusVersion}
-                canAccessEditorialTools={canAccessEditorialTools}
                 totalAttestationsCount={totalAttestationsCount}
                 onClearRecovery={() => setRecoveryMode(false)}
                 onAuthChanged={syncUserSession}
@@ -1691,7 +1687,6 @@ export default function App() {
           draftsList={draftsList}
           entries={entries}
           corpusVersion={corpusVersion}
-          canAccessEditorialTools={canAccessEditorialTools}
           totalAttestationsCount={totalAttestationsCount}
           onClearRecovery={() => setRecoveryMode(false)}
           onAuthChanged={syncUserSession}
