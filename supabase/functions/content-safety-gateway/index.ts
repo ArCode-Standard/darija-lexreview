@@ -212,7 +212,7 @@ Deno.serve(async (req: Request) => {
     });
     const { data: profile, error: profileError } = await admin
       .from("reviewer_profiles")
-      .select("id, role, account_status, suspended_until")
+      .select("id, role, display_name, account_status, suspended_until")
       .eq("id", actorId)
       .maybeSingle();
     if (profileError || !profile) return json({ error: "active_profile_required" }, 403, requestOrigin);
@@ -236,8 +236,21 @@ Deno.serve(async (req: Request) => {
       if (error || !target) return json({ error: "profile_not_found" }, 404, requestOrigin);
     }
 
+    let writePayload: Record<string, unknown> = payload;
+    if (operation === "member_messages.create") {
+      const displayName = typeof profile.display_name === "string" && profile.display_name.trim()
+        ? profile.display_name.trim()
+        : null;
+      const senderLabel = profile.role === "admin"
+        ? `الإدارة العامة (${displayName ?? "مشرف"})`
+        : profile.role === "editor"
+          ? `هيئة التحرير (${displayName ?? "محرر"})`
+          : "إدارة المعجم";
+      writePayload = { ...payload, sender_label: senderLabel };
+    }
+
     const policy = loadPolicy();
-    const fields = scanFields(payload);
+    const fields = scanFields(writePayload);
     const scan = scanContentPayload({
       surface: spec.surface,
       fields,
@@ -259,7 +272,7 @@ Deno.serve(async (req: Request) => {
     const { data: tokenData, error: tokenError } = await admin.rpc("issue_content_scan_token", {
       p_actor_id: actorId,
       p_operation: operation,
-      p_payload: payload,
+      p_payload: writePayload,
       p_engine_version: scan.engineVersion,
       p_policy_version: scan.policyVersion,
     });
@@ -275,6 +288,7 @@ Deno.serve(async (req: Request) => {
       policyVersion: scan.policyVersion,
       fields: scan.fields.map((item) => ({ field: item.field, index: item.index, decision: item.decision, riskLevel: item.riskLevel, signals: item.signals })),
       writeToken: tokenData,
+      writePayload,
       expiresInSeconds: 90,
     }, 200, requestOrigin);
   } catch (error) {
