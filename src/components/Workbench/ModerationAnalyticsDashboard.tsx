@@ -36,6 +36,7 @@ export function ModerationAnalyticsDashboard({
   editorNamesMap,
   queueSource,
 }: ModerationAnalyticsDashboardProps) {
+  void queueSource
   const [range, setRange] = useState<RangeFilter>('all')
   const [collapsed, setCollapsed] = useState(false)
   const [isDark, setIsDark] = useState(() =>
