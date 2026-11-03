@@ -239,11 +239,7 @@ export function PublicContributorsPage({
                           <h3 className="truncate font-display text-base font-bold text-zinc-950 dark:text-white">
                             {person.display_name}
                           </h3>
-                          {person.is_sandbox && (
-                            <span className="rounded-md border border-amber-300/70 bg-amber-50 px-1.5 py-0.5 text-[10px] font-semibold text-amber-800 dark:border-amber-500/35 dark:bg-amber-950/35 dark:text-amber-300">
-                              نموذج معاينة
-                            </span>
-                          )}
+)}
                         </div>
                         <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
                           {ROLE_LABELS[person.role]} · انضم {person.joined_year}
