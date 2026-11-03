@@ -510,9 +510,6 @@ export default function App() {
       },
     ) => {
       setFocusMode(false)
-      if (nextPage !== 'editorial') {
-      }
-
       const resolvedSubView =
         nextPage === 'lexicon' ? (options?.subView ?? explorerSubView) : explorerSubView
       const resolvedEntryId =
@@ -1347,7 +1344,7 @@ export default function App() {
                         entries={entries}
                         filteredEntries={filteredEntries}
                         activeEntry={activeEntry}
-                             query={query}
+                        query={query}
                         selectedCategory={selectedCategory}
                         exampleFilter={exampleFilter}
                         selectedEntryType={selectedEntryType}
@@ -1417,7 +1414,7 @@ export default function App() {
                           corpusVersion={corpusVersion}
                           isAuthenticated={Boolean(userEmail)}
                           canAccessEditorialTools={canAccessEditorialTools}
-                                   currentIndex={activeIndexInFiltered}
+                          currentIndex={activeIndexInFiltered}
                           totalFiltered={filteredEntries.length}
                           existingDraft={drafts[activeEntry.id]}
                           revisionTarget={revisionTarget}
