@@ -17,9 +17,13 @@ export function normalizeSafetyText(input: string): string {
   return mapCharacters(input.normalize('NFKC').toLocaleLowerCase().replace(INVISIBLE, '').replace(TATWEEL, '').replace(ARABIC_MARKS, ''), ARABIC_FOLD)
     .replace(/[^\p{L}\p{N}]+/gu, ' ').trim().replace(/\s+/gu, ' ')
 }
-export function compactObfuscationKey(input: string): string {
+export function obfuscationSkeleton(input: string): string {
   return mapCharacters(normalizeSafetyText(input), CONFUSABLE_FOLD)
-    .replace(/[\s._*-]+/gu, '').replace(/(.)\1{2,}/gu, '$1$1')
+    .replace(/(.)\1{2,}/gu, '$1$1')
+}
+
+export function compactObfuscationKey(input: string): string {
+  return obfuscationSkeleton(input).replace(/\s+/gu, '')
 }
 export function countUrls(input: string): number {
   return input.match(/(?:https?:\/\/|www\.)[^\s]+/giu)?.length ?? 0
