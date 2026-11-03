@@ -5,7 +5,7 @@ A deterministic TypeScript library for Moroccan Darija text and lexical review. 
 ## Modules
 
 - Text and lexical normalization, script detection, and tokenization.
-- Arabizi-to-Arabic candidate transliteration.
+- Arabizi-to-Arabic N-best transliteration with contextual grapheme alternatives and bounded beam search. See [the Arabizi engine specification](./ARABIZI-NBEST-ENGINE.md).
 - Duplicate and spelling-variant candidate ranking.
 - Surface polarity-conflict alerts constrained by shared topic evidence.
 - Dialect hints from a caller-supplied, source-identified lexicon.
@@ -21,10 +21,10 @@ A deterministic TypeScript library for Moroccan Darija text and lexical review. 
 - Missing regional observations mean unknown, not absence or non-use.
 - Similarity is not proof of identity, synonymy, pronunciation, or etymology.
 - Metadata completeness is not evidence validity or source authority.
-- Arabizi transliteration and morphology outputs are low-confidence hypotheses.
+- Arabizi transliteration and morphology outputs are low-confidence hypotheses; candidate scores are not probabilities.
 - Vector similarity does not generate embeddings and performs no model or network calls.
 - No module approves, rejects, merges, publishes, exports, or mutates corpus records.
 
 ## Validation
 
-Run `bun test` and `bun run build`. Thresholds and heuristics require evaluation against a representative, human-labelled Moroccan Darija dataset before production decision support.
+Run `npm test` and `npm run build`. Thresholds and heuristics require evaluation against a representative, human-labelled Moroccan Darija dataset before production decision support.
