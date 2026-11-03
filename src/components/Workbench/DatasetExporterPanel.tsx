@@ -52,11 +52,14 @@ function loadLocalReleaseManifests(): ReleaseManifestRecord[] {
     const raw = localStorage.getItem(LOCAL_RELEASE_MANIFESTS_KEY)
     if (!raw) return []
     const parsed = JSON.parse(raw)
-    return Array.isArray(parsed)
-      ? (parsed as Array<ReleaseManifestRecord & { is_sandbox?: boolean }>).filter(
-          (manifest) => manifest.is_sandbox !== true,
-        )
-      : []
+    if (!Array.isArray(parsed)) return []
+    const officialManifests = (
+      parsed as Array<ReleaseManifestRecord & { is_sandbox?: boolean }>
+    ).filter((manifest) => manifest.is_sandbox !== true)
+    if (officialManifests.length !== parsed.length) {
+      localStorage.setItem(LOCAL_RELEASE_MANIFESTS_KEY, JSON.stringify(officialManifests))
+    }
+    return officialManifests
   } catch {
     return []
   }
