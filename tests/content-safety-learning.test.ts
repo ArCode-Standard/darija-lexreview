@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { scanContent, type SafetyPolicy } from '../algorithms/content-safety'
+import { normalizeSafetyText, scanContent, type SafetyPolicy } from '../algorithms/content-safety'
 import { buildApprovedDataset, calculateEvaluationReport, evaluateReleaseGate, reviewFeedbackCandidate, submitFeedbackCandidate } from '../algorithms/learning-system'
 import type { FeedbackCandidate } from '../algorithms/learning-system'
 
@@ -61,6 +61,17 @@ describe('content safety engine', () => {
     }, policy)
     expect(result.decision).toBe('allow_with_context')
     expect(result.requiresHumanReview).toBe(true)
+  })
+  it('normalizes Arabic diacritics and tatweel without changing source text', () => {
+    expect(normalizeSafetyText('أَهْلًا ـ')).toBe('اهلا')
+  })
+  it('does not match a rule as a substring inside an unrelated word', () => {
+    const result = scanContent({ text: 'education', surface: 'comment' }, {
+      ...policy,
+      rules: [{ id: 'short', phrase: 'cat', category: 'profanity', severity: 2 }],
+    })
+    expect(result.decision).toBe('allow')
+    expect(result.signals).toHaveLength(0)
   })
   it('rejects invalid threshold configurations', () => {
     expect(() => scanContent({ text: 'hello', surface: 'comment' }, {
