@@ -58,7 +58,7 @@ export function scanContentPayload(input: ScanContentPayloadInput, policy: Safet
         if (item === null || item === undefined) return
         if (typeof item !== 'string') throw new TypeError('Content arrays may contain only strings or null values')
         const result = scanContent({ text: item, surface: input.surface, context: input.contexts?.[field], now: input.now }, policy)
-        fields.push({ field, index, decision: result.decision, score: result.score, riskLevel: result.riskLevel, requiresHumanReview: result.requiresHumanReview, signals: result.signals })
+        fields.push({ field, index, decision: result.decision, score: result.score, riskLevel: result.riskLevel, requiresHumanReview: result.requiresHumanReview, signals: result.signals, contextAssessment: result.contextAssessment })
       })
     }
   }
