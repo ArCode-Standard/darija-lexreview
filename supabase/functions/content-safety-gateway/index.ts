@@ -270,7 +270,7 @@ Deno.serve(async (req: Request) => {
       severity: signal.severity,
       ...(signal.ruleId ? { ruleId: signal.ruleId } : {}),
       confidence: signal.confidence,
-    })));
+    }))).slice(0, 100);
     const contentDigest = await sha256Hex(JSON.stringify(writePayload));
     const { error: auditError } = await admin.rpc("record_content_scan_event", {
       p_actor_id: actorId,
