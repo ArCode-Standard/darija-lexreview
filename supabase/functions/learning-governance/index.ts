@@ -23,7 +23,7 @@ function response(body: unknown, status = 200, origin?: string) {
   });
   if (origin) {
     headers.set("access-control-allow-origin", origin);
-    headers.set("access-control-allow-headers", "authorization, apikey, content-type");
+    headers.set("access-control-allow-headers", "authorization, apikey, content-type, x-client-info, x-supabase-api-version");
     headers.set("access-control-allow-methods", "POST, OPTIONS");
   }
   return new Response(JSON.stringify(body), { status, headers });
