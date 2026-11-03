@@ -44,6 +44,7 @@ export function scanContent(input: ScanContentInput, policy: SafetyPolicy): Cont
       !Number.isInteger(policy.maxUrls) || policy.maxUrls < 0) {
     throw new RangeError('Safety content limits must be non-negative integers; maxCharacters and repeated-run limit must be positive')
   }
+  if (!Array.isArray(policy.rules) || policy.rules.length > 5000) throw new RangeError('Safety policy must contain at most 5000 rules')
   const ruleIds = new Set<string>()
   for (const rule of policy.rules) {
     if (!rule.id.trim() || ruleIds.has(rule.id) || !normalizeSafetyText(rule.phrase) || rule.phrase.length > 120 ||
@@ -53,7 +54,7 @@ export function scanContent(input: ScanContentInput, policy: SafetyPolicy): Cont
     ruleIds.add(rule.id)
   }
   if (!Number.isFinite(policy.reviewThreshold) || !Number.isFinite(policy.blockThreshold) ||
-      policy.reviewThreshold < 0 || policy.blockThreshold > 100 ||
+      policy.reviewThreshold < 0 || policy.reviewThreshold > 100 || policy.blockThreshold < 0 || policy.blockThreshold > 100 ||
       policy.reviewThreshold > policy.blockThreshold) throw new RangeError('Safety thresholds must satisfy 0 <= reviewThreshold <= blockThreshold <= 100')
   const original = input.text ?? ''
   const normalized = normalizeSafetyText(original)
