@@ -307,6 +307,24 @@ export default function App() {
     totalAttestationsCount,
   })
 
+  // Remove obsolete browser-only simulation caches. This never touches Supabase or official drafts.
+  useEffect(() => {
+    try {
+      [
+        'arcode_darija_lexreview_sandbox_queue_v3',
+        'arcode_darija_lexreview_sandbox_events_v1',
+        'arcode_darija_lexreview_sandbox_profiles_v1',
+        'arcode_darija_lexreview_sandbox_promotions_v1',
+        'arcode_lexreview_sandbox_gov_members_v1',
+        'arcode_lexreview_sandbox_messages_v1',
+        'arcode_lexreview_sandbox_mod_events_v1',
+        'arcode_lexreview_sandbox_mod_reports_v1',
+      ].forEach((key) => localStorage.removeItem(key))
+    } catch {
+      // Browser storage may be unavailable; official server records are unaffected.
+    }
+  }, [])
+
   useEffect(() => {
     const root = document.documentElement
     if (darkMode) {
