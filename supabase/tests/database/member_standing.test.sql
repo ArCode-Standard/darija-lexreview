@@ -1,7 +1,7 @@
 begin;
 
 create extension if not exists pgtap with schema extensions;
-select plan(11);
+select plan(13);
 
 -- Synthetic fixtures only; all writes are rolled back at the end.
 insert into auth.users (
@@ -138,6 +138,30 @@ select ok(
   ),
   'automatic reactivation sends the existing account-restored notification'
 );
+
+
+-- Staff roles are restored by the same expiry rule, not left locked out.
+update public.reviewer_profiles
+set account_status = 'suspended', suspended_until = now() - interval '1 second'
+where id = '10000000-0000-4000-8000-000000000012';
+set local role authenticated;
+select set_config('request.jwt.claim.sub','10000000-0000-4000-8000-000000000012',true);
+select set_config('request.jwt.claim.role','authenticated',true);
+select is((select private.is_lexreview_editor()), true, 'an expired suspension restores editor authorization');
+reset role;
+select set_config('request.jwt.claim.sub','',true);
+select set_config('request.jwt.claim.role','',true);
+
+update public.reviewer_profiles
+set account_status = 'suspended', suspended_until = now() - interval '1 second'
+where id = '10000000-0000-4000-8000-000000000013';
+set local role authenticated;
+select set_config('request.jwt.claim.sub','10000000-0000-4000-8000-000000000013',true);
+select set_config('request.jwt.claim.role','authenticated',true);
+select is((select private.is_lexreview_admin()), true, 'an expired suspension restores admin authorization');
+reset role;
+select set_config('request.jwt.claim.sub','',true);
+select set_config('request.jwt.claim.role','',true);
 
 select * from finish();
 rollback;
