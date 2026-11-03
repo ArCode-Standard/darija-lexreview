@@ -566,8 +566,8 @@ export function EditorModerationPanel({
                   className="min-h-[36px] rounded-lg bg-zinc-950 px-4 py-1.5 text-xs font-semibold text-white hover:bg-zinc-800 dark:bg-[#D9FF43] dark:text-[#050507] dark:hover:bg-[#e5ff73] whitespace-nowrap cursor-pointer"
                 >
                   تسجيل الدخول
-              </button>
-              
+                </button>
+              )}
             </div>
           </div>
         )}
@@ -650,7 +650,6 @@ export function EditorModerationPanel({
                   <RefreshCw className={`h-3.5 w-3.5 ${loadingLive ? 'animate-spin' : ''}`} />
                   <span>تحديث</span>
                 </button>
-              )}
             </div>
 
             <div className="flex flex-wrap gap-1 rounded-lg bg-zinc-100 p-1 dark:bg-[#07070A]">
