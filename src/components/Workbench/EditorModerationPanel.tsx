@@ -15,14 +15,10 @@ import { supabase } from '../../lib/supabase'
 import type {
   EntryAttestationSummary,
   LexicalEntry,
-  PromotionRequestStatus,
   ProposedFields,
-  ReviewDecisionEvent,
   ReviewerProfile,
-  RolePromotionRequest,
   SubmissionRecord,
   SubmissionStatus,
-  UserRole,
 } from '../../types/lexicon'
 import { formatAccessionCode, formatStatusLabel } from '../../services/dataset'
 import { isNewEntrySubmission } from '../../services/exporter'
@@ -40,40 +36,11 @@ interface EditorModerationPanelProps {
   corpusVersion: string
   userEmail: string | null
   profile: ReviewerProfile | null
-  sandboxItems: SubmissionRecord[]
-  sandboxEvents: ReviewDecisionEvent[]
-  sandboxProfiles: ReviewerProfile[]
-  sandboxPromotionRequests: RolePromotionRequest[]
   attestationSummaries: Record<string, EntryAttestationSummary>
-  forceSandboxMode?: boolean
   forceGovernanceSection?: boolean
   onClearForceGovernanceSection?: () => void
-  onModerateSandbox: (params: {
-    id: string
-    status: SubmissionStatus
-    editorNote: string | null
-    proposedData: ProposedFields
-    editorId?: string
-    editorDisplayName?: string
-  }) => void
-  onBulkApproveSandbox: (params: {
-    ids: string[]
-    editorNote: string
-    editorId?: string
-    editorDisplayName?: string
-  }) => void
-  onResetSandbox: () => void
-  onReviewSandboxPromotion: (params: {
-    requestId: string
-    decision: Exclude<PromotionRequestStatus, 'pending'>
-    adminNote: string | null
-    adminId?: string
-    adminName?: string
-  }) => void
-  onUpdateSandboxMemberRole: (userId: string, nextRole: UserRole) => void
-  onResetSandboxGovernance: () => void
   onOpenAuth: () => void
-  onGoToExporter: (source: 'live' | 'sandbox') => void
+  onGoToExporter: () => void
 }
 
 const DIFF_FIELDS: Array<{
@@ -101,34 +68,19 @@ export function EditorModerationPanel({
   corpusVersion,
   userEmail,
   profile,
-  sandboxItems,
-  sandboxEvents,
-  sandboxProfiles,
-  sandboxPromotionRequests,
   attestationSummaries,
-  forceSandboxMode,
   forceGovernanceSection,
   onClearForceGovernanceSection,
-  onModerateSandbox,
-  onBulkApproveSandbox,
-  onResetSandbox,
-  onReviewSandboxPromotion,
-  onUpdateSandboxMemberRole,
-  onResetSandboxGovernance,
   onOpenAuth,
   onGoToExporter,
 }: EditorModerationPanelProps) {
-  void sandboxItems
-  void onResetSandbox
   const isAuthorizedLiveEditor =
     Boolean(userEmail) && (profile?.role === 'editor' || profile?.role === 'admin')
 
-  const [queueSource, setQueueSource] = useState<'live' | 'sandbox'>('live')
   const [moderationSection, setModerationSection] = useState<'adjudication' | 'governance'>(
     () => (forceGovernanceSection ? 'governance' : 'adjudication'),
   )
 
-  useEffect(() => { setQueueSource('live') }, [forceSandboxMode, isAuthorizedLiveEditor])
 
   useEffect(() => {
     if (forceGovernanceSection) {
@@ -209,10 +161,8 @@ export function EditorModerationPanel({
     setSelectedBatchIds(new Set())
     setBulkModalOpen(false)
     setBulkError(null)
-    if (queueSource === 'live') {
-      fetchLiveQueue()
-    }
-  }, [queueSource, fetchLiveQueue])
+    fetchLiveQueue()
+  }, [fetchLiveQueue])
 
   const activePool = liveItems
 
@@ -453,14 +403,12 @@ export function EditorModerationPanel({
       filteredQueue
         .filter((item) => {
           if (item.status === 'accepted' || item.status === 'merged') return false
-          if (queueSource === 'live') {
-            if (item.status !== 'pending' && item.status !== 'needs_changes') return false
-            if (profile?.id && item.reviewer_id === profile.id) return false
-          }
+          if (item.status !== 'pending' && item.status !== 'needs_changes') return false
+          if (profile?.id && item.reviewer_id === profile.id) return false
           return true
         })
         .map((item) => item.id),
-    [filteredQueue, queueSource, profile?.id],
+    [filteredQueue, profile?.id],
   )
 
   const allSelectableChecked =
@@ -573,29 +521,12 @@ export function EditorModerationPanel({
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            <div
-              role="group"
-              aria-label="مصدر طابور التحكيم"
-              className="inline-flex items-center gap-1 rounded-lg border border-zinc-200 bg-zinc-100 p-1 dark:border-white/10 dark:bg-[#07070A]"
-            >
-              <button
-                type="button"
-                onClick={() => setQueueSource('live')}
-                className={`min-h-[34px] rounded-md px-3 py-1.5 text-xs font-semibold transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
-                  queueSource === 'live'
-                    ? 'bg-zinc-950 text-white dark:bg-[#D9FF43] dark:text-[#050507]'
-                    : 'text-zinc-600 hover:text-zinc-950 dark:text-zinc-400'
-                }`}
-              >
-                سجل المراجعة الرسمي
-              </button>
-              
-            </div>
+
 
             {acceptedCountInSource > 0 && (
               <button
                 type="button"
-                onClick={() => onGoToExporter(queueSource)}
+                onClick={onGoToExporter}
                 className="inline-flex min-h-[38px] items-center gap-1.5 rounded-lg bg-zinc-950 px-4 py-1.5 text-xs font-semibold text-white hover:bg-zinc-800 whitespace-nowrap shrink-0 cursor-pointer dark:bg-[#D9FF43] dark:text-[#050507] dark:hover:bg-[#e5ff73]"
               >
                 <span>تصدير المعتمد ({acceptedCountInSource})</span>
@@ -620,7 +551,7 @@ export function EditorModerationPanel({
         </div>
 
         {/* Permission notice for accounts without editorial privileges */}
-        {queueSource === 'live' && !isAuthorizedLiveEditor && (
+        {!isAuthorizedLiveEditor && (
           <div className="mt-4 flex flex-wrap items-center justify-between gap-4 rounded-lg border border-amber-300 bg-amber-50/80 p-4 text-xs text-amber-950 dark:border-amber-800/60 dark:bg-amber-950/30 dark:text-amber-200">
             <div className="flex items-start gap-2.5 max-w-[72ch]">
               <ShieldAlert className="h-4 w-4 shrink-0 mt-0.5 text-amber-700 dark:text-amber-400" />
@@ -695,26 +626,18 @@ export function EditorModerationPanel({
 
       {moderationSection === 'governance' ? (
         <RoleGovernancePanel
-          queueSource={queueSource}
           currentUserEmail={userEmail}
           currentUserProfile={profile}
           submissions={activePool}
-          sandboxProfiles={sandboxProfiles}
-          sandboxPromotionRequests={sandboxPromotionRequests}
-          onSwitchQueueSource={setQueueSource}
-          onReviewSandboxPromotion={onReviewSandboxPromotion}
-          onUpdateSandboxMemberRole={onUpdateSandboxMemberRole}
-          onResetSandboxGovernance={onResetSandboxGovernance}
           onOpenAuth={onOpenAuth}
         />
       ) : (
         <>
           {/* Editorial Activity & Turnaround Analytics Dashboard */}
-          {(false || isAuthorizedLiveEditor) && (
+          {isAuthorizedLiveEditor && (
             <ModerationAnalyticsDashboard
               submissions={activePool}
               editorNamesMap={editorNamesMap}
-              queueSource={queueSource}
             />
           )}
 
@@ -727,7 +650,7 @@ export function EditorModerationPanel({
               <span className="font-display text-sm font-bold text-zinc-950 dark:text-white">
                 قائمة المقترحات ({filteredQueue.length})
               </span>
-              {queueSource === 'live' && (
+              {(
                 <button
                   type="button"
                   onClick={fetchLiveQueue}
@@ -802,7 +725,7 @@ export function EditorModerationPanel({
               className="w-full min-h-[36px] rounded-lg border border-zinc-300 bg-zinc-50 px-2.5 py-1.5 text-xs text-zinc-950 dark:border-white/15 dark:bg-[#07070A] dark:text-white"
             />
 
-            {liveError && queueSource === 'live' && (
+            {liveError && (
               <p className="text-xs text-red-700 dark:text-red-400">{liveError}</p>
             )}
 
@@ -855,7 +778,7 @@ export function EditorModerationPanel({
             )}
 
             <div className="max-h-[520px] overflow-y-auto space-y-1.5 pe-1">
-              {loadingLive && queueSource === 'live' ? (
+              {loadingLive ? (
                 <div className="py-8 text-center text-xs text-zinc-500">جارٍ جلب الطابور...</div>
               ) : filteredQueue.length === 0 ? (
                 <div className="py-10 text-center text-xs text-zinc-500 dark:text-zinc-400">
@@ -1369,8 +1292,6 @@ export function EditorModerationPanel({
                 {/* Immutable Decision Audit Trail */}
                 <DecisionAuditTimeline
                   submissionId={activeSubmission.id}
-                  queueSource={queueSource}
-                  sandboxEvents={sandboxEvents}
                   editorNamesMap={editorNamesMap}
                   refreshKey={auditRefreshCounter}
                 />
@@ -1388,9 +1309,8 @@ export function EditorModerationPanel({
         entries={entries}
         currentEditorId={profile?.id ?? null}
         editorLabel={
-          profile?.display_name?.trim() || userEmail || 'المحرر الحالي (جلسة محاكاة)'
+          profile?.display_name?.trim() || userEmail || 'المحرر الحالي'
         }
-        queueSource={queueSource}
         busy={bulkBusy}
         errorMessage={bulkError}
         onClose={() => {
