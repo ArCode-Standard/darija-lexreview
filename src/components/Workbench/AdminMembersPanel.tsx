@@ -388,32 +388,17 @@ export function AdminMembersPanel({
     }
   }
 
-  async function handleSendTestWarningToSelf() {
-    const res = await onSendMessage({
-      source: 'sandbox',
-      recipientId: currentProfile?.id ?? 'self-preview',
-      isBroadcast: false,
-      category: 'warning',
-      title: 'معاينة إنذار رسمي (تجربة نافذة الإقرار الإلزامي)',
-      body: 'هذه معاينة حية للإنذار الرسمي كما يظهر لأي عضو مخالف فور دخوله المنصة، ولا يختفي إلا بعد ضغطه على زر الإقرار والالتزام.',
-      requiresAck: true,
-    })
-    if (res.ok) {
-      setFeedback({ type: 'ok', text: 'تم إرسال إنذار تجريبي لحسابك لمعاينة نافذة الإقرار.' })
-    }
-  }
-
   async function handleEditorSubmitReport() {
-    if (!reportTargetName.trim() || reportReason.trim().length < 10) {
+    if (!reportTargetId.trim() || !reportTargetName.trim() || reportReason.trim().length < 10) {
       setFeedback({
         type: 'err',
-        text: 'يرجى تحديد اسم/معرّف العضو وكتابة سبب مفصّل لا يقل عن 10 أحرف لرفعه للمسؤول.',
+        text: 'يرجى اختيار العضو المعني وكتابة سبب مفصّل لا يقل عن 10 أحرف لرفعه للمسؤول.',
       })
       return
     }
     const res = await onSubmitReport({
       source: dataSource,
-      targetUserId: reportTargetId || 'sandbox-member-3',
+      targetUserId: reportTargetId,
       targetDisplayName: reportTargetName,
       recommendedAction: reportRecommended,
       reason: reportReason,
