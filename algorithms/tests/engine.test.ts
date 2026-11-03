@@ -3,6 +3,7 @@ import {
   analyzeText,
   analyzeLexicalForm,
   transliterateArabizi,
+  transliterateArabiziCandidates,
   findDuplicateCandidates,
   detectPolarityConflicts,
   inferRegionHints,
@@ -32,6 +33,36 @@ describe('Darija algorithm engine', () => {
     expect(result.value).toBe('علاش')
     expect(result.confidence).toBe('low')
     expect(result.notes.length).toBeGreaterThan(0)
+  })
+
+  it('returns ranked alternatives for context-sensitive consonants', () => {
+    const candidates = transliterateArabiziCandidates('gari')
+    expect(candidates.length).toBeGreaterThan(1)
+    expect(candidates[0]?.value).toBe('گاري')
+    expect(candidates.some((candidate) => candidate.value === 'جاري')).toBe(true)
+    expect(candidates[0]!.score).toBeGreaterThan(candidates[1]!.score)
+  })
+
+  it('uses adjacent vowels to rank soft c while retaining a hard-c alternative', () => {
+    const candidates = transliterateArabiziCandidates('citi')
+    expect(candidates[0]?.value).toBe('سيتي')
+    expect(candidates.some((candidate) => candidate.value.startsWith('كي'))).toBe(true)
+  })
+
+  it('supports common digit conventions and digraphs', () => {
+    expect(transliterateArabizi('khobz').value).toBe('خوبز')
+    expect(transliterateArabizi('9alb').value).toBe('قالب')
+  })
+
+  it('preserves Arabic text, punctuation, and whitespace in mixed-script input', () => {
+    expect(transliterateArabizi('3lach سلام؟').value).toBe('علاش سلام؟')
+  })
+
+  it('bounds candidate generation and rejects invalid limits', () => {
+    expect(transliterateArabiziCandidates('gari', { maxCandidates: 1 })).toHaveLength(1)
+    expect(() => transliterateArabiziCandidates('gari', { maxCandidates: 0 })).toThrow(RangeError)
+    expect(() => transliterateArabiziCandidates('gari', { maxCandidates: 21 })).toThrow(RangeError)
+    expect(transliterateArabiziCandidates('   ')).toEqual([])
   })
 
   it('ranks normalized and misspelled duplicate candidates', () => {
