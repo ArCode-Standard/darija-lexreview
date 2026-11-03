@@ -936,7 +936,10 @@ begin
        or pg_catalog.char_length(coalesce(v_signal->>'field','')) not between 1 and 100
        or pg_catalog.char_length(coalesce(v_signal->>'code','')) not between 1 and 100
        or coalesce(v_signal->>'category','') not in ('profanity','personal_abuse','hate_speech','threat','spam','obfuscation')
-       or coalesce(v_signal->>'severity','') !~ '^[1-5]
+       or coalesce(v_signal->>'severity','') not in ('1','2','3','4','5')
+       or coalesce(v_signal->>'confidence','') not in ('low','medium','high')
+       or pg_catalog.char_length(coalesce(v_signal->>'index','')) > 4
+       or pg_catalog.char_length(coalesce(v_signal->>'ruleId','')) > 120 then
       raise exception 'Invalid content scan signal metadata' using errcode = '22023';
     end if;
   end loop;
