@@ -990,25 +990,37 @@ export function AdminMembersPanel({
             </p>
 
             <div className="mt-4 space-y-3.5">
-              <label className="block space-y-1 text-xs font-semibold text-zinc-700 dark:text-zinc-300">
-                <span>اختر العضو المعني</span>
-                <select
-                  value={reportTargetId}
-                  onChange={(e) => {
-                    const found = members.find((m) => m.id === e.target.value)
-                    setReportTargetId(e.target.value)
-                    if (found) setReportTargetName(found.display_name || found.id)
-                  }}
-                  className="min-h-[40px] w-full rounded-xl border border-zinc-200 bg-zinc-50 px-3 text-xs dark:border-white/12 dark:bg-[#07070A] dark:text-white"
-                >
-                  <option value="">-- اختر عضواً --</option>
-                  {members.map((m) => (
-                    <option key={m.id} value={m.id}>
-                      {m.display_name} ({ROLE_LABELS[m.role]})
-                    </option>
-                  ))}
-                </select>
-              </label>
+              {isAdmin ? (
+                <label className="block space-y-1 text-xs font-semibold text-zinc-700 dark:text-zinc-300">
+                  <span>اختر العضو المعني</span>
+                  <select
+                    value={reportTargetId}
+                    onChange={(e) => {
+                      const found = members.find((m) => m.id === e.target.value)
+                      setReportTargetId(e.target.value)
+                      if (found) setReportTargetName(found.display_name || found.id)
+                    }}
+                    className="min-h-[40px] w-full rounded-xl border border-zinc-200 bg-zinc-50 px-3 text-xs dark:border-white/12 dark:bg-[#07070A] dark:text-white"
+                  >
+                    <option value="">-- اختر عضواً --</option>
+                    {members.map((m) => (
+                      <option key={m.id} value={m.id}>
+                        {m.display_name} ({ROLE_LABELS[m.role]})
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              ) : (
+                <label className="block space-y-1 text-xs font-semibold text-zinc-700 dark:text-zinc-300">
+                  <span>معرّف حساب العضو المستهدف</span>
+                  <input
+                    value={reportTargetId}
+                    onChange={(e) => setReportTargetId(e.target.value.trim())}
+                    placeholder="أدخل UUID الخاص بحساب العضو"
+                    className="min-h-[40px] w-full rounded-xl border border-zinc-200 bg-zinc-50 px-3.5 text-xs dark:border-white/12 dark:bg-[#07070A] dark:text-white"
+                  />
+                </label>
+              )}
 
               <label className="block space-y-1 text-xs font-semibold text-zinc-700 dark:text-zinc-300">
                 <span>اسم المساهم أو معرّف المقترح المخالف</span>
