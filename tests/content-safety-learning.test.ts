@@ -75,7 +75,7 @@ describe('governed learning pipeline', () => {
       id: 'x', domain: 'linguistic', source: 'editor_correction',
       sourceSurface: 'private_message', groupId: 'g', text: 'x', label: 'y',
       rationale: 'z', contributorRef: 'c', consentToDatasetUse: true, license: 'CC0',
-    })).toThrow(/Private-message/)
+    } )).toThrow(/not eligible/)
     expect(() => submitFeedbackCandidate({
       id: 'x', domain: 'linguistic', source: 'editor_correction',
       sourceSurface: 'lexicon', groupId: 'g', text: 'x', label: 'y',
