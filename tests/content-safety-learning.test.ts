@@ -179,6 +179,51 @@ describe('content safety engine', () => {
   })
 })
 
+describe('Darija context understanding', () => {
+  it('distinguishes an educational mention from directed abuse', () => {
+    const seed = createDefaultDarijaSafetyPolicy()
+    const result = scanContent({ text: 'شنو معنى خرا؟', surface: 'lexicon' }, seed)
+    expect(result.contextAssessment?.primary).toBe('linguistic_mention')
+    expect(result.contextAssessment?.labels).toContain('linguistic_mention')
+    expect(result.contextAssessment?.trustedForEnforcement).toBe(false)
+  })
+  it('recognizes reported threat language while preserving the quote/evidence label', () => {
+    const seed = createDefaultDarijaSafetyPolicy()
+    const result = scanContent({ text: 'قال ليا "غادي نضربك"', surface: 'report' }, seed)
+    expect(result.contextAssessment?.primary).toBe('threat_language')
+    expect(result.contextAssessment?.labels).toContain('quoted_evidence')
+    expect(result.contextAssessment?.requiresHumanReview).toBe(true)
+    expect(result.decision).toBe('review')
+  })
+  it('marks insult plus laughter as mixed and ambiguous instead of assuming harmless humor', () => {
+    const seed = createDefaultDarijaSafetyPolicy()
+    const result = scanContent({ text: 'nta 7mar hahaha', surface: 'comment' }, seed)
+    expect(result.contextAssessment?.primary).toBe('ambiguous_mixed')
+    expect(result.contextAssessment?.labels).toContain('playful_banter')
+    expect(result.contextAssessment?.labels).toContain('directed_abuse')
+    expect(result.contextAssessment?.requiresHumanReview).toBe(true)
+  })
+  it('recognizes laughter without an abuse signal as a low-confidence banter cue', () => {
+    const seed = createDefaultDarijaSafetyPolicy()
+    const result = scanContent({ text: 'هههه غير كنضحك', surface: 'comment' }, seed)
+    expect(result.contextAssessment?.primary).toBe('playful_banter')
+    expect(result.contextAssessment?.confidence).toBe('low')
+  })
+  it('does not treat text-derived direct address as trusted targeting authority', () => {
+    const seed = createDefaultDarijaSafetyPolicy()
+    const result = scanContent({ text: 'nta 7mar', surface: 'comment' }, seed)
+    expect(result.contextAssessment?.primary).toBe('directed_abuse')
+    expect(result.decision).toBe('review')
+    expect(result.contextAssessment?.trustedForEnforcement).toBe(false)
+  })
+  it('returns an uncertainty label when there are no reliable context cues', () => {
+    const seed = createDefaultDarijaSafetyPolicy()
+    const result = scanContent({ text: 'نهار زوين اليوم', surface: 'comment' }, seed)
+    expect(result.contextAssessment?.primary).toBe('neutral_or_unclear')
+    expect(result.contextAssessment?.confidence).toBe('low')
+  })
+})
+
 describe('governed learning pipeline', () => {
   it('rejects private-message sources and missing consent', () => {
     expect(() => submitFeedbackCandidate({
