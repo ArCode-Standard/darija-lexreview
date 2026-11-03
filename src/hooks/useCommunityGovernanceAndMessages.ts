@@ -83,8 +83,6 @@ export function useCommunityGovernanceAndMessages({
   const [loadingDirectory, setLoadingDirectory] = useState(false)
   const [loadingMembers, setLoadingMembers] = useState(false)
 
-)
-
   const [localReadIds, setLocalReadIds] = useState<string[]>(() =>
     safeReadJson<string[]>(LOCAL_READ_MSG_IDS_KEY, []),
   )
@@ -274,7 +272,7 @@ export function useCommunityGovernanceAndMessages({
   ])
 
   // Inbox messages are limited to authenticated recipients and official broadcasts.
-  const isMemberOrPreview = Boolean(userEmail)
+  const isAuthenticatedMember = Boolean(userEmail)
 
   const inboxMessages = useMemo<MemberMessageRecord[]>(() => {
     if (!userEmail) return []
@@ -294,7 +292,7 @@ export function useCommunityGovernanceAndMessages({
   }, [userEmail, liveMessages, currentProfile, localReadIds])
 
   const unreadMessagesCount = useMemo(() => {
-    if (!isMemberOrPreview) return 0
+    if (!isAuthenticatedMember) return 0
     return inboxMessages.filter(
       (m) =>
         !m.read_at &&
@@ -302,7 +300,7 @@ export function useCommunityGovernanceAndMessages({
           (currentProfile && m.recipient_id === currentProfile.id) ||
           m.id === 'system-welcome-default'),
     ).length
-  }, [isMemberOrPreview, inboxMessages, currentProfile])
+  }, [isAuthenticatedMember, inboxMessages, currentProfile])
 
   const unacknowledgedWarnings = useMemo(() => {
     if (!isMemberOrPreview) return []
@@ -311,8 +309,7 @@ export function useCommunityGovernanceAndMessages({
         m.category === 'warning' &&
         m.requires_ack &&
         !m.acknowledged_at &&
-        ((currentProfile && m.recipient_id === currentProfile.id) ||
-          false),
+        currentProfile && m.recipient_id === currentProfile.id,
     )
   }, [isMemberOrPreview, inboxMessages, currentProfile])
 
