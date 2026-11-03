@@ -1180,18 +1180,7 @@ export function NewEntryProposalPanel({
               </span>
             </button>
 
-            {false && canAccessEditorialTools && (
-              <button
-                type="button"
-                onClick={handleSendToSandbox}
-                className="inline-flex min-h-[44px] items-center gap-2 rounded-full border border-emerald-700/40 bg-zinc-50 px-4 py-2.5 text-xs font-semibold text-emerald-800 hover:bg-zinc-100 whitespace-nowrap shrink-0 cursor-pointer dark:border-[#D9FF43]/40 dark:bg-[#07070A] dark:text-[#D9FF43] dark:hover:bg-white/5"
-              >
-                <FlaskConical className="h-3.5 w-3.5" aria-hidden="true" />
-                <span>إرسال لطابور الاختبار</span>
-              </button>
-            )}
-
-            <button
+                        <button
               type="button"
               onClick={handleSaveLocalDraft}
               className="inline-flex min-h-[44px] items-center gap-2 rounded-full border border-zinc-300 bg-zinc-50 px-4 py-2.5 text-xs font-semibold text-zinc-800 hover:bg-zinc-100 whitespace-nowrap shrink-0 cursor-pointer dark:border-white/15 dark:bg-[#07070A] dark:text-zinc-200 dark:hover:bg-white/5"
