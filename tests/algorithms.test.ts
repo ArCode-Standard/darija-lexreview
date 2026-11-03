@@ -13,4 +13,20 @@ describe('Darija Intelligence Engine',()=>{
  it('validates vector inputs even when the candidate list is empty',()=>{expect(()=>rankVectorCandidates([],[])).toThrow(TypeError)})
  it('calculates cosine similarity',()=>{expect(cosineSimilarity([1,0],[1,0])).toBeCloseTo(1);expect(cosineSimilarity([1e200,0],[1e200,0])).toBeCloseTo(1)})
  it('reports context diagnostics',()=>{expect(analyzeLexicalContexts([{id:'1',text:'شنو بغيتي',translation:'what do you want'},{id:'2',text:'شنو بغيتي',translation:'what do you want'}]).possibleSenseGroups).toHaveLength(1)})
+
+ it('uses indexed blocking for large variant corpora and preserves obvious near variants',()=>{
+   const items=[{id:'a',form:'kifach'},{id:'b',form:'kifash'},...Array.from({length:400},(_,i)=>({id:`noise-${i}`,form:`entryword${i}`}))];
+   const result=discoverVariantCandidatesWithStats(items,0.75);
+   expect(result.stats.strategy).toBe('indexed');
+   expect(result.stats.candidatePairs).toBeLessThan(items.length*(items.length-1)/2);
+   expect(result.matches.some(x=>[x.leftId,x.rightId].includes('a')&&[x.leftId,x.rightId].includes('b'))).toBe(true);
+ });
+ it('bounds highly frequent exact-form blocks and exposes truncation',()=>{
+   const items=Array.from({length:300},(_,i)=>({id:`same-${i}`,form:'شنو'}));
+   const result=discoverVariantCandidatesWithStats(items,1,{exhaustiveBelow:0,maxCandidatesPerItem:8});
+   expect(result.stats.strategy).toBe('indexed');
+   expect(result.stats.truncatedItems).toBeGreaterThan(0);
+   expect(result.stats.candidatePairs).toBeLessThan(items.length*(items.length-1)/2);
+   expect(result.matches.every(x=>x.score===1)).toBe(true);
+ });
 })
