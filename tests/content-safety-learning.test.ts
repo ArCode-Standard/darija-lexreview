@@ -217,6 +217,13 @@ describe('Darija context understanding', () => {
     expect(result.decision).toBe('review')
     expect(result.contextAssessment?.trustedForEnforcement).toBe(false)
   })
+  it('does not label an explicitly negated threat as a threat', () => {
+    const seed = createDefaultDarijaSafetyPolicy()
+    const result = scanContent({ text: 'ما غادي نضربك', surface: 'comment' }, seed)
+    expect(result.contextAssessment?.primary).toBe('neutral_or_unclear')
+    expect(result.contextAssessment?.cueCodes).toContain('negated_threat_pattern')
+    expect(result.contextAssessment?.labels).not.toContain('threat_language')
+  })
   it('returns an uncertainty label when there are no reliable context cues', () => {
     const seed = createDefaultDarijaSafetyPolicy()
     const result = scanContent({ text: 'نهار زوين اليوم', surface: 'comment' }, seed)
