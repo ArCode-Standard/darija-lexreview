@@ -300,7 +300,7 @@ export function DatasetExporterPanel({
     const editorName =
       profile?.display_name?.trim() ||
       userEmail ||
-      (false ? 'المحرر الحالي (جلسة محاكاة)' : 'محرر معتمد')
+      'محرر معتمد'
 
     const manifestDraft: ReleaseManifestRecord = {
       id: `rel-${cleanVersion}-${Date.now()}`,
@@ -322,7 +322,7 @@ export function DatasetExporterPanel({
 
     setArchiveFeedback(null)
 
-        if (!supabase || !isAuthorizedLiveEditor) {
+    if (!supabase || !isAuthorizedLiveEditor) {
       setArchiveFeedback({
         type: 'error',
         text: 'يلزم تسجيل الدخول بحساب محرر معتمد لأرشفة الدفعات في السجل الحي.',
