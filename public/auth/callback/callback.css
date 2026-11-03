@@ -1,0 +1,25 @@
+:root,
+html[data-theme="dark"] {
+  color-scheme: dark; --page-bg: #050507; --card-bg: #0c0c10; --text: #f4f4f6;
+  --heading: #ffffff; --muted: #a1a1aa; --border: rgba(255, 255, 255, 0.12); --accent: #d9ff43;
+}
+html[data-theme="light"] {
+  color-scheme: light; --page-bg: #fafafc; --card-bg: #ffffff; --text: #27272a;
+  --heading: #09090b; --muted: #52525b; --border: #e4e4e7; --accent: #047857;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center;
+  padding: 24px; background: var(--page-bg); color: var(--text);
+  font-family: "Segoe UI", "Noto Sans Arabic", system-ui, sans-serif; text-align: center;
+}
+.card {
+  width: min(100%, 420px); padding: 28px 24px; border: 1px solid var(--border);
+  border-radius: 16px; background: var(--card-bg);
+}
+.dot {
+  display: inline-block; width: 10px; height: 10px; margin-bottom: 14px;
+  border-radius: 999px; background: var(--accent);
+}
+h1 { margin: 0 0 8px; color: var(--heading); font-size: 16px; }
+p, noscript { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.7; }

@@ -87,6 +87,8 @@ export function AuthDialog({
   onDraftsSyncedSuccess,
   onJumpToAdminGovernance,
 }: AuthDialogProps) {
+  const GOOGLE_AUTH_ENABLED = import.meta.env.VITE_SUPABASE_GOOGLE_ENABLED === 'true'
+
   const [signedOutTab, setSignedOutTab] = useState<SignedOutTab>('signin')
   const [signedInTab, setSignedInTab] = useState<SignedInTab>('profile')
 
@@ -260,7 +262,7 @@ export function AuthDialog({
   const canUnlinkIdentity = identities.length > 1
 
   async function handleOAuthSignIn(provider: 'github' | 'google') {
-    if (!supabase || busy) return
+    if (!supabase || busy || (provider === 'google' && !GOOGLE_AUTH_ENABLED)) return
     setBusy(true)
     setFeedback(null)
 
@@ -268,7 +270,7 @@ export function AuthDialog({
       const { error } = await supabase.auth.signInWithOAuth({
         provider,
         options: {
-          redirectTo: `${window.location.origin}/`,
+          redirectTo: `${window.location.origin}/auth/callback`,
           scopes: provider === 'github' ? 'read:user user:email' : undefined,
         },
       })
@@ -286,14 +288,14 @@ export function AuthDialog({
   }
 
   async function handleLinkProvider(provider: 'github' | 'google') {
-    if (!supabase || linkingProvider) return
+    if (!supabase || linkingProvider || (provider === 'google' && !GOOGLE_AUTH_ENABLED)) return
     setLinkingProvider(provider)
     setFeedback(null)
     try {
       const { error } = await supabase.auth.linkIdentity({
         provider,
         options: {
-          redirectTo: `${window.location.origin}/`,
+          redirectTo: `${window.location.origin}/auth/callback`,
           scopes: provider === 'github' ? 'read:user user:email' : undefined,
         },
       })
@@ -857,12 +859,12 @@ export function AuthDialog({
                   {recoveryMode
                     ? 'أدخل كلمة المرور الجديدة لتأمين حسابك في المنصة.'
                     : userEmail
-                      ? 'إدارة هويتك المعجمية، ربط GitHub وGoogle، ومتابعة صلاحيتك التحريرية.'
+                      ? 'إدارة هويتك المعجمية، ربط GitHub، ومتابعة صلاحيتك التحريرية.'
                       : forgotPassword
                         ? 'سنرسل رابطاً آمناً لإعادة تعيين كلمة المرور إلى بريدك الإلكتروني.'
                         : signedOutTab === 'signup'
                           ? 'يبدأ كل حساب جديد بصلاحية «مراجع مساهم» لحفظ المساهمات وتوثيقها باسمك.'
-                          : 'ادخل عبر GitHub أو Google أو البريد الإلكتروني لمتابعة مساهماتك.'}
+                          : 'ادخل عبر GitHub أو البريد الإلكتروني لمتابعة مساهماتك.'}
                 </p>
               </div>
               {!recoveryMode && !isPage && (
@@ -1073,7 +1075,7 @@ export function AuthDialog({
                               <div className="min-w-0">
                                 <p className="font-semibold text-zinc-900 dark:text-white">Google</p>
                                 <p className="truncate text-[10px] text-zinc-500 dark:text-zinc-400">
-                                  {googleIdentity ? 'مرتبط وموثّق' : 'غير مرتبط بعد'}
+                                  {googleIdentity ? 'مرتبط وموثّق' : GOOGLE_AUTH_ENABLED ? 'غير مرتبط بعد' : 'غير مفعّل حالياً'}
                                 </p>
                               </div>
                             </div>
@@ -1092,7 +1094,7 @@ export function AuthDialog({
                             ) : (
                               <button
                                 type="button"
-                                disabled={!isSupabaseConfigured || Boolean(linkingProvider)}
+                                disabled={!isSupabaseConfigured || !GOOGLE_AUTH_ENABLED || Boolean(linkingProvider)}
                                 onClick={() => handleLinkProvider('google')}
                                 className="inline-flex items-center gap-1 rounded-full border border-zinc-300 px-2.5 py-1 text-[11px] font-semibold text-zinc-900 hover:bg-zinc-100 cursor-pointer dark:border-[#D9FF43]/50 dark:text-[#D9FF43] dark:hover:bg-[#D9FF43]/10"
                               >
@@ -1413,12 +1415,12 @@ export function AuthDialog({
 
                     <button
                       type="button"
-                      disabled={!isSupabaseConfigured || busy}
+                      disabled={!isSupabaseConfigured || !GOOGLE_AUTH_ENABLED || busy}
                       onClick={() => handleOAuthSignIn('google')}
                       className="inline-flex min-h-[44px] items-center justify-center gap-2.5 rounded-xl border border-zinc-300 bg-white px-4 py-2.5 text-xs font-semibold text-zinc-950 hover:bg-zinc-50 disabled:opacity-50 transition-colors cursor-pointer dark:border-white/15 dark:bg-[#121218] dark:text-white dark:hover:border-[#D9FF43]/60 dark:hover:bg-[#17171F]"
                     >
                       <GoogleMark />
-                      <span>المتابعة عبر Google</span>
+                      <span>{GOOGLE_AUTH_ENABLED ? 'المتابعة عبر Google' : 'Google — غير مفعّل حالياً'}</span>
                     </button>
                   </div>
 
