@@ -5,9 +5,9 @@
 Do not train a general language model from scratch. Start from a Darija-specific pretrained encoder, fine-tune for classification, and compare against a simple character n-gram baseline. Keep deterministic rules as a separate safety layer.
 
 Candidate pretrained encoders:
-- SI2M-Lab/DarijaBERT — Darija-focused Arabic-script encoder.
-- SI2M-Lab/DarijaBERT-arabizi — Latin-script/Arabizi variant.
-- SI2M-Lab/DarijaBERT-mix — mixed-script candidate.
+- [SI2M-Lab/DarijaBERT](https://huggingface.co/SI2M-Lab/DarijaBERT) — Darija-focused Arabic-script encoder.
+- [SI2M-Lab/DarijaBERT-arabizi](https://huggingface.co/SI2M-Lab/DarijaBERT-arabizi) — Latin-script/Arabizi variant; its model card describes a large Arabizi-specific pretraining corpus.
+- [SI2M-Lab/DarijaBERT-mix](https://huggingface.co/SI2M-Lab/DarijaBERT-mix) — mixed-script candidate; the currently visible model card is sparse.
 
 Model cards and weights must be reviewed for license, provenance, revision pinning, and security before download. The mixed model card is currently sparse; do not assume that its license or training-data rights are clear. Compare models on the same locked benchmark rather than selecting by name or popularity.
 
