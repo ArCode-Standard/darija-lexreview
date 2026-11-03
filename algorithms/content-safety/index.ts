@@ -3,7 +3,7 @@ import type { ContentSafetyResult, ContentSurface, SafetyLexiconRule, SafetyPoli
 export * from './normalize'
 export * from './types'
 export * from './darija-seed-lexicon'
-export const CONTENT_SAFETY_ENGINE_VERSION = '0.2.0'
+export const CONTENT_SAFETY_ENGINE_VERSION = '0.2.1'
 const CONTEXTUAL_PURPOSES = new Set(['dictionary_definition', 'linguistic_analysis', 'academic_quote', 'moderation_report'])
 const RULE_CATEGORIES = new Set(['profanity', 'personal_abuse', 'hate_speech', 'threat'])
 const CONTENT_SURFACES = new Set(['profile', 'lexicon', 'contribution', 'review', 'comment', 'discussion', 'report', 'private_message', 'admin'])
@@ -11,11 +11,18 @@ const CONTENT_PURPOSES = new Set(['general', 'dictionary_definition', 'linguisti
 function phraseMatches(text: string, phrase: string): boolean {
   return (' ' + text + ' ').includes(' ' + normalizeSafetyText(phrase) + ' ')
 }
+function escapeRegexCharacter(character: string): string {
+  return character.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
 function phraseMatchesWithSeparators(text: string, phrase: string): boolean {
-  const tokens = phrase.split(' ').filter(Boolean)
+  const tokens = normalizeSafetyText(phrase).split(' ').filter(Boolean)
   if (!tokens.length) return false
-  const tokenPattern = tokens.map((token) => Array.from(token).join('\\s*')).join('\\s+')
-  return new RegExp('(?:^|\\\\s)' + tokenPattern + '(?:$|\\\\s)', 'u').test(text)
+  // Permit spaces and common punctuation between letters, but retain token
+  // boundaries so short rules do not match inside unrelated words.
+  const tokenPattern = tokens
+    .map((token) => Array.from(token).map(escapeRegexCharacter).join('[\\s._*-]*'))
+    .join('\\s+')
+  return new RegExp('(?:^|\\s)' + tokenPattern + '(?:$|\\s)', 'u').test(text)
 }
 function ruleMatches(text: string, skeleton: string, rule: SafetyLexiconRule): boolean {
   const normalizedPhrase = normalizeSafetyText(rule.phrase)
@@ -94,7 +101,7 @@ export function scanContent(input: ScanContentInput, policy: SafetyPolicy): Cont
     score += Math.min(20, (urls - policy.maxUrls) * 5)
     signals.push({ code: 'excessive_urls', category: 'spam', severity: 3, confidence: 'high' })
   }
-  const separatedLetters = /(?:\p{L}[\s.*_-]+){2,}\p{L}/u.test(original)
+  const separatedLetters = /(?:\\p{L}[\\s.*_-]+){2,}\\p{L}/u.test(original)
   if (separatedLetters && signals.some((signal) => signal.category !== 'spam')) {
     score += 6
     signals.push({ code: 'possible_obfuscation', category: 'obfuscation', severity: 2, confidence: 'low' })
