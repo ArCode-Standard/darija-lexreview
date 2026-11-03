@@ -27,4 +27,4 @@ A deterministic TypeScript library for Moroccan Darija text and lexical review. 
 
 ## Validation
 
-Run `bun test` and `bun run build`. Thresholds and heuristics require evaluation against a representative, human-labelled Moroccan Darija dataset before production decision support.
+Run `npm test` and `npm run build`. Thresholds and heuristics require evaluation against a representative, human-labelled Moroccan Darija dataset before production decision support.
