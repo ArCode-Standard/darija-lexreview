@@ -1,6 +1,6 @@
 import type { DatasetExample, DatasetSplit, EvaluationReport, FeedbackCandidate, FeedbackDomain, FeedbackSource, ModelRelease, ReleaseGate } from './types'
 export * from './types'
-const PRIVATE_SOURCES = new Set(['private_message', 'dm', 'direct_message', 'group_message'])
+const ALLOWED_SURFACES = new Set(['profile', 'lexicon', 'contribution', 'review', 'comment', 'discussion', 'report', 'benchmark'])
 const ALLOWED_SOURCES = new Set<FeedbackSource>(['lexicon_suggestion', 'editor_correction', 'moderation_appeal', 'moderation_decision', 'benchmark_annotation'])
 const PERSONAL_DATA_PATTERNS = [/\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/iu, /(?:\+?\d[\d\s().-]{7,}\d)/u]
 export interface SubmitFeedbackInput {
@@ -10,7 +10,7 @@ export interface SubmitFeedbackInput {
 }
 export function submitFeedbackCandidate(input: SubmitFeedbackInput): FeedbackCandidate {
   if (!ALLOWED_SOURCES.has(input.source)) throw new TypeError('Unsupported feedback source')
-  if (PRIVATE_SOURCES.has(input.sourceSurface.toLowerCase())) throw new Error('Private-message content is excluded from the learning pipeline')
+  if (!ALLOWED_SURFACES.has(input.sourceSurface.toLowerCase())) throw new Error('This content surface is not eligible for the learning pipeline')
   if (!input.consentToDatasetUse) throw new Error('Explicit dataset-use consent is required')
   if (!input.license.trim()) throw new Error('A documented data-use license is required')
   if (!input.id.trim() || !input.groupId.trim() || !input.contributorRef.trim()) throw new TypeError('Candidate identifiers and provenance are required')
@@ -47,7 +47,7 @@ function stableHash(value: string): number {
 export function buildApprovedDataset(candidates: FeedbackCandidate[], version: string): DatasetSplit {
   if (!version.trim()) throw new TypeError('Dataset version is required')
   const approved = candidates.filter((candidate) => candidate.status === 'approved' && candidate.consentToDatasetUse &&
-    !candidate.containsPersonalData && !PRIVATE_SOURCES.has(candidate.sourceSurface.toLowerCase()) && candidate.license.trim().length > 0)
+    !candidate.containsPersonalData && ALLOWED_SURFACES.has(candidate.sourceSurface.toLowerCase()) && candidate.license.trim().length > 0)
   const unique = new Map<string, DatasetExample>()
   for (const candidate of approved) {
     const key = candidate.id + ':' + candidate.label
@@ -87,6 +87,10 @@ export function calculateEvaluationReport(datasetVersion: string, expected: stri
 }
 export function evaluateReleaseGate(report: EvaluationReport, gate: ReleaseGate): { approved: boolean; failures: string[] } {
   const failures: string[] = []
+  const thresholds = [gate.minPrecision, gate.minRecall, gate.minMacroF1, gate.minClassF1]
+  if (!Number.isInteger(gate.minSamples) || gate.minSamples < 1 || thresholds.some((value) => !Number.isFinite(value) || value < 0 || value > 1)) {
+    throw new RangeError('Release gate thresholds must be within [0, 1] and minSamples must be a positive integer')
+  }
   if (report.sampleCount < gate.minSamples) failures.push('insufficient_evaluation_samples')
   if (report.macroPrecision < gate.minPrecision) failures.push('macro_precision_below_threshold')
   if (report.macroRecall < gate.minRecall) failures.push('macro_recall_below_threshold')
@@ -96,9 +100,9 @@ export function evaluateReleaseGate(report: EvaluationReport, gate: ReleaseGate)
 }
 export function validateModelRelease(release: ModelRelease, gate: ReleaseGate): { valid: boolean; failures: string[] } {
   const failures = evaluateReleaseGate(release.evaluation, gate).failures
-  if (!release.artifactDigest.trim()) failures.push('missing_artifact_digest')
+  if (!/^sha256:[a-f0-9]{64}$/i.test(release.artifactDigest)) failures.push('invalid_artifact_digest')
   if (!release.datasetVersion.trim() || release.datasetVersion !== release.evaluation.datasetVersion) failures.push('dataset_version_mismatch')
-  if (!release.codeCommit.trim()) failures.push('missing_code_commit')
+  if (!/^[a-f0-9]{7,40}$/i.test(release.codeCommit)) failures.push('invalid_code_commit')
   if (new Set(release.approvedBy).size < 2) failures.push('two_independent_approvals_required')
   return { valid: failures.length === 0, failures }
 }
