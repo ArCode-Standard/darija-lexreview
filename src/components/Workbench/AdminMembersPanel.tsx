@@ -39,7 +39,6 @@ interface AdminMembersPanelProps {
   userEmail: string | null
   isAdmin: boolean
   isEditor: boolean
-  editorialPreviewMode: boolean
   liveMembers: ReviewerProfile[]
   sandboxMembers: ReviewerProfile[]
   loadingMembers: boolean
@@ -163,7 +162,6 @@ export function AdminMembersPanel({
   currentProfile,
   isAdmin,
   isEditor,
-  editorialPreviewMode,
   liveMembers,
   sandboxMembers,
   loadingMembers,
@@ -178,7 +176,6 @@ export function AdminMembersPanel({
   onResetSandbox,
   onOpenPublicDirectory,
 }: AdminMembersPanelProps) {
-  void editorialPreviewMode
   void sandboxMembers
   void sandboxModEvents
   void sandboxModReports
