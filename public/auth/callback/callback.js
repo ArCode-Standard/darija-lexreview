@@ -6,7 +6,7 @@
   } catch (_) {
     document.documentElement.setAttribute('data-theme', 'dark');
   }
-  // Keep the callback same-origin. Never forward auth codes or tokens to window.opener.
+  // Keep the callback same-origin. Never forward authorization codes or tokens to another window.
   // Supabase JS on the app root consumes the PKCE code/hash after this navigation.
   var callbackData = window.location.search + window.location.hash;
   window.location.replace('/' + callbackData);
