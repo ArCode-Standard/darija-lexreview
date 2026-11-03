@@ -551,10 +551,30 @@ language plpgsql
 security definer
 set search_path = ''
 as $function$
+declare
+  v_mode text;
 begin
-  insert into public.reviewer_profiles(id, role)
-  values (new.id, 'reviewer')
-  on conflict (id) do nothing;
+  select s.enforcement_mode into v_mode
+  from private.content_safety_settings s where s.singleton = true;
+
+  if coalesce(v_mode, 'shadow') = 'shadow' then
+    -- Preserve current signup UX during shadow rollout; the content trigger
+    -- records this as an unscanned shadow write for later review.
+    insert into public.reviewer_profiles(id, display_name, dialect_region, specialty, role)
+    values (
+      new.id,
+      nullif(pg_catalog.btrim(coalesce(new.raw_user_meta_data->>'name','')),''),
+      nullif(pg_catalog.btrim(coalesce(new.raw_user_meta_data->>'dialect_region','')),''),
+      nullif(pg_catalog.btrim(coalesce(new.raw_user_meta_data->>'specialty','')),''),
+      'reviewer'
+    )
+    on conflict (id) do nothing;
+  else
+    -- Enforce mode never copies unscanned auth metadata into the public profile.
+    insert into public.reviewer_profiles(id, role)
+    values (new.id, 'reviewer')
+    on conflict (id) do nothing;
+  end if;
 
   insert into public.member_messages(
     recipient_id,is_broadcast,sender_id,sender_label,category,title,body,requires_ack
