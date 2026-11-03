@@ -17,7 +17,6 @@ interface BulkApprovalModalProps {
   entries: LexicalEntry[]
   currentEditorId?: string | null
   editorLabel: string
-  queueSource: 'live' | 'sandbox'
   busy: boolean
   errorMessage: string | null
   onClose: () => void
@@ -36,7 +35,6 @@ export function BulkApprovalModal({
   entries,
   currentEditorId,
   editorLabel,
-  queueSource,
   busy,
   errorMessage,
   onClose,
@@ -108,7 +106,7 @@ export function BulkApprovalModal({
         continue
       }
 
-      if (queueSource === 'live' && sub.status !== 'pending' && sub.status !== 'needs_changes') {
+      if (sub.status !== 'pending' && sub.status !== 'needs_changes') {
         blocked.push({
           sub,
           title,
@@ -118,8 +116,7 @@ export function BulkApprovalModal({
       }
 
       if (
-        queueSource === 'live' &&
-        currentEditorId &&
+                currentEditorId &&
         sub.reviewer_id &&
         sub.reviewer_id === currentEditorId
       ) {
@@ -186,7 +183,7 @@ export function BulkApprovalModal({
     }
 
     return { eligible, blocked, warnings }
-  }, [selectedSubmissions, entryById, entries, queueSource, currentEditorId])
+  }, [selectedSubmissions, entryById, entries, currentEditorId])
 
   if (!open) return null
 
@@ -238,7 +235,7 @@ export function BulkApprovalModal({
         <div className="flex items-start justify-between gap-4 border-b border-zinc-200 px-6 py-5 dark:border-white/10">
           <div>
             <p className="font-mono text-xs font-semibold uppercase tracking-wider text-emerald-700 dark:text-[#D9FF43]">
-              توقيع تحكيمي جماعي · {queueSource === 'live' ? 'سجل Supabase الحي' : 'طابور المحاكاة المحلي'}
+              توقيع تحكيمي جماعي · السجل الرسمي
             </p>
             <h3
               id="bulk-approval-modal-title"
