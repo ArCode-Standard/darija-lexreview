@@ -1,6 +1,6 @@
 begin;
 
-select plan(23);
+select plan(32);
 
 select ok(to_regclass('private.content_scan_tokens') is not null, 'private one-time token table exists');
 select ok(to_regclass('private.feedback_candidates') is not null, 'private governed feedback table exists');
@@ -179,6 +179,95 @@ reset role;
 select ok(
   exists(select 1 from private.content_scan_events where decision='authorized' and table_name='review_submissions'),
   'successful writes produce metadata-only scan audit events'
+);
+
+
+
+select ok(to_regprocedure('public.submit_learning_feedback_candidate(uuid,text,text,text,text,text,text,text,boolean,text,jsonb,text,text)') is not null, 'service-only feedback intake RPC exists');
+select is(
+  has_function_privilege('anon', 'public.review_learning_feedback_candidate(uuid,text,text)', 'EXECUTE'),
+  false,
+  'anon cannot review learning feedback'
+);
+select is(
+  has_function_privilege('authenticated', 'public.review_learning_feedback_candidate(uuid,text,text)', 'EXECUTE'),
+  true,
+  'authenticated users can call the guarded review RPC'
+);
+
+reset role;
+insert into auth.users(id, aud, role, email, raw_app_meta_data, raw_user_meta_data, created_at, updated_at)
+values ('00000000-0000-4000-8000-000000000040', 'authenticated', 'authenticated', 'gateway-test-40@example.invalid', '{}'::jsonb, '{}'::jsonb, now(), now())
+on conflict (id) do nothing;
+update public.reviewer_profiles set role='editor'
+where id in (
+  '00000000-0000-4000-8000-000000000038',
+  '00000000-0000-4000-8000-000000000039',
+  '00000000-0000-4000-8000-000000000040'
+);
+
+select set_config('request.jwt.claim.role', 'service_role', true);
+select throws_ok(
+  $select public.submit_learning_feedback_candidate(
+    '00000000-0000-4000-8000-000000000038','linguistic','lexicon_suggestion','private_message',
+    'private-message-group','private text','example','rationale',true,'CC-BY-4.0','{}'::jsonb,'pii-regex-1',null
+  )$,
+  '22023', null,
+  'private messages cannot enter the learning dataset'
+);
+select throws_ok(
+  $select public.submit_learning_feedback_candidate(
+    '00000000-0000-4000-8000-000000000038','linguistic','lexicon_suggestion','lexicon',
+    'no-consent-group','sample text','example','rationale',false,'CC-BY-4.0','{}'::jsonb,'pii-regex-1',null
+  )$,
+  '22023', null,
+  'feedback without explicit dataset consent is rejected'
+);
+
+select set_config(
+  'app.test_candidate_id',
+  public.submit_learning_feedback_candidate(
+    '00000000-0000-4000-8000-000000000038','content_safety','editor_correction','lexicon',
+    'content-safety-group-1','sample unsafe content for review','unsafe','editorial benchmark rationale',
+    true,'CC-BY-4.0','{}'::jsonb,'pii-regex-1',null
+  )::text,
+  true
+);
+
+select set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000038', true);
+select set_config('request.jwt.claim.role', 'authenticated', true);
+set local role authenticated;
+select throws_ok(
+  $select public.review_learning_feedback_candidate(current_setting('app.test_candidate_id')::uuid,'approve','Self review attempt')$,
+  '42501', null,
+  'contributors cannot review their own training examples'
+);
+
+reset role;
+select set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000039', true);
+select set_config('request.jwt.claim.role', 'authenticated', true);
+set local role authenticated;
+select is(
+  public.review_learning_feedback_candidate(current_setting('app.test_candidate_id')::uuid,'approve','Independent first review'),
+  'pending',
+  'content-safety examples remain pending after one approval'
+);
+
+reset role;
+select set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000040', true);
+select set_config('request.jwt.claim.role', 'authenticated', true);
+set local role authenticated;
+select is(
+  public.review_learning_feedback_candidate(current_setting('app.test_candidate_id')::uuid,'approve','Independent second review'),
+  'approved',
+  'content-safety examples require and accept two independent approvals'
+);
+
+reset role;
+select is(
+  (select count(*)::integer from private.feedback_reviews where candidate_id=current_setting('app.test_candidate_id')::uuid),
+  2,
+  'two distinct editorial review records are persisted'
 );
 
 select * from finish();
