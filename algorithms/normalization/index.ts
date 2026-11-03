@@ -14,6 +14,9 @@ export function normalizeArabiziForSearch(input: string): string {
   return input.normalize('NFKC').toLocaleLowerCase('en').trim()
     .replace(/[’‘\`´]/g, "'").replace(/[-‐‑‒–—_]+/g, ' ').replace(/\s+/g, ' ')
 }
+/** Normalizes mixed Arabic/Latin input without transliterating either script. */
 export function normalizeDarijaSearchKey(input: string): string {
-  return /[\u0600-\u06FF]/.test(input) ? normalizeArabicForSearch(input) : normalizeArabiziForSearch(input)
+  return /[\u0600-\u06FF]/.test(input)
+    ? normalizeArabicForSearch(input).toLocaleLowerCase('en')
+    : normalizeArabiziForSearch(input)
 }
