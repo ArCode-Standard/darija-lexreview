@@ -3,6 +3,8 @@ name: Darija benchmark checks
 on:
   push:
     branches: [feat/darija-benchmark-suite]
+  pull_request:
+    branches: [feat/darija-algorithm-consolidation]
   workflow_dispatch:
 
 permissions:
