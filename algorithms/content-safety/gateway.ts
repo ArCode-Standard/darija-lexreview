@@ -1,4 +1,4 @@
-import { scanContent } from './index'
+import { CONTENT_SAFETY_ENGINE_VERSION, scanContent } from './index'
 import type { ContentDecision, ContentSurface, SafetyPolicy, TrustedContentContext } from './types'
 
 export type ContentFieldValue = string | null | undefined | Array<string | null | undefined>
@@ -49,6 +49,6 @@ export function scanContentPayload(input: ScanContentPayloadInput, policy: Safet
   )
   return {
     decision, requiresHumanReview: fields.some((field) => field.requiresHumanReview),
-    engineVersion: '0.1.1', policyVersion: policy.version, fields,
+    engineVersion: CONTENT_SAFETY_ENGINE_VERSION, policyVersion: policy.version, fields,
   }
 }
