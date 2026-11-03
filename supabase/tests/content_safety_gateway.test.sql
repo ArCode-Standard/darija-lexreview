@@ -121,13 +121,23 @@ select set_config(
 select set_config('request.jwt.claim.role', 'authenticated', true);
 set local role authenticated;
 select throws_ok(
-  $$select public.submit_review_submission(
+  $select public.submit_review_submission(
     '{"entry_id":"gateway-mutated","proposed_data":{"meaning":"tampered"},"evidence":[]}'::jsonb,
     current_setting('app.test_scan_token')
-  )$$,
+  )$,
   '42501',
   null,
   'payload mutation invalidates the token'
+);
+select throws_ok(
+  $select private.consume_content_scan_token(
+    current_setting('app.test_scan_token'),
+    'community_attestations.upsert',
+    '{"entry_id":"gateway-original","proposed_data":{"meaning":"original"},"evidence":[]}'::jsonb
+  )$,
+  '42501',
+  null,
+  'a token cannot be reused for a different operation'
 );
 
 reset role;
