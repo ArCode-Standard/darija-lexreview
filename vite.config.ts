@@ -21,8 +21,6 @@ export default defineConfig({
         'pwa-192x192.png',
         'pwa-512x512.png',
         'pwa-maskable-512x512.png',
-        'assets/darija-lexreview-emblem.png',
-        'assets/darija-lexreview-logo.png',
       ],
       manifest: {
         id: '/',
