@@ -49,6 +49,9 @@ export interface ClassMetrics {
   truePositive: number
   falsePositive: number
   falseNegative: number
+  trueNegative: number
+  falsePositiveRate: number
+  falseNegativeRate: number
   precision: number
   recall: number
   f1: number
@@ -61,6 +64,8 @@ export interface EvaluationReport {
   macroPrecision: number
   macroRecall: number
   macroF1: number
+  macroFalsePositiveRate: number
+  macroFalseNegativeRate: number
 }
 
 export interface ReleaseGate {
@@ -69,6 +74,8 @@ export interface ReleaseGate {
   minRecall: number
   minMacroF1: number
   minClassF1: number
+  maxFalsePositiveRate: number
+  maxFalseNegativeRate: number
 }
 
 export interface ModelRelease {
