@@ -41,7 +41,7 @@ allow_with_context means the workflow may accept a quoted or linguistic mention 
 - block: clear targeted abuse or configured severe policy violation.
 - urgent_escalation: threat signal requiring urgent human review.
 
-A profanity-only hit is not an automatic block. Compact or obfuscated matches are context signals and must be validated against a human-labelled benchmark. Moroccan Arabizi digit conventions (2/3/5/6/7/8/9) are normalized to their Arabic phonetic counterparts; English leetspeak substitutions are kept separate to avoid conflating Darija transliteration with unrelated Latin characters. Separated-letter matching permits limited spaces and punctuation while preserving word boundaries.
+Text-derived Darija direct-address cues (for example, second-person forms) can raise a low-confidence review signal when an insult is also present; they never authorize a block. Only server-derived targeting context can do that. A profanity-only hit is not an automatic block. Compact or obfuscated matches are context signals and must be validated against a human-labelled benchmark. Moroccan Arabizi digit conventions (2/3/5/6/7/8/9) are normalized to their Arabic phonetic counterparts; English leetspeak substitutions are kept separate to avoid conflating Darija transliteration with unrelated Latin characters. Separated-letter matching permits limited spaces and punctuation while preserving word boundaries.
 
 ## Server-side requirement
 
