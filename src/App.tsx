@@ -1040,7 +1040,6 @@ export default function App() {
           <Footer
             darkMode={darkMode}
             onToggleDarkMode={() => setDarkMode((prev) => !prev)}
-            isStaffRole={isStaffRole}
             onOpenContributors={() => navigatePage('contributors')}
           />
         </div>
