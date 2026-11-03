@@ -19,15 +19,15 @@ A React-only scan or an Edge Function that merely returns allow/block is insuffi
    - engine and policy versions;
    - expiration time and one-time nonce.
 6. The client calls a table-specific authenticated RPC with the original payload and token.
-7. The database function verifies the caller with auth.uid(), checks the token and payload digest, consumes the token atomically, and performs the write in the same transaction.
-8. A database trigger rejects protected INSERT/UPDATE operations that do not consume a valid token. Direct REST writes therefore cannot bypass the scanner.
-9. Existing audit, RLS, ownership, rate-limit, and lifecycle triggers remain active. The RPC must not bypass actor identity or weaken current invariants.
+7. The public RPC is SECURITY INVOKER. It calls a private SECURITY DEFINER helper to validate and reserve the token, then sets a transaction-local token ID with set_config and performs the INSERT/UPDATE itself. Because the write runs as the caller, existing RLS policies and auth.uid() actor attribution remain in force.
+8. A database trigger on each protected table checks the transaction-local token ID, actor, operation, expiry, and exact content-field digest. Direct REST writes have no valid transaction-local token and are rejected. If the write fails, token reservation rolls back with the transaction.
+9. Existing audit, RLS, ownership, rate-limit, and lifecycle triggers remain active. Do not move the actual table write into a SECURITY DEFINER helper, because that would bypass the existing RLS context.
 
 ## Why a one-time token
 
 A token is safer than trusting a client-supplied boolean such as scanned=true. It is generated only after the server scan, expires quickly, is single-use, and is cryptographically bound to the exact payload and actor. Changing one field invalidates it.
 
-The token must not contain the original text. Store only the digest and minimum metadata in a private, non-exposed schema. Expired tokens should be purged automatically. Never store the token secret or service-role key in the browser.
+The token must not contain the original text. Store only the digest and minimum metadata in a private, non-exposed schema. The token-issuer RPC must be executable by service_role only. Expired tokens should be purged automatically. Never store the token secret or service-role key in the browser.
 
 ## RPC and database boundaries
 
