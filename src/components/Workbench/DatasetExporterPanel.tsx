@@ -336,26 +336,7 @@ export function DatasetExporterPanel({
 
     setArchiveFeedback(null)
 
-    if (false) {
-      onMarkSandboxMerged({
-        ids: appliedIds,
-        releaseVersion: cleanVersion,
-        editorId: profile?.id ?? 'ed-session',
-        editorDisplayName: editorName,
-      })
-      persistArchivedIds(appliedIds, cleanVersion)
-      persistLocalManifest(manifestDraft)
-      setGithubPrUrl('')
-      setReleaseNotes('')
-      setHasDownloadedCurrentBatch(false)
-      setArchiveFeedback({
-        type: 'success',
-        text: `تم تثبيت وأرشفة ${appliedIds.length} مقترحات بحالة «مدمج في الإصدار v${cleanVersion}» وتسجيل بصمة SHA-256 في سجل الإصدارات.`,
-      })
-      return
-    }
-
-    if (!supabase || !isAuthorizedLiveEditor) {
+        if (!supabase || !isAuthorizedLiveEditor) {
       setArchiveFeedback({
         type: 'error',
         text: 'يلزم تسجيل الدخول بحساب محرر معتمد لأرشفة الدفعات في السجل الحي.',
@@ -430,10 +411,7 @@ export function DatasetExporterPanel({
   }
 
   const displayedManifests = useMemo(() => {
-    if (false) {
-      return localManifests
-    }
-    const byVersion = new Map<string, ReleaseManifestRecord>()
+        const byVersion = new Map<string, ReleaseManifestRecord>()
     for (const m of liveManifests) byVersion.set(m.version, m)
     for (const m of localManifests) {
       if (!m.is_sandbox && !byVersion.has(m.version)) {
@@ -832,9 +810,7 @@ export function DatasetExporterPanel({
             {(Object.keys(archivedReleaseMap).length > 0 || mergedSandboxCount > 0) && (
               <span className="font-mono tabular-nums text-emerald-700 dark:text-[#D9FF43]">
                 سجلات مؤرشفة في إصدارات سابقة:{' '}
-                {false
-                  ? Math.max(mergedSandboxCount, Object.keys(archivedReleaseMap).length)
-                  : Object.keys(archivedReleaseMap).length}
+                {Object.keys(archivedReleaseMap).length}
               </span>
             )}
           </div>
