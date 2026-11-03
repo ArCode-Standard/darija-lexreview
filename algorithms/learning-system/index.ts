@@ -86,7 +86,10 @@ export function calculateEvaluationReport(datasetVersion: string, expected: stri
     return { label, truePositive, falsePositive, falseNegative, trueNegative, falsePositiveRate, falseNegativeRate, precision, recall, f1 }
   })
   const mean = (values: number[]) => values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : 0
-  return { datasetVersion, sampleCount: expected.length, classes, macroPrecision: mean(classes.map((item) => item.precision)), macroRecall: mean(classes.map((item) => item.recall)), macroF1: mean(classes.map((item) => item.f1)) }
+  return { datasetVersion, sampleCount: expected.length, classes, macroPrecision: mean(classes.map((item) => item.precision)), macroRecall: mean(classes.map((item) => item.recall)), macroF1: mean(classes.map((item) => item.f1)),
+    macroFalsePositiveRate: mean(classes.map((item) => item.falsePositiveRate)),
+    macroFalseNegativeRate: mean(classes.map((item) => item.falseNegativeRate)),
+  }
 }
 export function evaluateReleaseGate(report: EvaluationReport, gate: ReleaseGate): { approved: boolean; failures: string[] } {
   const failures: string[] = []
