@@ -8,10 +8,14 @@ This function is a server-side scanning and authorization-token issuer. It does 
 - The handler independently resolves the supplied JWT with `auth.getUser()`.
 - The actor role and standing are loaded from `reviewer_profiles`; client role/context/table names are ignored.
 - The operation is an exact allowlist. The table and writable columns are derived from that operation.
-- The service-role key is used only server-side to issue a short-lived token through `issue_content_scan_token`.
+- The handler bounds request size, nested-content depth, array sizes, and mapped text fields.
+- Trusted contexts are derived only from the operation map. Moderation-report evidence and dictionary/review content are restricted workflow contexts, not public-safe content.
+- Every decision is written to a private audit table as a SHA-256 content digest plus bounded signal metadata. Raw submitted text is not written to audit logs.
+- The service-role key is used only server-side to record audit metadata and issue a short-lived token through service-role-only RPCs.
 - The token is bound in PostgreSQL to actor ID, operation, and the exact JSONB payload digest. It expires after 90 seconds and is single-use.
-- The Edge Function returns no token for `review`, `block`, or `urgent_escalation`.
-- Errors and audit logs never include submitted text.
+- The database trigger checks the transaction-scoped token and table/operation match. SECURITY INVOKER write RPCs preserve the caller's RLS context.
+- The Edge Function returns no token for `review`, `block`, or `urgent_escalation` decisions.
+- Exact-origin CORS allowlisting; wildcard origins are not supported.
 
 ## Required secrets
 
@@ -21,7 +25,7 @@ Before any deployment, configure:
 - `CONTENT_SAFETY_POLICY_JSON`: a reviewed, versioned policy object with at least one curated rule.
 - Supabase's standard `SUPABASE_URL`, `SUPABASE_ANON_KEY`, and `SUPABASE_SERVICE_ROLE_KEY` function secrets.
 
-An absent or empty policy fails closed with HTTP 503. No profanity list is invented or embedded in this repository; policy content must be curated, licensed, benchmarked, and reviewed by Darija editors.
+An absent or empty policy fails closed with HTTP 503. No profanity list is invented or embedded in this repository; policy content must be curated, licensed, and benchmarked by Darija editors.
 
 ## Request
 
@@ -37,7 +41,7 @@ An absent or empty policy fails closed with HTTP 503. No profanity list is inven
 }
 ```
 
-The client must then pass the unchanged payload and returned `writeToken` to the matching table-specific SECURITY INVOKER RPC. Editing the payload invalidates the token.
+The response contains `writeToken` and `writePayload`. The client must pass both unchanged to the matching table-specific SECURITY INVOKER RPC. Editing the payload invalidates the token. For message creation, `writePayload` includes the server-derived sender label.
 
 ## Supported operation map
 
@@ -56,4 +60,4 @@ The client must then pass the unchanged payload and returned `writeToken` to the
 
 ## Current status
 
-Not deployed. The matching SQL is currently in `supabase/drafts/`, not in the executable migrations directory. The project currently has no deployed Edge Functions. Do not switch the database from shadow to enforce until the SQL is generated as a proper migration, CI/pgTAP passes, every client write path is migrated, and bypass tests are verified.
+Not deployed. The matching SQL is currently in `supabase/drafts/`, not in the executable migrations directory. CI generates a migration with `supabase migration new` in its isolated runner and copies this draft into it before rebuilding the database. Do not switch the database from shadow to enforce until the migration is committed, all client write paths are migrated, and bypass tests pass.
