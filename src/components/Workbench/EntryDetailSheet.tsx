@@ -12,7 +12,6 @@ import {
   ChevronDown,
   AlertCircle,
   CheckCircle2,
-  FlaskConical,
   ArrowLeft,
   GitBranch,
   Wand2,
@@ -82,14 +81,6 @@ interface EntryDetailSheetProps {
   onNext: () => void
   onSaveDraft: (draft: LocalDraft) => void
   onRemoveDraft: (entryId: string) => void
-  onAddSandboxSubmission: (params: {
-    entryId: string
-    proposedData: ProposedFields
-    evidence: EvidenceItem[]
-    reviewerNote: string | null
-    supersedesId?: string | null
-  }) => void
-  onOpenModerationSandbox: () => void
   onRequireLogin: () => void
   onSubmissionSuccess: () => void
   initialOpenEdit?: boolean
@@ -197,8 +188,6 @@ export function EntryDetailSheet({
   onNext,
   onSaveDraft,
   onRemoveDraft,
-  onAddSandboxSubmission,
-  onOpenModerationSandbox,
   onRequireLogin,
   onSubmissionSuccess,
   initialOpenEdit = false,
@@ -235,7 +224,6 @@ export function EntryDetailSheet({
   const [feedback, setFeedback] = useState<{
     type: 'error' | 'success' | 'info'
     text: string
-    showSandboxJump?: boolean
   } | null>(null)
 
   useEffect(() => {
@@ -488,33 +476,6 @@ export function EntryDetailSheet({
     setFeedback({
       type: 'info',
       text: 'حُفظت مسودتك تلقائياً على هذا الجهاز، ويمكنك العودة إليها أو إرسالها في أي وقت.',
-    })
-  }
-
-  function handleSendToSandbox() {
-    const check = validateProposalInputs()
-    if (!check.valid) {
-      setFeedback({ type: 'error', text: check.error ?? 'تحقق من المدخلات.' })
-      return
-    }
-
-    onAddSandboxSubmission({
-      entryId: entry.id,
-      proposedData: buildCleanProposedData(),
-      evidence: check.cleanedEvidence,
-      reviewerNote: reviewerNote.trim() || `مقترح تحديث على «${entry.word}»`,
-      supersedesId: activeRevision ? activeRevision.id : null,
-    })
-
-    if (existingDraft) onRemoveDraft(entry.id)
-    if (activeRevision) onClearRevisionTarget?.()
-    setForm({})
-    setEvidenceList([{ url: '', note: '' }])
-    setReviewerNote('')
-    setFeedback({
-      type: 'success',
-      text: 'أُضيف المقترح إلى طابور المحررين المحلي للفحص.',
-      showSandboxJump: true,
     })
   }
 
@@ -1404,16 +1365,7 @@ export function EntryDetailSheet({
                   </span>
                 </button>
 
-                {canAccessEditorialTools && (
-                  <button
-                    type="button"
-                    onClick={handleSendToSandbox}
-                    className="inline-flex min-h-[42px] items-center gap-2 rounded-full border border-emerald-700/40 bg-zinc-50 px-4 py-2.5 text-xs font-semibold text-emerald-800 hover:bg-zinc-100 transition-colors whitespace-nowrap shrink-0 cursor-pointer dark:border-[#D9FF43]/40 dark:bg-[#07070A] dark:text-[#D9FF43] dark:hover:bg-white/5"
-                  >
-                    <FlaskConical className="h-3.5 w-3.5" aria-hidden="true" />
-                    <span>إرسال لطابور الاختبار</span>
-                  </button>
-                )}
+
 
                 <button
                   type="button"
@@ -1455,16 +1407,7 @@ export function EntryDetailSheet({
                   )}
                   <span>{feedback.text}</span>
                 </div>
-                {feedback.showSandboxJump && canAccessEditorialTools && (
-                  <button
-                    type="button"
-                    onClick={onOpenModerationSandbox}
-                    className="inline-flex items-center gap-1 font-semibold text-emerald-700 hover:underline whitespace-nowrap cursor-pointer dark:text-[#D9FF43]"
-                  >
-                    <span>افتح لوحة المحررين</span>
-                    <ArrowLeft className="h-3.5 w-3.5" />
-                  </button>
-                )}
+
               </div>
             )}
           </div>
