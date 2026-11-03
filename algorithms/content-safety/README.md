@@ -1,6 +1,6 @@
 # Content Safety Engine
 
-A deterministic, configurable scanning library (engine version 0.2.1). It is an initial policy engine, not a trained classifier.
+A deterministic, configurable scanning library (engine version 0.3.0). It is an initial policy engine, not a trained classifier.
 
 ## Core APIs
 
