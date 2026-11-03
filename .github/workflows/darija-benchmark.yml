@@ -1,0 +1,34 @@
+name: Darija benchmark checks
+
+on:
+  push:
+    branches: [feat/darija-benchmark-suite]
+  pull_request:
+    branches: [feat/darija-algorithm-consolidation]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: darija-benchmark-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  benchmark:
+    name: TypeScript, unit tests and benchmark
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+      - name: Install dependencies
+        run: npm install
+      - name: TypeScript checks
+        run: npm run lint
+      - name: Unit tests and benchmark metrics
+        run: npm test -- --reporter=verbose
+      - name: Production build
+        run: npm run build
