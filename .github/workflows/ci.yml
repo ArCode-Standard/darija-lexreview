@@ -52,3 +52,15 @@ jobs:
       - name: Stop isolated Supabase stack
         if: always()
         run: supabase stop --no-backup
+
+
+  edge-functions:
+    name: Edge Function type checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - name: Type-check content safety gateway
+        run: deno check --config supabase/functions/deno.json supabase/functions/content-safety-gateway/index.ts
