@@ -38,6 +38,10 @@ export const DARIJA_SAFETY_SEED_RULES: SafetyLexiconRule[] = [
   { id: 'darija-abuse-013', phrase: 'قليل التربية', category: 'personal_abuse', severity: 3 },
   { id: 'darija-abuse-014', phrase: 'حمارة', category: 'personal_abuse', severity: 3 },
   { id: 'darija-abuse-015', phrase: 'بهيمة', category: 'personal_abuse', severity: 3 },
+  { id: 'darija-abuse-016', phrase: 'مكلخة', category: 'personal_abuse', severity: 3 },
+  { id: 'darija-abuse-017', phrase: 'غبية', category: 'personal_abuse', severity: 2 },
+  { id: 'darija-abuse-018', phrase: 'كلبة', category: 'personal_abuse', severity: 3 },
+  { id: 'darija-abuse-019', phrase: 'حيوانة', category: 'personal_abuse', severity: 2 },
 
   // Latin / Arabizi variants commonly used in Moroccan online writing.
   { id: 'darija-lat-001', phrase: 'khra', category: 'profanity', severity: 2 },
@@ -50,7 +54,8 @@ export const DARIJA_SAFETY_SEED_RULES: SafetyLexiconRule[] = [
   { id: 'darija-lat-008', phrase: '9ahba', category: 'personal_abuse', severity: 4 },
   { id: 'darija-lat-009', phrase: '7mar', category: 'personal_abuse', severity: 3 },
   { id: 'darija-lat-010', phrase: 'hmar', category: 'personal_abuse', severity: 3 },
-  { id: 'darija-lat-011', phrase: 'zamel', category: 'personal_abuse', severity: 4 },
+  // Avoid ambiguous identity-targeted slurs until dialect and policy review.
+  { id: 'darija-lat-019', phrase: '9e7ba', category: 'personal_abuse', severity: 4 },
   { id: 'darija-lat-012', phrase: 'kelkh', category: 'personal_abuse', severity: 3 },
   { id: 'darija-lat-013', phrase: 'mkellekh', category: 'personal_abuse', severity: 3 },
   { id: 'darija-lat-014', phrase: 'ghbi', category: 'personal_abuse', severity: 2 },
@@ -58,6 +63,10 @@ export const DARIJA_SAFETY_SEED_RULES: SafetyLexiconRule[] = [
   { id: 'darija-lat-016', phrase: 'tafeh', category: 'personal_abuse', severity: 2 },
   { id: 'darija-lat-017', phrase: 'weld l7ram', category: 'personal_abuse', severity: 4 },
   { id: 'darija-lat-018', phrase: 'sir t9awed', category: 'personal_abuse', severity: 4 },
+  { id: 'darija-lat-020', phrase: 'mklkha', category: 'personal_abuse', severity: 3 },
+  { id: 'darija-lat-021', phrase: 'ghbia', category: 'personal_abuse', severity: 2 },
+  { id: 'darija-lat-022', phrase: 'kelba', category: 'personal_abuse', severity: 3 },
+  { id: 'darija-lat-023', phrase: '7iwana', category: 'personal_abuse', severity: 2 },
 ]
 
 export function createDefaultDarijaSafetyPolicy(
