@@ -391,7 +391,6 @@ export function useCommunityGovernanceAndMessages({
     }): Promise<{ ok: boolean; error?: string }> => {
       const now = new Date().toISOString()
       const cleanReason = params.reason?.trim() || null
-      const actorName = currentProfile?.display_name || userEmail?.split('@')[0] || 'مشرف عام'
 
       const nextStatus: AccountStatus =
         params.action === 'warn'
@@ -475,7 +474,6 @@ export function useCommunityGovernanceAndMessages({
       requiresAck?: boolean
       pinDays?: number
     }): Promise<{ ok: boolean; error?: string }> => {
-      const now = new Date().toISOString()
       const senderLabel =
         currentProfile?.role === 'admin'
           ? `الإدارة العامة (${currentProfile.display_name || 'مشرف'})`
@@ -527,7 +525,6 @@ export function useCommunityGovernanceAndMessages({
       recommendedAction: 'warn' | 'suspend' | 'ban'
       reason: string
     }): Promise<{ ok: boolean; error?: string }> => {
-      const now = new Date().toISOString()
       const reporterName = currentProfile?.display_name || userEmail?.split('@')[0] || 'محرر معتمد'
 
 
