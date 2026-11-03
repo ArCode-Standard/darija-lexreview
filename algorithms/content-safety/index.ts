@@ -30,7 +30,21 @@ export interface ScanContentInput {
   now?: Date
 }
 export function scanContent(input: ScanContentInput, policy: SafetyPolicy): ContentSafetyResult {
-  if (!policy.version.trim()) throw new TypeError('policy.version is required')
+  if (!input || typeof input.text !== 'string') throw new TypeError('input.text must be a string')
+  if (!policy || !policy.version.trim()) throw new TypeError('policy.version is required')
+  if (!Number.isInteger(policy.maxCharacters) || policy.maxCharacters < 1 ||
+      !Number.isInteger(policy.maxRepeatedCharacterRun) || policy.maxRepeatedCharacterRun < 1 ||
+      !Number.isInteger(policy.maxUrls) || policy.maxUrls < 0) {
+    throw new RangeError('Safety content limits must be non-negative integers; maxCharacters and repeated-run limit must be positive')
+  }
+  const ruleIds = new Set<string>()
+  for (const rule of policy.rules) {
+    if (!rule.id.trim() || ruleIds.has(rule.id) || !normalizeSafetyText(rule.phrase) ||
+        !Number.isInteger(rule.severity) || rule.severity < 1 || rule.severity > 5) {
+      throw new TypeError('Safety rules require unique IDs, non-empty phrases, and severity from 1 to 5')
+    }
+    ruleIds.add(rule.id)
+  }
   if (!Number.isFinite(policy.reviewThreshold) || !Number.isFinite(policy.blockThreshold) ||
       policy.reviewThreshold < 0 || policy.blockThreshold > 100 ||
       policy.reviewThreshold > policy.blockThreshold) throw new RangeError('Safety thresholds must satisfy 0 <= reviewThreshold <= blockThreshold <= 100')
