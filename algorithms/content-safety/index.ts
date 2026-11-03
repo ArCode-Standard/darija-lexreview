@@ -90,7 +90,7 @@ export function scanContent(input: ScanContentInput, policy: SafetyPolicy): Cont
     signals.push({ code: targeted ? rule.category + '_targeted' : rule.category + '_term_match', category: rule.category, severity: rule.severity, ruleId: rule.id, confidence: 'medium' })
   }
   const hasPersonalAbuseSignal = signals.some((signal) => signal.category === 'personal_abuse')
-  const hasDarijaDirectAddress = /(?:^|\\s)(?:nta|nti|ntoma|ntouma|نتا|نتي|نتوما|انتما)(?:$|\\s)/u.test(normalized)
+  const hasDarijaDirectAddress = /(?:^|\s)(?:nta|nti|ntoma|ntouma|نتا|نتي|نتوما|انتما)(?:$|\s)/u.test(normalized)
   if (hasPersonalAbuseSignal && hasDarijaDirectAddress) {
     // Text-derived cues only increase review confidence; they are never trusted
     // authorization to block. Blocking still requires server-derived context.
