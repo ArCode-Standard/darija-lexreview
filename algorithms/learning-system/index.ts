@@ -29,7 +29,6 @@ export function reviewFeedbackCandidate(input: ReviewFeedbackInput): FeedbackCan
   if (!input.reason.trim()) throw new TypeError('A review reason is required')
   if (input.reviewerRef === input.candidate.contributorRef) throw new Error('Contributors cannot approve their own feedback')
   if (input.candidate.reviews.some((review) => review.reviewerRef === input.reviewerRef)) throw new Error('A reviewer cannot review the same candidate twice')
-  const priorApproval = input.candidate.reviews.some((review) => review.decision === 'approve')
   const review = { reviewerRef: input.reviewerRef, role: input.role, decision: input.decision, reason: input.reason.trim(), reviewedAt: (input.reviewedAt ?? new Date()).toISOString() }
   const reviews = [...input.candidate.reviews, review]
   const approvalCount = reviews.filter((item) => item.decision === 'approve').length
@@ -78,17 +77,20 @@ export function calculateEvaluationReport(datasetVersion: string, expected: stri
       else if (expected[index] !== label && predicted[index] === label) falsePositive += 1
       else if (expected[index] === label && predicted[index] !== label) falseNegative += 1
     }
+    const trueNegative = expected.length - truePositive - falsePositive - falseNegative
+    const falsePositiveRate = falsePositive + trueNegative === 0 ? 0 : falsePositive / (falsePositive + trueNegative)
+    const falseNegativeRate = falseNegative + truePositive === 0 ? 0 : falseNegative / (falseNegative + truePositive)
     const precision = truePositive + falsePositive === 0 ? 0 : truePositive / (truePositive + falsePositive)
     const recall = truePositive + falseNegative === 0 ? 0 : truePositive / (truePositive + falseNegative)
     const f1 = precision + recall === 0 ? 0 : 2 * precision * recall / (precision + recall)
-    return { label, truePositive, falsePositive, falseNegative, precision, recall, f1 }
+    return { label, truePositive, falsePositive, falseNegative, trueNegative, falsePositiveRate, falseNegativeRate, precision, recall, f1 }
   })
   const mean = (values: number[]) => values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : 0
   return { datasetVersion, sampleCount: expected.length, classes, macroPrecision: mean(classes.map((item) => item.precision)), macroRecall: mean(classes.map((item) => item.recall)), macroF1: mean(classes.map((item) => item.f1)) }
 }
 export function evaluateReleaseGate(report: EvaluationReport, gate: ReleaseGate): { approved: boolean; failures: string[] } {
   const failures: string[] = []
-  const thresholds = [gate.minPrecision, gate.minRecall, gate.minMacroF1, gate.minClassF1]
+  const thresholds = [gate.minPrecision, gate.minRecall, gate.minMacroF1, gate.minClassF1, gate.maxFalsePositiveRate, gate.maxFalseNegativeRate]
   if (!Number.isInteger(gate.minSamples) || gate.minSamples < 1 || thresholds.some((value) => !Number.isFinite(value) || value < 0 || value > 1)) {
     throw new RangeError('Release gate thresholds must be within [0, 1] and minSamples must be a positive integer')
   }
@@ -97,6 +99,8 @@ export function evaluateReleaseGate(report: EvaluationReport, gate: ReleaseGate)
   if (report.macroRecall < gate.minRecall) failures.push('macro_recall_below_threshold')
   if (report.macroF1 < gate.minMacroF1) failures.push('macro_f1_below_threshold')
   if (report.classes.some((item) => item.f1 < gate.minClassF1)) failures.push('class_f1_below_threshold')
+  if (report.classes.some((item) => item.falsePositiveRate > gate.maxFalsePositiveRate)) failures.push('class_false_positive_rate_above_threshold')
+  if (report.classes.some((item) => item.falseNegativeRate > gate.maxFalseNegativeRate)) failures.push('class_false_negative_rate_above_threshold')
   return { approved: failures.length === 0, failures }
 }
 export function validateModelRelease(release: ModelRelease, gate: ReleaseGate): { valid: boolean; failures: string[] } {
