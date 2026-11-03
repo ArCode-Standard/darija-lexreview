@@ -1,0 +1,161 @@
+import type { DatasetExample, DatasetSplit, EvaluationReport, FeedbackCandidate, FeedbackDomain, FeedbackSource, ModelRelease, ReleaseGate } from './types'
+export * from './types'
+
+const PRIVATE_SOURCES = new Set(['private_message', 'dm', 'direct_message', 'group_message'])
+const ALLOWED_SOURCES = new Set<FeedbackSource>(['lexicon_suggestion', 'editor_correction', 'moderation_appeal', 'moderation_decision', 'benchmark_annotation'])
+const PERSONAL_DATA_PATTERNS = [
+  /\\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\\.[A-Z]{2,}\\b/iu,
+  /(?:\\+?\\d[\\d\\s().-]{7,}\\d)/u,
+]
+
+export interface SubmitFeedbackInput {
+  id: string
+  domain: FeedbackDomain
+  source: FeedbackSource
+  sourceSurface: string
+  groupId: string
+  text: string
+  label: string
+  rationale: string
+  contributorRef: string
+  consentToDatasetUse: boolean
+  license: string
+  createdAt?: Date
+}
+
+export function submitFeedbackCandidate(input: SubmitFeedbackInput): FeedbackCandidate {
+  if (!ALLOWED_SOURCES.has(input.source)) throw new TypeError('Unsupported feedback source')
+  if (PRIVATE_SOURCES.has(input.sourceSurface.toLowerCase())) throw new Error('Private-message content is excluded from the learning pipeline')
+  if (!input.consentToDatasetUse) throw new Error('Explicit dataset-use consent is required')
+  if (!input.license.trim()) throw new Error('A documented data-use license is required')
+  if (!input.id.trim() || !input.groupId.trim() || !input.contributorRef.trim()) throw new TypeError('Candidate identifiers and provenance are required')
+  const text = input.text.trim()
+  if (!text || !input.label.trim() || !input.rationale.trim()) throw new TypeError('Text, label, and rationale are required')
+  if (PERSONAL_DATA_PATTERNS.some((pattern) => pattern.test(text))) throw new Error('Candidate appears to contain personal data and must be redacted before submission')
+  return {
+    ...input,
+    text,
+    status: 'pending',
+    containsPersonalData: false,
+    createdAt: (input.createdAt ?? new Date()).toISOString(),
+    reviews: [],
+  }
+}
+
+export interface ReviewFeedbackInput {
+  candidate: FeedbackCandidate
+  reviewerRef: string
+  role: 'user' | 'editor' | 'admin'
+  decision: 'approve' | 'reject'
+  reason: string
+  reviewedAt?: Date
+}
+
+export function reviewFeedbackCandidate(input: ReviewFeedbackInput): FeedbackCandidate {
+  if (input.role !== 'editor' && input.role !== 'admin') throw new Error('Only editors or admins can review learning candidates')
+  if (input.candidate.status !== 'pending') throw new Error('Only pending candidates can be reviewed')
+  if (!input.reason.trim()) throw new TypeError('A review reason is required')
+  if (input.reviewerRef === input.candidate.contributorRef) throw new Error('Contributors cannot approve their own feedback')
+  const priorApproval = input.candidate.reviews.some((review) => review.decision === 'approve')
+  if (input.candidate.domain === 'content_safety' && input.decision === 'approve' && priorApproval) {
+    throw new Error('Safety examples require independent review; this candidate already has an approval')
+  }
+  const review = {
+    reviewerRef: input.reviewerRef,
+    role: input.role,
+    decision: input.decision,
+    reason: input.reason.trim(),
+    reviewedAt: (input.reviewedAt ?? new Date()).toISOString(),
+  }
+  const reviews = [...input.candidate.reviews, review]
+  const approvalCount = reviews.filter((item) => item.decision === 'approve').length
+  const rejectionCount = reviews.filter((item) => item.decision === 'reject').length
+  const approved = input.candidate.domain === 'content_safety' ? approvalCount >= 2 && rejectionCount === 0 : approvalCount >= 1 && rejectionCount === 0
+  return { ...input.candidate, reviews, status: rejectionCount > 0 ? 'rejected' : approved ? 'approved' : 'pending' }
+}
+
+function stableHash(value: string): number {
+  let hash = 2166136261
+  for (let index = 0; index < value.length; index += 1) {
+    hash ^= value.charCodeAt(index)
+    hash = Math.imul(hash, 16777619)
+  }
+  return hash >>> 0
+}
+
+/** Group-aware splits prevent related examples from leaking across train/validation/test. */
+export function buildApprovedDataset(candidates: FeedbackCandidate[], version: string): DatasetSplit {
+  if (!version.trim()) throw new TypeError('Dataset version is required')
+  const approved = candidates.filter((candidate) =>
+    candidate.status === 'approved' && candidate.consentToDatasetUse &&
+    !candidate.containsPersonalData && !PRIVATE_SOURCES.has(candidate.sourceSurface.toLowerCase()) &&
+    candidate.license.trim().length > 0,
+  )
+  const unique = new Map<string, DatasetExample>()
+  for (const candidate of approved) {
+    const key = candidate.id + ':' + candidate.label
+    if (unique.has(key)) continue
+    unique.set(key, {
+      id: candidate.id, groupId: candidate.groupId, text: candidate.text,
+      label: candidate.label, domain: candidate.domain, source: candidate.source, license: candidate.license,
+    })
+  }
+  const examples = [...unique.values()].sort((a, b) => a.id.localeCompare(b.id))
+  const train: DatasetExample[] = []
+  const validation: DatasetExample[] = []
+  const test: DatasetExample[] = []
+  for (const example of examples) {
+    const bucket = stableHash(example.groupId) % 100
+    if (bucket < 70) train.push(example)
+    else if (bucket < 85) validation.push(example)
+    else test.push(example)
+  }
+  const canonical = examples.map((example) => [example.id, example.groupId, example.text, example.label, example.license].join('|')).join('\\n')
+  return { train, validation, test, fingerprint: stableHash(canonical).toString(16).padStart(8, '0'), version }
+}
+
+export function calculateEvaluationReport(datasetVersion: string, expected: string[], predicted: string[]): EvaluationReport {
+  if (expected.length !== predicted.length) throw new RangeError('Expected and predicted arrays must have equal length')
+  const labels = [...new Set([...expected, ...predicted])].sort()
+  const classes = labels.map((label) => {
+    let truePositive = 0
+    let falsePositive = 0
+    let falseNegative = 0
+    for (let index = 0; index < expected.length; index += 1) {
+      if (expected[index] === label && predicted[index] === label) truePositive += 1
+      else if (expected[index] !== label && predicted[index] === label) falsePositive += 1
+      else if (expected[index] === label && predicted[index] !== label) falseNegative += 1
+    }
+    const precision = truePositive + falsePositive === 0 ? 0 : truePositive / (truePositive + falsePositive)
+    const recall = truePositive + falseNegative === 0 ? 0 : truePositive / (truePositive + falseNegative)
+    const f1 = precision + recall === 0 ? 0 : 2 * precision * recall / (precision + recall)
+    return { label, truePositive, falsePositive, falseNegative, precision, recall, f1 }
+  })
+  const mean = (values: number[]) => values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : 0
+  return {
+    datasetVersion, sampleCount: expected.length, classes,
+    macroPrecision: mean(classes.map((item) => item.precision)),
+    macroRecall: mean(classes.map((item) => item.recall)),
+    macroF1: mean(classes.map((item) => item.f1)),
+  }
+}
+
+export function evaluateReleaseGate(report: EvaluationReport, gate: ReleaseGate): { approved: boolean; failures: string[] } {
+  const failures: string[] = []
+  if (report.sampleCount < gate.minSamples) failures.push('insufficient_evaluation_samples')
+  if (report.macroPrecision < gate.minPrecision) failures.push('macro_precision_below_threshold')
+  if (report.macroRecall < gate.minRecall) failures.push('macro_recall_below_threshold')
+  if (report.macroF1 < gate.minMacroF1) failures.push('macro_f1_below_threshold')
+  if (report.classes.some((item) => item.f1 < gate.minClassF1)) failures.push('class_f1_below_threshold')
+  return { approved: failures.length === 0, failures }
+}
+
+/** Metadata-only release guard; it does not upload or activate model artifacts. */
+export function validateModelRelease(release: ModelRelease, gate: ReleaseGate): { valid: boolean; failures: string[] } {
+  const failures = evaluateReleaseGate(release.evaluation, gate).failures
+  if (!release.artifactDigest.trim()) failures.push('missing_artifact_digest')
+  if (!release.datasetVersion.trim() || release.datasetVersion !== release.evaluation.datasetVersion) failures.push('dataset_version_mismatch')
+  if (!release.codeCommit.trim()) failures.push('missing_code_commit')
+  if (new Set(release.approvedBy).size < 2) failures.push('two_independent_approvals_required')
+  return { valid: failures.length === 0, failures }
+}
