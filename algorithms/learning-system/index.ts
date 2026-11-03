@@ -44,7 +44,7 @@ function stableHash(value: string): number {
   return hash >>> 0
 }
 /** Group-aware splits prevent related examples from leaking across train/validation/test. */
-export function buildApprovedDataset(candidates: FeedbackCandidate[], version: string): DatasetSplit {
+export async function buildApprovedDataset(candidates: FeedbackCandidate[], version: string): Promise<DatasetSplit> {
   if (!version.trim()) throw new TypeError('Dataset version is required')
   const approved = candidates.filter((candidate) => candidate.status === 'approved' && candidate.consentToDatasetUse &&
     !candidate.containsPersonalData && ALLOWED_SURFACES.has(candidate.sourceSurface.toLowerCase()) && candidate.license.trim().length > 0)
@@ -65,7 +65,9 @@ export function buildApprovedDataset(candidates: FeedbackCandidate[], version: s
     else test.push(example)
   }
   const canonical = examples.map((example) => [example.id, example.groupId, example.text, example.label, example.license].join('|')).join('\n')
-  return { train, validation, test, fingerprint: stableHash(canonical).toString(16).padStart(8, '0'), version }
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(canonical))
+  const fingerprint = 'sha256:' + Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('')
+  return { train, validation, test, fingerprint, version }
 }
 export function calculateEvaluationReport(datasetVersion: string, expected: string[], predicted: string[]): EvaluationReport {
   if (expected.length !== predicted.length) throw new RangeError('Expected and predicted arrays must have equal length')
