@@ -311,7 +311,7 @@ export function useCommunityGovernanceAndMessages({
         !m.acknowledged_at &&
         currentProfile && m.recipient_id === currentProfile.id,
     )
-  }, [isMemberOrPreview, inboxMessages, currentProfile])
+  }, [isAuthenticatedMember, inboxMessages, currentProfile])
 
   const activeAnnouncements = useMemo(
     () =>
