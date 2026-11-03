@@ -265,6 +265,7 @@ export function AuthDialog({
         ? 'محرر معتمد'
         : 'مراجع مساهم'
 
+  void sandboxPromotionRequests
   const latestPromotionRequest = myLiveRequests[0] ?? null
 
   const githubIdentity = identities.find((id) => id.provider === 'github')
@@ -691,6 +692,11 @@ export function AuthDialog({
         })
         return
       }
+    }
+
+    if (!supabase || !profile?.id || livePromoUnavailable) {
+      setFeedback({ type: 'error', text: 'خدمة طلبات الترقية غير متاحة حالياً. حاول مجدداً لاحقاً.' })
+      return
     }
 
     if (supabase && profile?.id && !livePromoUnavailable) {
