@@ -63,7 +63,7 @@ export function scanContent(input: ScanContentInput, policy: SafetyPolicy): Cont
       policy.reviewThreshold < 0 || policy.reviewThreshold > 100 || policy.blockThreshold < 0 || policy.blockThreshold > 100 ||
       policy.reviewThreshold > policy.blockThreshold) throw new RangeError('Safety thresholds must satisfy 0 <= reviewThreshold <= blockThreshold <= 100')
   const original = input.text
-  if (original.length > policy.maxCharacters) {
+  if (Array.from(original).length > policy.maxCharacters) {
     return makeResult('block', 100, [{
       code: 'content_length_limit_exceeded', category: 'spam', severity: 2, confidence: 'high',
     }], true, policy, input.now)
