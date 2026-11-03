@@ -4,6 +4,7 @@ export * from './normalize'
 export * from './types'
 export const CONTENT_SAFETY_ENGINE_VERSION = '0.1.1'
 const CONTEXTUAL_PURPOSES = new Set(['dictionary_definition', 'linguistic_analysis', 'academic_quote', 'moderation_report'])
+const RULE_CATEGORIES = new Set(['profanity', 'personal_abuse', 'hate_speech', 'threat'])
 function phraseMatches(text: string, phrase: string): boolean {
   return (' ' + text + ' ').includes(' ' + normalizeSafetyText(phrase) + ' ')
 }
@@ -47,7 +48,7 @@ export function scanContent(input: ScanContentInput, policy: SafetyPolicy): Cont
   if (!Array.isArray(policy.rules) || policy.rules.length > 5000) throw new RangeError('Safety policy must contain at most 5000 rules')
   const ruleIds = new Set<string>()
   for (const rule of policy.rules) {
-    if (!rule.id.trim() || ruleIds.has(rule.id) || !normalizeSafetyText(rule.phrase) || rule.phrase.length > 120 ||
+    if (!rule.id.trim() || ruleIds.has(rule.id) || !RULE_CATEGORIES.has(rule.category) || !normalizeSafetyText(rule.phrase) || rule.phrase.length > 120 ||
         !Number.isInteger(rule.severity) || rule.severity < 1 || rule.severity > 5) {
       throw new TypeError('Safety rules require unique IDs, non-empty phrases, and severity from 1 to 5')
     }
