@@ -52,7 +52,11 @@ function loadLocalReleaseManifests(): ReleaseManifestRecord[] {
     const raw = localStorage.getItem(LOCAL_RELEASE_MANIFESTS_KEY)
     if (!raw) return []
     const parsed = JSON.parse(raw)
-    return Array.isArray(parsed) ? (parsed as ReleaseManifestRecord[]) : []
+    return Array.isArray(parsed)
+      ? (parsed as Array<ReleaseManifestRecord & { is_sandbox?: boolean }>).filter(
+          (manifest) => manifest.is_sandbox !== true,
+        )
+      : []
   } catch {
     return []
   }
@@ -393,7 +397,7 @@ export function DatasetExporterPanel({
         const byVersion = new Map<string, ReleaseManifestRecord>()
     for (const m of liveManifests) byVersion.set(m.version, m)
     for (const m of localManifests) {
-      if (!(m as ReleaseManifestRecord & { is_sandbox?: boolean }).is_sandbox && !byVersion.has(m.version)) {
+      if (!byVersion.has(m.version)) {
         byVersion.set(m.version, m)
       }
     }
@@ -424,8 +428,7 @@ export function DatasetExporterPanel({
               السجل الرسمي ({candidateAccepted.length})
             </span>
 
-            {(
-              <button
+            <button
                 type="button"
                 onClick={fetchLiveAccepted}
                 disabled={loadingLive}
@@ -433,8 +436,7 @@ export function DatasetExporterPanel({
               >
                 <RefreshCw className={`h-3.5 w-3.5 ${loadingLive ? 'animate-spin' : ''}`} />
                 <span>تحديث</span>
-              </button>
-            )}
+            </button>
           </div>
         </div>
 
