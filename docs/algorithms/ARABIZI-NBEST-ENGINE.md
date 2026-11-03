@@ -11,7 +11,7 @@ transliterateArabizi(input: string): ArabiziCandidate
 
 transliterateArabiziCandidates(
   input: string,
-  options?: { maxCandidates?: number },
+  options?: { maxCandidates?: number; latinTokenPolicy?: 'arabizi-hinted' | 'all' },
 ): ArabiziHypothesis[]
 ```
 
@@ -23,7 +23,7 @@ The new API returns distinct hypotheses with:
 - `confidence`: conservative qualitative indicator.
 - `decisions`: rule trace for ambiguous mappings.
 
-The candidate limit defaults to 5 and is bounded to 1–20.
+The candidate limit defaults to 5 and is bounded to 1–20. The default token policy is `arabizi-hinted`: numeric Arabizi, selected distinctive spellings, and a small provisional Darija hint list are transliterated; likely English tokens are preserved. Set `latinTokenPolicy: 'all'` to force conversion of every Latin token.
 
 ## Current rule layers
 
@@ -31,7 +31,7 @@ The candidate limit defaults to 5 and is bounded to 1–20.
 2. Common numeric conventions map `2, 3, 5, 6, 7, 8, 9` to Arabic letters.
 3. Context-sensitive alternatives are generated for `g`, `c`, and `q`. For example, a front vowel after `c` ranks س above ك, while `g` before a front vowel ranks ج above گ.
 4. Vowels receive conservative alternatives, including omission of some internal short vowels and a final-`a` ة hypothesis.
-5. Non-Latin segments, punctuation, whitespace, and symbols are preserved.
+5. Non-Latin segments, punctuation, whitespace, symbols, and likely English tokens are preserved under the default policy.
 
 ## Important limitations
 
@@ -39,7 +39,7 @@ The candidate limit defaults to 5 and is bounded to 1–20.
 - The ranking score is not calibrated and must not be presented as a probability.
 - There is no lexical language model, morphological disambiguator, dialect-specific user profile, or speaker adaptation in this version.
 - A context-sensitive rule is a ranking hint, not proof of pronunciation. Moroccan speakers use inconsistent spellings and regional conventions.
-- Latin-only words can be ambiguous between English and Arabizi; this version preserves compatibility by attempting transliteration of every Latin/number run.
+- English/Arabizi distinction is heuristic. The default policy uses digit and spelling hints plus a small provisional Darija token list; unknown plain-letter Arabizi may be preserved. Use `latinTokenPolicy: 'all'` when the caller knows the input is Arabizi.
 - Outputs are advisory. Never auto-create, merge, reject, or publish a lexical entry from a transliteration result.
 
 ## Evaluation required before production use
