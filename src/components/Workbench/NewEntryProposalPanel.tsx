@@ -1220,7 +1220,7 @@ export function NewEntryProposalPanel({
               )}
               <span>{feedback.text}</span>
             </div>
-            {feedback.showSandboxJump && canAccessEditorialTools && (
+            {false && feedback.showSandboxJump && canAccessEditorialTools && (
               <button
                 type="button"
                 onClick={onOpenModerationSandbox}
