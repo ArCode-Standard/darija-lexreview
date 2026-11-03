@@ -250,8 +250,11 @@ begin
   end if;
 
   -- The auth signup trigger creates a fixed system welcome message with no sender.
-  if TG_TABLE_NAME = 'member_messages' and TG_OP = 'INSERT' and NEW.sender_id is null then
-    return NEW;
+  -- Keep the table-specific NEW field access in a nested branch.
+  if TG_TABLE_NAME = 'member_messages' and TG_OP = 'INSERT' then
+    if NEW.sender_id is null then
+      return NEW;
+    end if;
   end if;
 
   if not private.content_projection_has_text(v_new) then
