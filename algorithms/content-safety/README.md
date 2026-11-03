@@ -17,6 +17,8 @@ A rule contains a stable ID, phrase, category, and severity from 1 to 5. Rule ph
 
 ## Lexicon curation
 
+The detailed editorial checklist is in [DARIJA-SAFETY-LEXICON-GUIDE.md](../../docs/algorithms/DARIJA-SAFETY-LEXICON-GUIDE.md).
+
 - Keep Arabic-script, Latin, Arabizi, mixed-script, and common spacing variants as separately reviewable entries.
 - Do not add a spelling solely because it resembles a known insult. Record its dialectal sense and a real, licensed example first.
 - Exclude ambiguous terms until a Moroccan Darija reviewer confirms the intended sense and likely false positives.
