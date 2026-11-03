@@ -43,7 +43,13 @@ describe('Darija algorithm engine', () => {
     expect(candidates[0]!.score).toBeGreaterThan(candidates[1]!.score)
   })
 
-  it('ranks a provisional lexical hint above letter-by-letter guesses', () => {\n    const result = transliterateArabiziCandidates('salam')\n    expect(result[0]?.value).toBe('سلام')\n    expect(result[0]?.decisions).toContain('seed-lexicon:salam')\n  })\n\n  it('uses adjacent vowels to rank soft c while retaining a hard-c alternative', () => {
+  it('ranks a provisional lexical hint above letter-by-letter guesses', () => {
+    const result = transliterateArabiziCandidates('salam')
+    expect(result[0]?.value).toBe('سلام')
+    expect(result[0]?.decisions).toContain('seed-lexicon:salam')
+  })
+
+  it('uses adjacent vowels to rank soft c while retaining a hard-c alternative', () => {
     const candidates = transliterateArabiziCandidates('citi', { latinTokenPolicy: 'all' })
     expect(candidates[0]?.value).toBe('سيتي')
     expect(candidates.some((candidate) => candidate.value.startsWith('كي'))).toBe(true)
