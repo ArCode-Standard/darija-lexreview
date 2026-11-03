@@ -44,7 +44,7 @@ const OPERATIONS: Record<Operation, OperationSpec> = {
   },
   "reviewer_profiles.admin_update": {
     surface: "admin", requiredRole: "admin",
-    allowedKeys: ["id", "status_reason"],
+    allowedKeys: ["id", "role", "account_status", "status_reason", "suspended_until"],
   },
   "member_messages.create": {
     surface: "private_message", requiredRole: "editor",
