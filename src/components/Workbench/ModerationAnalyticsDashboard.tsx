@@ -36,6 +36,7 @@ export function ModerationAnalyticsDashboard({
   editorNamesMap,
   queueSource,
 }: ModerationAnalyticsDashboardProps) {
+  void queueSource
   const [range, setRange] = useState<RangeFilter>('all')
   const [collapsed, setCollapsed] = useState(false)
   const [isDark, setIsDark] = useState(() =>
@@ -275,7 +276,7 @@ export function ModerationAnalyticsDashboard({
       <div className="flex flex-wrap items-center justify-between gap-4 pb-5 border-b border-zinc-200 dark:border-white/10">
         <div>
           <p className="font-mono text-[11px] font-semibold uppercase tracking-wider text-emerald-700 dark:text-[#D9FF43]">
-            مؤشرات الأداء التحريري · {queueSource === 'live' ? 'سجل Supabase الحي' : 'بيئة المحاكاة التحريرية'}
+            مؤشرات الأداء التحريري · سجل قرارات المراجعة
           </p>
           <h4 className="mt-1 font-display text-base sm:text-lg font-bold text-zinc-950 dark:text-white">
             لوحة إحصائيات التحكيم وزمن استجابة المحررين

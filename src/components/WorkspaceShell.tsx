@@ -10,7 +10,6 @@ import {
   Database,
   Download,
   ExternalLink,
-  Eye,
   FilePlus2,
   FolderKanban,
   Home,
@@ -46,8 +45,6 @@ interface WorkspaceShellProps {
   userRole?: 'reviewer' | 'editor' | 'admin' | null
   canAccessEditorialTools: boolean
   isStaffRole: boolean
-  editorialPreviewMode: boolean
-  onToggleEditorialPreview: () => void
   darkMode: boolean
   onToggleDarkMode: () => void
   dataMode: DataMode
@@ -57,7 +54,6 @@ interface WorkspaceShellProps {
   completedTodayCount: number
   draftsCount: number
   unreadMessagesCount?: number
-  pendingSandboxCount: number
   onReloadCorpus: () => void
   onOpenCommandPalette: () => void
   onNavigatePage: (page: AppPage, options?: { subView?: 'entries' | 'categories' }) => void
@@ -94,8 +90,6 @@ export function WorkspaceShell({
   userRole,
   canAccessEditorialTools,
   isStaffRole,
-  editorialPreviewMode,
-  onToggleEditorialPreview,
   darkMode,
   onToggleDarkMode,
   dataMode,
@@ -104,7 +98,6 @@ export function WorkspaceShell({
   completedTodayCount,
   draftsCount,
   unreadMessagesCount = 0,
-  pendingSandboxCount,
   onReloadCorpus,
   onOpenCommandPalette,
   onNavigatePage,
@@ -365,27 +358,11 @@ export function WorkspaceShell({
                     </span>
                   </a>
                 )}
-
-                {editorialPreviewMode && (
-                  <a
-                    href="/messages"
-                    onClick={(e) => {
-                      e.preventDefault()
-                      go('messages')
-                    }}
-                    className={navLinkClass(activePage === 'messages')}
-                  >
-                    <span className="flex items-center gap-2.5">
-                      <Bell className="h-4 w-4 shrink-0" />
-                      <span>صندوق الرسائل (معاينة)</span>
-                    </span>
-                  </a>
-                )}
               </div>
             </div>
           )}
 
-          {/* Editorial & Admin Governance Group (Strictly Staff or Explicit Sandbox Preview) */}
+          {/* Editorial & Admin Governance Group (Authorized Staff Only) */}
           {canAccessEditorialTools && (
             <div>
               <p className="px-3 pb-2 font-mono text-[10px] tracking-[0.14em] uppercase text-emerald-700 dark:text-[#D9FF43]">
@@ -404,11 +381,6 @@ export function WorkspaceShell({
                     <ShieldCheck className="h-4 w-4 shrink-0" />
                     <span>تحكيم المحررين</span>
                   </span>
-                  {!isStaffRole && pendingSandboxCount > 0 && (
-                    <span className="font-mono text-[11px] tabular-nums opacity-85">
-                      {pendingSandboxCount}
-                    </span>
-                  )}
                 </a>
 
                 <a
@@ -447,7 +419,7 @@ export function WorkspaceShell({
           )}
         </div>
 
-        {/* Quiet Institutional Links, PWA Install & Preview Switch */}
+        {/* Institutional Links and PWA Install */}
         <div className="space-y-2.5 border-t border-zinc-200 pt-4 text-xs dark:border-white/10">
           <PWAInstallButton variant="sidebar" />
 
@@ -477,19 +449,6 @@ export function WorkspaceShell({
               )}
             </div>
           </div>
-
-          {!isStaffRole && editorialPreviewMode && (
-            <button
-              type="button"
-              onClick={onToggleEditorialPreview}
-              className="flex w-full items-center justify-between rounded-xl border border-amber-400/60 bg-amber-50 px-3 py-2 text-[11px] font-medium text-amber-950 transition-colors cursor-pointer dark:border-[#D9FF43]/40 dark:bg-[#D9FF43]/10 dark:text-[#D9FF43]"
-            >
-              <span className="flex items-center gap-1.5">
-                <Eye className="h-3.5 w-3.5" />
-                <span>إغلاق وضع المعاينة التجريبية</span>
-              </span>
-            </button>
-          )}
 
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1 px-1 text-[11px] text-zinc-500 dark:text-zinc-400">
             <a href="/about/" className="hover:text-zinc-950 hover:underline dark:hover:text-white">
@@ -589,7 +548,7 @@ export function WorkspaceShell({
             )}
 
             {/* Member Inbox Bell — Strictly Hidden from Unauthenticated Visitors */}
-            {!isFocusMode && (isAuthenticated || editorialPreviewMode) && (
+            {!isFocusMode && isAuthenticated && (
               <a
                 href="/messages"
                 onClick={(e) => {

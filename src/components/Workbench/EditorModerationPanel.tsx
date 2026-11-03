@@ -8,7 +8,6 @@ import {
   Edit3,
   ArrowLeft,
   ShieldAlert,
-  RotateCcw,
   CheckSquare,
   GitBranch,
 } from 'lucide-react'
@@ -119,23 +118,17 @@ export function EditorModerationPanel({
   onOpenAuth,
   onGoToExporter,
 }: EditorModerationPanelProps) {
+  void sandboxItems
+  void onResetSandbox
   const isAuthorizedLiveEditor =
     Boolean(userEmail) && (profile?.role === 'editor' || profile?.role === 'admin')
 
-  const [queueSource, setQueueSource] = useState<'live' | 'sandbox'>(() =>
-    isAuthorizedLiveEditor && !forceSandboxMode ? 'live' : 'sandbox',
-  )
+  const [queueSource, setQueueSource] = useState<'live' | 'sandbox'>('live')
   const [moderationSection, setModerationSection] = useState<'adjudication' | 'governance'>(
     () => (forceGovernanceSection ? 'governance' : 'adjudication'),
   )
 
-  useEffect(() => {
-    if (forceSandboxMode) {
-      setQueueSource('sandbox')
-    } else if (isAuthorizedLiveEditor) {
-      setQueueSource('live')
-    }
-  }, [forceSandboxMode, isAuthorizedLiveEditor])
+  useEffect(() => { setQueueSource('live') }, [forceSandboxMode, isAuthorizedLiveEditor])
 
   useEffect(() => {
     if (forceGovernanceSection) {
@@ -221,7 +214,7 @@ export function EditorModerationPanel({
     }
   }, [queueSource, fetchLiveQueue])
 
-  const activePool = queueSource === 'live' ? liveItems : sandboxItems
+  const activePool = liveItems
 
   const entryById = useMemo(() => {
     const map = new Map<string, LexicalEntry>()
@@ -377,7 +370,7 @@ export function EditorModerationPanel({
       }
     }
 
-    if (queueSource === 'sandbox') {
+    if (false) {
       onModerateSandbox({
         id: activeSubmission.id,
         status: nextStatus,
@@ -401,7 +394,7 @@ export function EditorModerationPanel({
     if (!supabase || !isAuthorizedLiveEditor) {
       setActionMessage({
         type: 'error',
-        text: 'ليست لديك صلاحية محرر (editor/admin) لتحديث قاعدة البيانات الحية.',
+        text: 'ليست لديك صلاحية محرر (editor/admin) لتحديث سجل المنصة الرسمي.',
       })
       return
     }
@@ -530,7 +523,7 @@ export function EditorModerationPanel({
   }) {
     if (eligibleIds.length === 0) return
 
-    if (queueSource === 'sandbox') {
+    if (false) {
       onBulkApproveSandbox({
         ids: eligibleIds,
         editorNote: justificationComment,
@@ -551,7 +544,7 @@ export function EditorModerationPanel({
     }
 
     if (!supabase || !isAuthorizedLiveEditor) {
-      setBulkError('ليست لديك صلاحية محرر (editor/admin) لتنفيذ اعتماد جماعي في قاعدة البيانات الحية.')
+      setBulkError('ليست لديك صلاحية محرر (editor/admin) لتنفيذ اعتماد جماعي في سجل المنصة الرسمي.')
       return
     }
 
@@ -635,19 +628,9 @@ export function EditorModerationPanel({
                     : 'text-zinc-600 hover:text-zinc-950 dark:text-zinc-400'
                 }`}
               >
-                سجل Supabase الحي
+                سجل المراجعة الرسمي
               </button>
-              <button
-                type="button"
-                onClick={() => setQueueSource('sandbox')}
-                className={`min-h-[34px] rounded-md px-3 py-1.5 text-xs font-semibold transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
-                  queueSource === 'sandbox'
-                    ? 'bg-zinc-950 text-white dark:bg-[#D9FF43] dark:text-[#050507]'
-                    : 'text-zinc-600 hover:text-zinc-950 dark:text-zinc-400'
-                }`}
-              >
-                طابور المحاكاة المحلي ({sandboxItems.length})
-              </button>
+              
             </div>
 
             {acceptedCountInSource > 0 && (
@@ -677,7 +660,7 @@ export function EditorModerationPanel({
           ))}
         </div>
 
-        {/* Permission notice when Live Supabase selected without editor role */}
+        {/* Permission notice for accounts without editorial privileges */}
         {queueSource === 'live' && !isAuthorizedLiveEditor && (
           <div className="mt-4 flex flex-wrap items-center justify-between gap-4 rounded-lg border border-amber-300 bg-amber-50/80 p-4 text-xs text-amber-950 dark:border-amber-800/60 dark:bg-amber-950/30 dark:text-amber-200">
             <div className="flex items-start gap-2.5 max-w-[72ch]">
@@ -689,7 +672,7 @@ export function EditorModerationPanel({
                     : 'يلزم تسجيل الدخول بحساب محرر معتمد لإدارة السجل الحي.'}
                 </p>
                 <p className="mt-1 leading-relaxed">
-                  يقتصر التحكيم الحي على حسابات المحررين المعتمدين والمشرفين. لتجربة دورة الاعتماد والتصدير فوراً دون المساس بالسجل الرسمي، استخدم «طابور المحاكاة المحلي».
+                  يقتصر التحكيم وإدارة القرارات على حسابات المحررين المعتمدين والمشرفين، وتُسجّل جميع القرارات في سجل المنصة الرسمي.
                 </p>
               </div>
             </div>
@@ -703,30 +686,17 @@ export function EditorModerationPanel({
                   تسجيل الدخول
                 </button>
               )}
-              <button
-                type="button"
-                onClick={() => setQueueSource('sandbox')}
-                className="min-h-[36px] rounded-lg border border-amber-400 bg-white px-3.5 py-1.5 text-xs font-semibold text-amber-950 hover:bg-amber-100/50 whitespace-nowrap cursor-pointer dark:border-amber-700 dark:bg-[#07070A] dark:text-amber-200"
-              >
-                التبديل إلى المحاكاة المحلية
-              </button>
+              
             </div>
           </div>
         )}
 
-        {queueSource === 'sandbox' && (
+        {false && (
           <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-zinc-300 bg-zinc-50 px-4 py-2.5 text-xs text-zinc-700 dark:border-white/15 dark:bg-[#07070A] dark:text-zinc-300">
             <span>
               <strong>وضع المحاكاة التحريرية المعزول:</strong> جميع القرارات هنا محفوظة في متصفحك فقط ولا تختلط بالسجل الرسمي.
             </span>
-            <button
-              type="button"
-              onClick={onResetSandbox}
-              className="inline-flex items-center gap-1 text-xs font-medium text-zinc-600 hover:text-zinc-950 whitespace-nowrap cursor-pointer dark:text-zinc-400 dark:hover:text-white"
-            >
-              <RotateCcw className="h-3.5 w-3.5" />
-              <span>إعادة ضبط أمثلة المحاكاة</span>
-            </button>
+            
           </div>
         )}
         {/* Sub-view Switcher: Submissions Adjudication vs RBAC Role Governance */}
@@ -761,7 +731,7 @@ export function EditorModerationPanel({
               }`}
             >
               حوكمة الصلاحيات وطلبات الترقية
-              {queueSource === 'sandbox' &&
+              {false &&
               sandboxPromotionRequests.filter((r) => r.status === 'pending').length > 0
                 ? ` (${sandboxPromotionRequests.filter((r) => r.status === 'pending').length})`
                 : ''}
@@ -793,7 +763,7 @@ export function EditorModerationPanel({
       ) : (
         <>
           {/* Editorial Activity & Turnaround Analytics Dashboard */}
-          {(queueSource === 'sandbox' || isAuthorizedLiveEditor) && (
+          {(false || isAuthorizedLiveEditor) && (
             <ModerationAnalyticsDashboard
               submissions={activePool}
               editorNamesMap={editorNamesMap}
@@ -802,7 +772,7 @@ export function EditorModerationPanel({
           )}
 
           {/* Main Queue + Inspection Split */}
-          {(queueSource === 'sandbox' || isAuthorizedLiveEditor) && (
+          {(false || isAuthorizedLiveEditor) && (
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-12 items-start">
           {/* Queue List Sidebar */}
           <aside className="lg:col-span-4 rounded-xl border border-zinc-200 bg-white p-4 sm:p-5 space-y-3.5 dark:border-white/10 dark:bg-[#0B0B10]">
@@ -1066,7 +1036,7 @@ export function EditorModerationPanel({
                     </h4>
                   </div>
 
-                  {queueSource === 'sandbox' && activeSubmission.status !== 'merged' ? (
+                  {false && activeSubmission.status !== 'merged' ? (
                     <button
                       type="button"
                       onClick={() => setEditMode((v) => !v)}
@@ -1077,7 +1047,7 @@ export function EditorModerationPanel({
                       }`}
                     >
                       <Edit3 className="h-3.5 w-3.5" />
-                      <span>{editMode ? 'إنهاء تهذيب الحقول' : 'تهذيب الحقول (محاكاة)'}</span>
+                      <span>{editMode ? 'إنهاء تهذيب الحقول' : 'تهذيب الحقول'}</span>
                     </button>
                   ) : (
                     <span className="text-[11px] text-zinc-500 dark:text-zinc-400">

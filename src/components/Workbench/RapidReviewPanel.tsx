@@ -125,6 +125,9 @@ export function RapidReviewPanel({
   onRequireLogin,
   onSubmissionSuccess,
 }: RapidReviewPanelProps) {
+  void onAddSandboxSubmission
+  void onOpenModerationSandbox
+  void onAddSandboxSubmission
   const [microTask, setMicroTask] = useState<RapidMicroTask>('verify_words')
   const [categoryFilter, setCategoryFilter] = useState<string>('all')
   const [showAlreadyReviewed, setShowAlreadyReviewed] = useState(false)
@@ -700,14 +703,6 @@ export function RapidReviewPanel({
     }
 
     if (!sentToLiveBackend) {
-      if (canAccessEditorialTools) {
-        onAddSandboxSubmission({
-          entryId: entry.id,
-          proposedData: finalProposal,
-          evidence: [],
-          reviewerNote: noteText,
-        })
-      }
       if (!userEmail) {
         onSaveDraft({
           entryId: entry.id,
@@ -1212,15 +1207,7 @@ export function RapidReviewPanel({
             )}
             <span>{toast.text}</span>
           </div>
-          {toast.showSandboxLink && canAccessEditorialTools && (
-            <button
-              type="button"
-              onClick={onOpenModerationSandbox}
-              className="font-semibold text-emerald-700 hover:underline whitespace-nowrap cursor-pointer dark:text-[#D9FF43]"
-            >
-              معاينة المقترح في لوحة التحكيم
-            </button>
-          )}
+
         </div>
       )}
 

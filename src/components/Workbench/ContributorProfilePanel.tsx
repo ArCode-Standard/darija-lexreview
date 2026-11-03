@@ -185,7 +185,7 @@ export function ContributorProfilePanel({
       upsert: false,
     })
     setAvatarUploading(false)
-    if (uploadError) setError('تعذر رفع الصورة. تحقق من إعدادات تخزين الصور في Supabase.')
+    if (uploadError) setError('تعذر رفع الصورة. تحقق من إعدادات خدمة تخزين الملفات في المنصة.')
     else { setAvatarPath(path); setAvatarSource('upload'); setMessage('تم رفع الصورة. اضغط حفظ التغييرات لاعتمادها.') }
   }
 
@@ -252,7 +252,7 @@ export function ContributorProfilePanel({
       setError(
         humanizeSystemError(
           err,
-          `تعذر ربط حساب ${provider === 'github' ? 'GitHub' : 'Google'}. تأكد من تفعيل ربط الهويات في Supabase.`,
+          `تعذر ربط حساب ${provider === 'github' ? 'GitHub' : 'Google'}. تأكد من تفعيل ربط الحسابات الخارجية في إعدادات المنصة.`,
         ),
       )
     }

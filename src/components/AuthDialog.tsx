@@ -265,11 +265,8 @@ export function AuthDialog({
         ? 'محرر معتمد'
         : 'مراجع مساهم'
 
-  const mySandboxRequest = profile?.id
-    ? sandboxPromotionRequests.find((r) => r.requester_id === profile.id)
-    : undefined
-
-  const latestPromotionRequest = myLiveRequests[0] ?? mySandboxRequest ?? null
+  void sandboxPromotionRequests
+  const latestPromotionRequest = myLiveRequests[0] ?? null
 
   const githubIdentity = identities.find((id) => id.provider === 'github')
   const googleIdentity = identities.find((id) => id.provider === 'google')
@@ -295,7 +292,7 @@ export function AuthDialog({
         type: 'error',
         text: humanizeSystemError(
           err,
-          `تعذر بدء تسجيل الدخول عبر ${provider === 'github' ? 'GitHub' : 'Google'}. تحقق من إعدادات OAuth في Supabase ثم أعد المحاولة.`,
+          `تعذر بدء تسجيل الدخول عبر ${provider === 'github' ? 'GitHub' : 'Google'}. تحقق من إعدادات تسجيل الدخول في المنصة ثم أعد المحاولة.`,
         ),
       })
     }
@@ -320,7 +317,7 @@ export function AuthDialog({
         type: 'error',
         text: humanizeSystemError(
           err,
-          `تعذر ربط حساب ${provider === 'github' ? 'GitHub' : 'Google'}. تأكد من تفعيل ربط الهويات (Manual Linking) في Supabase Auth.`,
+          `تعذر ربط حساب ${provider === 'github' ? 'GitHub' : 'Google'}. تأكد من تفعيل ربط الحسابات الخارجية في إعدادات المنصة.`,
         ),
       })
     }
@@ -697,6 +694,11 @@ export function AuthDialog({
       }
     }
 
+    if (!supabase || !profile?.id || livePromoUnavailable) {
+      setFeedback({ type: 'error', text: 'خدمة طلبات الترقية غير متاحة حالياً. حاول مجدداً لاحقاً.' })
+      return
+    }
+
     if (supabase && profile?.id && !livePromoUnavailable) {
       setBusy(true)
       setFeedback(null)
@@ -723,9 +725,11 @@ export function AuthDialog({
       }
 
       setLivePromoUnavailable(true)
+      setFeedback({ type: 'error', text: 'تعذر إرسال طلب الترقية إلى سجل المنصة الرسمي. حاول مجدداً لاحقاً.' })
+      return
     }
 
-    onSubmitSandboxPromotion({
+    if (false) onSubmitSandboxPromotion({
       requesterId: profile?.id ?? 'session-reviewer',
       requesterName: applicantName,
       dialectRegion: editRegion || profile?.dialect_region || null,
@@ -734,10 +738,6 @@ export function AuthDialog({
     })
     setPromoExperience('')
     setPromoSampleLink('')
-    setFeedback({
-      type: 'success',
-      text: 'تم استلام طلب الترقية وحفظه للمراجعة التحريرية.',
-    })
   }
 
   async function handleInlineSyncDrafts() {
@@ -1294,7 +1294,7 @@ export function AuthDialog({
                             تاريخ الإرسال:{' '}
                             {new Date(latestPromotionRequest.created_at).toLocaleString('ar-MA')}
                           </p>
-                          {latestPromotionRequest.is_sandbox && canAccessEditorialTools && (
+                          {false && latestPromotionRequest.is_sandbox && canAccessEditorialTools && (
                             <button
                               type="button"
                               onClick={() => {

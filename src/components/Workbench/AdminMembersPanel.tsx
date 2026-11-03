@@ -10,11 +10,9 @@ import {
   Github,
   Megaphone,
   RefreshCcw,
-  RotateCcw,
   Search,
   Send,
   Shield,
-  ShieldAlert,
   ShieldCheck,
   UserCheck,
   Users,
@@ -39,7 +37,6 @@ interface AdminMembersPanelProps {
   userEmail: string | null
   isAdmin: boolean
   isEditor: boolean
-  editorialPreviewMode: boolean
   liveMembers: ReviewerProfile[]
   sandboxMembers: ReviewerProfile[]
   loadingMembers: boolean
@@ -163,7 +160,6 @@ export function AdminMembersPanel({
   currentProfile,
   isAdmin,
   isEditor,
-  editorialPreviewMode,
   liveMembers,
   sandboxMembers,
   loadingMembers,
@@ -178,11 +174,11 @@ export function AdminMembersPanel({
   onResetSandbox,
   onOpenPublicDirectory,
 }: AdminMembersPanelProps) {
-  const defaultSource: 'live' | 'sandbox' =
-    isSupabaseConfigured && (isAdmin || isEditor) && !editorialPreviewMode ? 'live' : 'sandbox'
-
-  const [dataSource, setDataSource] = useState<'live' | 'sandbox'>(defaultSource)
-  const [sandboxPerspective, setSandboxPerspective] = useState<'admin' | 'editor'>('admin')
+  void sandboxMembers
+  void sandboxModEvents
+  void sandboxModReports
+  void onResetSandbox
+  const dataSource = 'live' as const
   const [activeTab, setActiveTab] = useState<AdminTab>('members')
   const [memberFilter, setMemberFilter] = useState<MemberFilter>('all')
   const [query, setQuery] = useState('')
@@ -215,12 +211,11 @@ export function AdminMembersPanel({
   const [broadcastBody, setBroadcastBody] = useState('')
   const [broadcastPinDays, setBroadcastPinDays] = useState(7)
 
-  const effectiveIsAdmin =
-    dataSource === 'sandbox' ? sandboxPerspective === 'admin' : isAdmin
+  const effectiveIsAdmin = isAdmin
 
-  const members = dataSource === 'live' ? liveMembers : sandboxMembers
-  const modEvents = dataSource === 'live' ? liveModEvents : sandboxModEvents
-  const modReports = dataSource === 'live' ? liveModReports : sandboxModReports
+  const members = liveMembers
+  const modEvents = liveModEvents
+  const modReports = liveModReports
 
   const filteredMembers = useMemo(() => {
     const trimmed = query.trim().toLowerCase()
@@ -390,32 +385,17 @@ export function AdminMembersPanel({
     }
   }
 
-  async function handleSendTestWarningToSelf() {
-    const res = await onSendMessage({
-      source: 'sandbox',
-      recipientId: currentProfile?.id ?? 'self-preview',
-      isBroadcast: false,
-      category: 'warning',
-      title: 'معاينة إنذار رسمي (تجربة نافذة الإقرار الإلزامي)',
-      body: 'هذه معاينة حية للإنذار الرسمي كما يظهر لأي عضو مخالف فور دخوله المنصة، ولا يختفي إلا بعد ضغطه على زر الإقرار والالتزام.',
-      requiresAck: true,
-    })
-    if (res.ok) {
-      setFeedback({ type: 'ok', text: 'تم إرسال إنذار تجريبي لحسابك لمعاينة نافذة الإقرار.' })
-    }
-  }
-
   async function handleEditorSubmitReport() {
-    if (!reportTargetName.trim() || reportReason.trim().length < 10) {
+    if (!reportTargetId.trim() || !reportTargetName.trim() || reportReason.trim().length < 10) {
       setFeedback({
         type: 'err',
-        text: 'يرجى تحديد اسم/معرّف العضو وكتابة سبب مفصّل لا يقل عن 10 أحرف لرفعه للمسؤول.',
+        text: 'يرجى اختيار العضو المعني وكتابة سبب مفصّل لا يقل عن 10 أحرف لرفعه للمسؤول.',
       })
       return
     }
     const res = await onSubmitReport({
       source: dataSource,
-      targetUserId: reportTargetId || 'sandbox-member-3',
+      targetUserId: reportTargetId,
       targetDisplayName: reportTargetName,
       recommendedAction: reportRecommended,
       reason: reportReason,
@@ -443,72 +423,16 @@ export function AdminMembersPanel({
               aria-label="مصدر بيانات الحوكمة"
               className="inline-flex items-center gap-1 rounded-xl border border-zinc-200 bg-zinc-100 p-1 dark:border-white/10 dark:bg-[#07070A]"
             >
-              <button
-                type="button"
-                onClick={() => setDataSource('live')}
-                className={`min-h-[32px] rounded-lg px-3 py-1 text-xs font-semibold cursor-pointer ${
-                  dataSource === 'live'
-                    ? 'bg-zinc-950 text-white dark:bg-[#D9FF43] dark:text-[#050507]'
-                    : 'text-zinc-600 dark:text-zinc-400'
-                }`}
-              >
-                قاعدة البيانات الحية (Supabase)
-              </button>
-              <button
-                type="button"
-                onClick={() => setDataSource('sandbox')}
-                className={`min-h-[32px] rounded-lg px-3 py-1 text-xs font-semibold cursor-pointer ${
-                  dataSource === 'sandbox'
-                    ? 'bg-zinc-950 text-white dark:bg-[#D9FF43] dark:text-[#050507]'
-                    : 'text-zinc-600 dark:text-zinc-400'
-                }`}
-              >
-                وضع المحاكاة (Sandbox)
-              </button>
+              <span className="inline-flex min-h-[32px] items-center rounded-lg px-3 py-1 text-xs font-semibold text-zinc-700 dark:text-zinc-300">سجل الأعضاء المعتمد</span>
+              
             </div>
           )}
 
-          {dataSource === 'sandbox' && (
-            <div
-              role="group"
-              aria-label="منظور الصلاحية في المحاكاة"
-              className="inline-flex items-center gap-1 rounded-xl border border-zinc-200 bg-zinc-100 p-1 dark:border-white/10 dark:bg-[#07070A]"
-            >
-              <button
-                type="button"
-                onClick={() => setSandboxPerspective('admin')}
-                className={`min-h-[32px] rounded-lg px-3 py-1 text-xs font-semibold cursor-pointer ${
-                  sandboxPerspective === 'admin'
-                    ? 'bg-zinc-950 text-white dark:bg-[#D9FF43] dark:text-[#050507]'
-                    : 'text-zinc-600 dark:text-zinc-400'
-                }`}
-              >
-                منظور المسؤول العام (Admin)
-              </button>
-              <button
-                type="button"
-                onClick={() => setSandboxPerspective('editor')}
-                className={`min-h-[32px] rounded-lg px-3 py-1 text-xs font-semibold cursor-pointer ${
-                  sandboxPerspective === 'editor'
-                    ? 'bg-zinc-950 text-white dark:bg-[#D9FF43] dark:text-[#050507]'
-                    : 'text-zinc-600 dark:text-zinc-400'
-                }`}
-              >
-                منظور المشرف / المحرر (Editor)
-              </button>
-            </div>
-          )}
+          
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          <button
-            type="button"
-            onClick={handleSendTestWarningToSelf}
-            className="inline-flex min-h-[34px] items-center gap-1.5 rounded-full border border-amber-300 bg-amber-50 px-3.5 py-1 text-xs font-semibold text-amber-900 hover:bg-amber-100 cursor-pointer dark:border-amber-500/40 dark:bg-amber-950/35 dark:text-amber-300"
-          >
-            <ShieldAlert className="h-3.5 w-3.5" />
-            <span>معاينة نافذة الإنذار الإلزامي</span>
-          </button>
+          
 
           <button
             type="button"
@@ -519,17 +443,7 @@ export function AdminMembersPanel({
             <ArrowUpRight className="h-3.5 w-3.5" />
           </button>
 
-          {dataSource === 'sandbox' && (
-            <button
-              type="button"
-              onClick={onResetSandbox}
-              title="إعادة ضبط بيانات المحاكاة"
-              className="inline-flex min-h-[34px] items-center gap-1 rounded-full border border-zinc-200 px-3 py-1 text-xs text-zinc-500 hover:text-zinc-900 cursor-pointer dark:border-white/10 dark:text-zinc-400 dark:hover:text-white"
-            >
-              <RotateCcw className="h-3.5 w-3.5" />
-              <span>إعادة ضبط</span>
-            </button>
-          )}
+          
         </div>
       </div>
 
@@ -1075,25 +989,35 @@ export function AdminMembersPanel({
             </p>
 
             <div className="mt-4 space-y-3.5">
-              {dataSource === 'sandbox' && (
+              {isAdmin ? (
                 <label className="block space-y-1 text-xs font-semibold text-zinc-700 dark:text-zinc-300">
-                  <span>اختر عضواً من المحاكاة</span>
+                  <span>اختر العضو المعني</span>
                   <select
                     value={reportTargetId}
                     onChange={(e) => {
-                      const found = sandboxMembers.find((m) => m.id === e.target.value)
+                      const found = members.find((m) => m.id === e.target.value)
                       setReportTargetId(e.target.value)
                       if (found) setReportTargetName(found.display_name || found.id)
                     }}
                     className="min-h-[40px] w-full rounded-xl border border-zinc-200 bg-zinc-50 px-3 text-xs dark:border-white/12 dark:bg-[#07070A] dark:text-white"
                   >
                     <option value="">-- اختر عضواً --</option>
-                    {sandboxMembers.map((m) => (
+                    {members.map((m) => (
                       <option key={m.id} value={m.id}>
                         {m.display_name} ({ROLE_LABELS[m.role]})
                       </option>
                     ))}
                   </select>
+                </label>
+              ) : (
+                <label className="block space-y-1 text-xs font-semibold text-zinc-700 dark:text-zinc-300">
+                  <span>معرّف حساب العضو المستهدف</span>
+                  <input
+                    value={reportTargetId}
+                    onChange={(e) => setReportTargetId(e.target.value.trim())}
+                    placeholder="أدخل UUID الخاص بحساب العضو"
+                    className="min-h-[40px] w-full rounded-xl border border-zinc-200 bg-zinc-50 px-3.5 text-xs dark:border-white/12 dark:bg-[#07070A] dark:text-white"
+                  />
                 </label>
               )}
 

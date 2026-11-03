@@ -642,7 +642,7 @@ export function useCommunityGovernanceAndMessages({
         return {
           ok: false,
           error:
-            'تعذر تطبيق الإجراء على قاعدة البيانات. تأكد من تطبيق ملف الترقية الأخير (20261102150000) في Supabase.',
+            'تعذر تطبيق الإجراء على سجل المنصة الرسمي. يرجى التواصل مع مسؤول النظام.',
         }
       }
 
@@ -728,7 +728,7 @@ export function useCommunityGovernanceAndMessages({
         return {
           ok: false,
           error:
-            'تعذر إرسال الرسالة عبر قاعدة البيانات. تأكد من تطبيق جدول member_messages في Supabase.',
+            'تعذر إرسال الرسالة عبر خدمة المراسلة في المنصة. حاول مجدداً لاحقاً.',
         }
       }
 

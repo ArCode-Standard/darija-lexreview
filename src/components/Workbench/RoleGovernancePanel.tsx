@@ -7,7 +7,6 @@ import {
   Search,
   RefreshCw,
   ExternalLink,
-  RotateCcw,
   UserCheck,
   Users,
 } from 'lucide-react'
@@ -67,6 +66,10 @@ export function RoleGovernancePanel({
   onResetSandboxGovernance,
   onOpenAuth,
 }: RoleGovernancePanelProps) {
+  void sandboxProfiles
+  void sandboxPromotionRequests
+  void onSwitchQueueSource
+  void onResetSandboxGovernance
   const [liveRequests, setLiveRequests] = useState<RolePromotionRequest[]>([])
   const [liveProfiles, setLiveProfiles] = useState<ReviewerProfile[]>([])
   const [loadingLive, setLoadingLive] = useState(false)
@@ -117,7 +120,7 @@ export function RoleGovernancePanel({
 
     if (requestsRes.error) {
       setLiveSchemaNotice(
-        'سجل طلبات الترقية السحابي قيد التهيئة حالياً. يمكنك تجربة دورة مراجعة الطلبات كاملة في وضع المحاكاة.',
+        'سجل طلبات الترقية غير متاح حالياً. يرجى مراجعة إعدادات خدمات المنصة قبل إعادة المحاولة.',
       )
       setLiveRequests([])
     } else {
@@ -132,8 +135,8 @@ export function RoleGovernancePanel({
     }
   }, [queueSource, isLiveAdmin, fetchLiveGovernanceData])
 
-  const activeProfiles = queueSource === 'live' ? liveProfiles : sandboxProfiles
-  const activeRequests = queueSource === 'live' ? liveRequests : sandboxPromotionRequests
+  const activeProfiles = liveProfiles
+  const activeRequests = liveRequests
 
   const submissionStatsByUser = useMemo(() => {
     const map = new Map<string, { total: number; accepted: number }>()
@@ -330,7 +333,7 @@ export function RoleGovernancePanel({
                 يبدأ كل مساهم بصلاحية «مراجع مساهم»، وتتم الترقية إلى «محرر معتمد» حصرياً بقرار موثق من المشرف العام للمنصة.
               </p>
               <p className="mt-2 text-xs leading-relaxed text-zinc-600 dark:text-zinc-400">
-                يمكنك تقديم «طلب صلاحية محرر» من نافذة حسابك الشخصي، أو التبديل إلى وضع المحاكاة لتجربة واجهة المشرف في مراجعة الطلبات وترقية الأعضاء مباشرة.
+                يمكنك تقديم «طلب صلاحية محرر» من نافذة حسابك الشخصي. تتم مراجعة الطلبات وتغيير الصلاحيات حصرياً عبر السجل الرسمي وبواسطة المشرف العام.
               </p>
             </div>
           </div>
@@ -345,13 +348,7 @@ export function RoleGovernancePanel({
                 تسجيل الدخول / إنشاء حساب
               </button>
             )}
-            <button
-              type="button"
-              onClick={() => onSwitchQueueSource('sandbox')}
-              className="min-h-[38px] rounded-full border border-zinc-300 bg-zinc-50 px-4 py-2 text-xs font-semibold text-zinc-800 hover:bg-zinc-100 cursor-pointer dark:border-white/15 dark:bg-[#07070A] dark:text-zinc-200 dark:hover:border-white/30"
-            >
-              معاينة لوحة المشرف في المحاكاة
-            </button>
+            
           </div>
         </div>
       </div>
@@ -467,7 +464,7 @@ export function RoleGovernancePanel({
               ))}
             </div>
 
-            {queueSource === 'live' ? (
+            {queueSource === 'live' && (
               <button
                 type="button"
                 disabled={loadingLive}
@@ -476,17 +473,7 @@ export function RoleGovernancePanel({
               >
                 <RefreshCw className={`h-3.5 w-3.5 ${loadingLive ? 'animate-spin' : ''}`} />
                 <span>تحديث</span>
-              </button>
-            ) : (
-              <button
-                type="button"
-                onClick={onResetSandboxGovernance}
-                className="inline-flex min-h-[34px] items-center gap-1.5 rounded-full border border-zinc-300 bg-zinc-50 px-3.5 py-1.5 text-xs font-medium text-zinc-700 hover:bg-zinc-100 cursor-pointer dark:border-white/15 dark:bg-[#07070A] dark:text-zinc-300 dark:hover:border-white/30"
-              >
-                <RotateCcw className="h-3.5 w-3.5" />
-                <span>إعادة ضبط بيانات الحوكمة</span>
-              </button>
-            )}
+              </button> )}
           </div>
         </div>
 
