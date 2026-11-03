@@ -178,8 +178,7 @@ export function AdminMembersPanel({
   onResetSandbox,
   onOpenPublicDirectory,
 }: AdminMembersPanelProps) {
-  const defaultSource: 'live' | 'sandbox' =
-    isSupabaseConfigured && (isAdmin || isEditor) && !editorialPreviewMode ? 'live' : 'sandbox'
+  const defaultSource: 'live' | 'sandbox' = 'live'
 
   const [dataSource, setDataSource] = useState<'live' | 'sandbox'>(defaultSource)
   const [sandboxPerspective, setSandboxPerspective] = useState<'admin' | 'editor'>('admin')
@@ -216,7 +215,7 @@ export function AdminMembersPanel({
   const [broadcastPinDays, setBroadcastPinDays] = useState(7)
 
   const effectiveIsAdmin =
-    dataSource === 'sandbox' ? sandboxPerspective === 'admin' : isAdmin
+    false ? sandboxPerspective === 'admin' : isAdmin
 
   const members = dataSource === 'live' ? liveMembers : sandboxMembers
   const modEvents = dataSource === 'live' ? liveModEvents : sandboxModEvents
@@ -452,63 +451,17 @@ export function AdminMembersPanel({
                     : 'text-zinc-600 dark:text-zinc-400'
                 }`}
               >
-                قاعدة البيانات الحية (Supabase)
+                سجل الأعضاء المعتمد
               </button>
-              <button
-                type="button"
-                onClick={() => setDataSource('sandbox')}
-                className={`min-h-[32px] rounded-lg px-3 py-1 text-xs font-semibold cursor-pointer ${
-                  dataSource === 'sandbox'
-                    ? 'bg-zinc-950 text-white dark:bg-[#D9FF43] dark:text-[#050507]'
-                    : 'text-zinc-600 dark:text-zinc-400'
-                }`}
-              >
-                وضع المحاكاة (Sandbox)
-              </button>
+              
             </div>
           )}
 
-          {dataSource === 'sandbox' && (
-            <div
-              role="group"
-              aria-label="منظور الصلاحية في المحاكاة"
-              className="inline-flex items-center gap-1 rounded-xl border border-zinc-200 bg-zinc-100 p-1 dark:border-white/10 dark:bg-[#07070A]"
-            >
-              <button
-                type="button"
-                onClick={() => setSandboxPerspective('admin')}
-                className={`min-h-[32px] rounded-lg px-3 py-1 text-xs font-semibold cursor-pointer ${
-                  sandboxPerspective === 'admin'
-                    ? 'bg-zinc-950 text-white dark:bg-[#D9FF43] dark:text-[#050507]'
-                    : 'text-zinc-600 dark:text-zinc-400'
-                }`}
-              >
-                منظور المسؤول العام (Admin)
-              </button>
-              <button
-                type="button"
-                onClick={() => setSandboxPerspective('editor')}
-                className={`min-h-[32px] rounded-lg px-3 py-1 text-xs font-semibold cursor-pointer ${
-                  sandboxPerspective === 'editor'
-                    ? 'bg-zinc-950 text-white dark:bg-[#D9FF43] dark:text-[#050507]'
-                    : 'text-zinc-600 dark:text-zinc-400'
-                }`}
-              >
-                منظور المشرف / المحرر (Editor)
-              </button>
-            </div>
-          )}
+          
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          <button
-            type="button"
-            onClick={handleSendTestWarningToSelf}
-            className="inline-flex min-h-[34px] items-center gap-1.5 rounded-full border border-amber-300 bg-amber-50 px-3.5 py-1 text-xs font-semibold text-amber-900 hover:bg-amber-100 cursor-pointer dark:border-amber-500/40 dark:bg-amber-950/35 dark:text-amber-300"
-          >
-            <ShieldAlert className="h-3.5 w-3.5" />
-            <span>معاينة نافذة الإنذار الإلزامي</span>
-          </button>
+          
 
           <button
             type="button"
@@ -519,17 +472,7 @@ export function AdminMembersPanel({
             <ArrowUpRight className="h-3.5 w-3.5" />
           </button>
 
-          {dataSource === 'sandbox' && (
-            <button
-              type="button"
-              onClick={onResetSandbox}
-              title="إعادة ضبط بيانات المحاكاة"
-              className="inline-flex min-h-[34px] items-center gap-1 rounded-full border border-zinc-200 px-3 py-1 text-xs text-zinc-500 hover:text-zinc-900 cursor-pointer dark:border-white/10 dark:text-zinc-400 dark:hover:text-white"
-            >
-              <RotateCcw className="h-3.5 w-3.5" />
-              <span>إعادة ضبط</span>
-            </button>
-          )}
+          
         </div>
       </div>
 
@@ -1075,27 +1018,7 @@ export function AdminMembersPanel({
             </p>
 
             <div className="mt-4 space-y-3.5">
-              {dataSource === 'sandbox' && (
-                <label className="block space-y-1 text-xs font-semibold text-zinc-700 dark:text-zinc-300">
-                  <span>اختر عضواً من المحاكاة</span>
-                  <select
-                    value={reportTargetId}
-                    onChange={(e) => {
-                      const found = sandboxMembers.find((m) => m.id === e.target.value)
-                      setReportTargetId(e.target.value)
-                      if (found) setReportTargetName(found.display_name || found.id)
-                    }}
-                    className="min-h-[40px] w-full rounded-xl border border-zinc-200 bg-zinc-50 px-3 text-xs dark:border-white/12 dark:bg-[#07070A] dark:text-white"
-                  >
-                    <option value="">-- اختر عضواً --</option>
-                    {sandboxMembers.map((m) => (
-                      <option key={m.id} value={m.id}>
-                        {m.display_name} ({ROLE_LABELS[m.role]})
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              )}
+              
 
               <label className="block space-y-1 text-xs font-semibold text-zinc-700 dark:text-zinc-300">
                 <span>اسم المساهم أو معرّف المقترح المخالف</span>
