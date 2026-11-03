@@ -1,7 +1,7 @@
 begin;
 
 create extension if not exists pgtap with schema extensions;
-select plan(13);
+select plan(11);
 
 -- Synthetic fixtures only; all writes are rolled back at the end.
 insert into auth.users (
