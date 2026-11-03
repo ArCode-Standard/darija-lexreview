@@ -2,6 +2,7 @@ import { countUrls, longestRepeatedCharacterRun, normalizeSafetyText, obfuscatio
 import type { ContentSafetyResult, ContentSurface, SafetyLexiconRule, SafetyPolicy, SafetySignal, TrustedContentContext } from './types'
 export * from './normalize'
 export * from './types'
+export * from './darija-seed-lexicon'
 export const CONTENT_SAFETY_ENGINE_VERSION = '0.2.0'
 const CONTEXTUAL_PURPOSES = new Set(['dictionary_definition', 'linguistic_analysis', 'academic_quote', 'moderation_report'])
 const RULE_CATEGORIES = new Set(['profanity', 'personal_abuse', 'hate_speech', 'threat'])
