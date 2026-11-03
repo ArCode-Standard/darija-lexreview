@@ -45,3 +45,17 @@
 6. Shadow mode وقياس false positives/false negatives قبل أي enforcement.
 7. انتظار موافقة صريحة قبل الدمج أو النشر.
 
+
+
+## تحديث المرحلة الخادمية — 2026-11-03
+
+- [PR #38 — Server-enforced content gateway foundation](https://github.com/ArCode-Standard/darija-lexreview/pull/38) قيد الإعداد كفرع تابع لـ PR #36.
+- أضيف Edge Function للتحقق من JWT والدور وحالة الحساب، وفحص payload عبر محرك PR #36، وإصدار طلب رمز فحص قصير العمر.
+- أضيفت نسخة متوافقة مع Deno من محرك السلامة داخل مجلد Edge Functions.
+- أضيف SQL draft في `supabase/drafts/content_safety_gateway_and_learning.sql` فقط؛ لم يتحول إلى migration ولم يطبق.
+- لا توجد بعد سياسة كلمات مغربية معتمدة كسرّ بيئي، لذلك لا يصدر Gateway رمزاً عند غياب السياسة.
+- لم تُرحّل واجهات الكتابة الحالية إلى RPC بعد؛ enforcement غير مفعّل.
+- لم تُنشأ بيانات تدريب دائمة فعلية بعد؛ جداول التعلم الخاصة مسودة بنيوية فقط.
+- لم يتم نشر Edge Function أو تغيير secrets أو قاعدة الإنتاج.
+
+**شرط إكمال المرحلة:** توليد migration بأداة Supabase CLI، اختبارها محلياً وpgTAP، استكمال RPC/learning workflows، ترحيل كل مسارات الكتابة، ثم إثبات فشل direct REST في وضع enforce قبل طلب موافقة النشر.
