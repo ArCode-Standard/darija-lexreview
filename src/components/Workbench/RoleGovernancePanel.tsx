@@ -66,6 +66,10 @@ export function RoleGovernancePanel({
   onResetSandboxGovernance,
   onOpenAuth,
 }: RoleGovernancePanelProps) {
+  void sandboxProfiles
+  void sandboxPromotionRequests
+  void onSwitchQueueSource
+  void onResetSandboxGovernance
   const [liveRequests, setLiveRequests] = useState<RolePromotionRequest[]>([])
   const [liveProfiles, setLiveProfiles] = useState<ReviewerProfile[]>([])
   const [loadingLive, setLoadingLive] = useState(false)
