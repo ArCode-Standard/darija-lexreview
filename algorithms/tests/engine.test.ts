@@ -36,7 +36,7 @@ describe('Darija algorithm engine', () => {
   })
 
   it('returns ranked alternatives for context-sensitive consonants', () => {
-    const candidates = transliterateArabiziCandidates('gari')
+    const candidates = transliterateArabiziCandidates('gari', { latinTokenPolicy: 'all' })
     expect(candidates.length).toBeGreaterThan(1)
     expect(candidates[0]?.value).toBe('گاري')
     expect(candidates.some((candidate) => candidate.value === 'جاري')).toBe(true)
@@ -44,7 +44,7 @@ describe('Darija algorithm engine', () => {
   })
 
   it('uses adjacent vowels to rank soft c while retaining a hard-c alternative', () => {
-    const candidates = transliterateArabiziCandidates('citi')
+    const candidates = transliterateArabiziCandidates('citi', { latinTokenPolicy: 'all' })
     expect(candidates[0]?.value).toBe('سيتي')
     expect(candidates.some((candidate) => candidate.value.startsWith('كي'))).toBe(true)
   })
@@ -56,6 +56,8 @@ describe('Darija algorithm engine', () => {
 
   it('preserves Arabic text, punctuation, and whitespace in mixed-script input', () => {
     expect(transliterateArabizi('3lach سلام؟').value).toBe('علاش سلام؟')
+    expect(transliterateArabizi('hello 3lach salam').value).toBe('hello علاش سلام')
+    expect(transliterateArabizi('gari', { latinTokenPolicy: 'all' }).value).toBe('گاري')
   })
 
   it('bounds candidate generation and rejects invalid limits', () => {
