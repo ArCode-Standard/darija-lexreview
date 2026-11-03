@@ -44,8 +44,16 @@ function stableHash(value: string): number {
 /** Group-aware splits prevent related examples from leaking across train/validation/test. */
 export async function buildApprovedDataset(candidates: FeedbackCandidate[], version: string): Promise<DatasetSplit> {
   if (!version.trim()) throw new TypeError('Dataset version is required')
-  const approved = candidates.filter((candidate) => candidate.status === 'approved' && candidate.consentToDatasetUse &&
-    !candidate.containsPersonalData && ALLOWED_SURFACES.has(candidate.sourceSurface.toLowerCase()) && candidate.license.trim().length > 0)
+  const approved = candidates.filter((candidate) => {
+    const approvals = candidate.reviews.filter((review) => review.decision === 'approve')
+    const uniqueReviewers = new Set(approvals.map((review) => review.reviewerRef))
+    const rejected = candidate.reviews.some((review) => review.decision === 'reject')
+    const requiredApprovals = candidate.domain === 'content_safety' ? 2 : 1
+    return candidate.status === 'approved' && candidate.consentToDatasetUse &&
+      !candidate.containsPersonalData && ALLOWED_SURFACES.has(candidate.sourceSurface.toLowerCase()) &&
+      candidate.license.trim().length > 0 && !rejected && uniqueReviewers.size >= requiredApprovals &&
+      approvals.every((review) => review.reviewerRef !== candidate.contributorRef)
+  })
   const unique = new Map<string, DatasetExample>()
   for (const candidate of approved) {
     const key = candidate.id + ':' + candidate.label
