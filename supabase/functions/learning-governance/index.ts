@@ -106,7 +106,7 @@ Deno.serve(async (req: Request) => {
       if (EDITOR_SOURCES.has(String(source)) && !["editor", "admin"].includes(profile.role)) {
         return response({ error: "editor_role_required" }, 403, origin);
       }
-      if (PII_PATTERNS.some((pattern) => pattern.test(text) || pattern.test(rationale))) {
+      if (PII_PATTERNS.some((pattern) => pattern.test(text) || pattern.test(label) || pattern.test(rationale))) {
         return response({ error: "personal_data_must_be_redacted" }, 422, origin);
       }
 
@@ -156,6 +156,9 @@ Deno.serve(async (req: Request) => {
           !["approve", "reject"].includes(String(body.decision)) ||
           typeof body.reason !== "string" || !body.reason.trim() || body.reason.length > 2000) {
         return response({ error: "invalid_review_request" }, 422, origin);
+      }
+      if (PII_PATTERNS.some((pattern) => pattern.test(body.reason as string))) {
+        return response({ error: "personal_data_must_be_redacted" }, 422, origin);
       }
       const { data: status, error } = await userClient.rpc("review_learning_feedback_candidate", {
         p_candidate_id: body.candidateId,
