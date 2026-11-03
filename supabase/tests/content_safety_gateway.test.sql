@@ -1,6 +1,6 @@
 begin;
 
-select plan(36);
+select plan(38);
 
 select ok(to_regclass('private.content_scan_tokens') is not null, 'private one-time token table exists');
 select ok(to_regclass('private.feedback_candidates') is not null, 'private governed feedback table exists');
@@ -38,7 +38,7 @@ select is((select enforcement_mode from private.content_safety_settings where si
 
 insert into auth.users(id, aud, role, email, raw_app_meta_data, raw_user_meta_data, created_at, updated_at)
 values
-  ('00000000-0000-4000-8000-000000000038', 'authenticated', 'authenticated', 'gateway-test-38@example.invalid', '{}'::jsonb, '{}'::jsonb, now(), now()),
+  ('00000000-0000-4000-8000-000000000038', 'authenticated', 'authenticated', 'gateway-test-38@example.invalid', '{}'::jsonb, '{"name":"Shadow Signup"}'::jsonb, now(), now()),
   ('00000000-0000-4000-8000-000000000039', 'authenticated', 'authenticated', 'gateway-test-39@example.invalid', '{}'::jsonb, '{}'::jsonb, now(), now())
 on conflict (id) do nothing;
 
@@ -212,8 +212,9 @@ select is(
 
 reset role;
 insert into auth.users(id, aud, role, email, raw_app_meta_data, raw_user_meta_data, created_at, updated_at)
-values ('00000000-0000-4000-8000-000000000040', 'authenticated', 'authenticated', 'gateway-test-40@example.invalid', '{}'::jsonb, '{}'::jsonb, now(), now())
+values ('00000000-0000-4000-8000-000000000040', 'authenticated', 'authenticated', 'gateway-test-40@example.invalid', '{}'::jsonb, '{"name":"Enforce Signup Should Not Copy"}'::jsonb, now(), now())
 on conflict (id) do nothing;
+select is((select display_name from public.reviewer_profiles where id='00000000-0000-4000-8000-000000000040'), null, 'enforce-mode signup does not copy unscanned user metadata');
 update public.reviewer_profiles set role='editor'
 where id in (
   '00000000-0000-4000-8000-000000000038',
