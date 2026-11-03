@@ -11,15 +11,42 @@ export function levenshteinDistance(a: string, b: string): number {
   return prev[y.length]
 }
 export function damerauLevenshteinDistance(a: string, b: string): number {
-  const x=Array.from(a), y=Array.from(b), d=Array.from({length:x.length+1},()=>Array<number>(y.length+1).fill(0))
-  for(let i=0;i<=x.length;i++) d[i][0]=i
-  for(let j=0;j<=y.length;j++) d[0][j]=j
-  for(let i=1;i<=x.length;i++) for(let j=1;j<=y.length;j++) {
-    const c=x[i-1]===y[j-1]?0:1
-    d[i][j]=Math.min(d[i-1][j]+1,d[i][j-1]+1,d[i-1][j-1]+c)
-    if(i>1&&j>1&&x[i-1]===y[j-2]&&x[i-2]===y[j-1]) d[i][j]=Math.min(d[i][j],d[i-2][j-2]+c)
+  const x = Array.from(a)
+  const y = Array.from(b)
+  const maxDistance = x.length + y.length
+  const matrix = Array.from({ length: x.length + 2 }, () => Array<number>(y.length + 2).fill(0))
+  matrix[0][0] = maxDistance
+  for (let i = 0; i <= x.length; i += 1) {
+    matrix[i + 1][0] = maxDistance
+    matrix[i + 1][1] = i
   }
-  return d[x.length][y.length]
+  for (let j = 0; j <= y.length; j += 1) {
+    matrix[0][j + 1] = maxDistance
+    matrix[1][j + 1] = j
+  }
+
+  const lastSeen = new Map<string, number>()
+  for (let i = 1; i <= x.length; i += 1) {
+    let lastMatchColumn = 0
+    for (let j = 1; j <= y.length; j += 1) {
+      const lastMatchRow = lastSeen.get(y[j - 1]) ?? 0
+      const previousMatchColumn = lastMatchColumn
+      let substitutionCost = 1
+      if (x[i - 1] === y[j - 1]) {
+        substitutionCost = 0
+        lastMatchColumn = j
+      }
+      matrix[i + 1][j + 1] = Math.min(
+        matrix[i][j] + substitutionCost,
+        matrix[i + 1][j] + 1,
+        matrix[i][j + 1] + 1,
+        matrix[lastMatchRow][previousMatchColumn]
+          + (i - lastMatchRow - 1) + 1 + (j - previousMatchColumn - 1),
+      )
+    }
+    lastSeen.set(x[i - 1], i)
+  }
+  return matrix[x.length + 1][y.length + 1]
 }
 export function jaroWinklerSimilarity(a:string,b:string):number {
   if(a===b)return 1
