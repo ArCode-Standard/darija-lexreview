@@ -10,37 +10,20 @@ const CONFUSABLE_FOLD: Record<string, string> = {
   '0': 'o', '1': 'i', '3': 'e', '4': 'a', '5': 's',
   '7': 't', '@': 'a', '$': 's',
 }
-
 function mapCharacters(value: string, map: Record<string, string>): string {
   return Array.from(value, (character) => map[character] ?? character).join('')
 }
-
-/** Search-only normalization. Never replace original submitted text with this value. */
 export function normalizeSafetyText(input: string): string {
-  return mapCharacters(
-    input.normalize('NFKC')
-      .toLocaleLowerCase()
-      .replace(INVISIBLE, '')
-      .replace(TATWEEL, '')
-      .replace(ARABIC_MARKS, ''),
-    ARABIC_FOLD,
-  )
-    .replace(/[^\\p{L}\\p{N}]+/gu, ' ')
-    .trim()
-    .replace(/\\s+/gu, ' ')
+  return mapCharacters(input.normalize('NFKC').toLocaleLowerCase().replace(INVISIBLE, '').replace(TATWEEL, '').replace(ARABIC_MARKS, ''), ARABIC_FOLD)
+    .replace(/[^\p{L}\p{N}]+/gu, ' ').trim().replace(/\s+/gu, ' ')
 }
-
-/** Secondary evasion skeleton; never use it as the sole basis for blocking. */
 export function compactObfuscationKey(input: string): string {
   return mapCharacters(normalizeSafetyText(input), CONFUSABLE_FOLD)
-    .replace(/[\\s._*\\-]+/gu, '')
-    .replace(/(.)\\1{2,}/gu, '$1$1')
+    .replace(/[\s._*-]+/gu, '').replace(/(.)\1{2,}/gu, '$1$1')
 }
-
 export function countUrls(input: string): number {
-  return input.match(/(?:https?:\\/\\/|www\\.)[^\\s]+/giu)?.length ?? 0
+  return input.match(/(?:https?:\/\/|www\.)[^\s]+/giu)?.length ?? 0
 }
-
 export function longestRepeatedCharacterRun(input: string): number {
   let longest = 0
   let current = 0
