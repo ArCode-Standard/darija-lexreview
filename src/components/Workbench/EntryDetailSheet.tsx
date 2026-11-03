@@ -12,7 +12,6 @@ import {
   ChevronDown,
   AlertCircle,
   CheckCircle2,
-  ArrowLeft,
   GitBranch,
   Wand2,
   X,
