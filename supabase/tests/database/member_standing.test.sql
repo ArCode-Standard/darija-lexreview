@@ -34,6 +34,8 @@ select set_config('request.jwt.claim.sub','10000000-0000-4000-8000-000000000011'
 select set_config('request.jwt.claim.role','authenticated',true);
 select is((select private.is_active_contributor()), true, 'active member passes the database standing check');
 reset role;
+select set_config('request.jwt.claim.sub','',true);
+select set_config('request.jwt.claim.role','',true);
 
 -- Missing profiles fail closed rather than inheriting contributor access.
 set local role authenticated;
@@ -41,6 +43,8 @@ select set_config('request.jwt.claim.sub','10000000-0000-4000-8000-000000000099'
 select set_config('request.jwt.claim.role','authenticated',true);
 select is((select private.is_active_contributor()), false, 'a user without a reviewer profile is not an active contributor');
 reset role;
+select set_config('request.jwt.claim.sub','',true);
+select set_config('request.jwt.claim.role','',true);
 
 -- Permanent bans and non-expired suspensions are rejected by the database.
 update public.reviewer_profiles
@@ -59,6 +63,8 @@ select throws_ok(
   'a banned member cannot insert a submission through the Data API'
 );
 reset role;
+select set_config('request.jwt.claim.sub','',true);
+select set_config('request.jwt.claim.role','',true);
 
 update public.reviewer_profiles
 set account_status = 'suspended',
@@ -71,6 +77,8 @@ select set_config('request.jwt.claim.sub','10000000-0000-4000-8000-000000000011'
 select set_config('request.jwt.claim.role','authenticated',true);
 select is((select private.is_active_contributor()), false, 'a suspension before its deadline blocks contribution');
 reset role;
+select set_config('request.jwt.claim.sub','',true);
+select set_config('request.jwt.claim.role','',true);
 
 -- Once the deadline passes, authorization is restored immediately, even before
 -- the scheduled job materializes account_status='active'.
@@ -88,6 +96,8 @@ select lives_ok(
   'an expired suspension can submit without waiting for the scheduler'
 );
 reset role;
+select set_config('request.jwt.claim.sub','',true);
+select set_config('request.jwt.claim.role','',true);
 
 -- Simulate the exact SQL executed by pg_cron and verify persistent restoration,
 -- audit logging, and the existing member notification side effect.
