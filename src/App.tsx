@@ -383,9 +383,6 @@ export default function App() {
       }
 
       setReviewerProfile(prof)
-      if (prof.role === 'editor' || prof.role === 'admin') {
-        setPreferredExportSource('live')
-      }
     } else {
       setReviewerProfile(null)
     }
