@@ -214,12 +214,11 @@ export function AdminMembersPanel({
   const [broadcastBody, setBroadcastBody] = useState('')
   const [broadcastPinDays, setBroadcastPinDays] = useState(7)
 
-  const effectiveIsAdmin =
-    false ? sandboxPerspective === 'admin' : isAdmin
+  const effectiveIsAdmin = isAdmin
 
-  const members = dataSource === 'live' ? liveMembers : sandboxMembers
-  const modEvents = dataSource === 'live' ? liveModEvents : sandboxModEvents
-  const modReports = dataSource === 'live' ? liveModReports : sandboxModReports
+  const members = liveMembers
+  const modEvents = liveModEvents
+  const modReports = liveModReports
 
   const filteredMembers = useMemo(() => {
     const trimmed = query.trim().toLowerCase()
