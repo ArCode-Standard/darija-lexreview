@@ -548,7 +548,7 @@ export function WorkspaceShell({
             )}
 
             {/* Member Inbox Bell — Strictly Hidden from Unauthenticated Visitors */}
-            {!isFocusMode && (isAuthenticated || editorialPreviewMode) && (
+            {!isFocusMode && isAuthenticated && (
               <a
                 href="/messages"
                 onClick={(e) => {
