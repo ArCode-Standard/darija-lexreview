@@ -227,7 +227,6 @@ export default function App() {
   const [lexiconDetailMode, setLexiconDetailMode] = useState<'reference' | 'workshop'>('reference')
   const [workshopFocusExample, setWorkshopFocusExample] = useState(false)
   const [focusMode, setFocusMode] = useState(false)
-  const [editorialPreviewMode, setEditorialPreviewMode] = useState(false)
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false)
 
   const [query, setQuery] = useState(initialRoute.query)
@@ -263,7 +262,7 @@ export default function App() {
   const corpusVersion = useMemo(() => extractCorpusVersion(rawCorpus), [rawCorpus])
   const isStaffRole =
     reviewerProfile?.role === 'editor' || reviewerProfile?.role === 'admin'
-  const canAccessEditorialTools = isStaffRole || editorialPreviewMode
+  const canAccessEditorialTools = isStaffRole
   const isRapidFocusActive = activePage === 'review' && focusMode
 
   const { drafts, draftsList, saveDraft, removeDraft, removeMultipleDrafts } = useLocalDrafts()
@@ -332,7 +331,7 @@ export default function App() {
   } = useCommunityGovernanceAndMessages({
     currentProfile: reviewerProfile,
     userEmail,
-    editorialPreviewMode,
+    editorialPreviewMode: false,
     totalAttestationsCount,
   })
 
@@ -436,9 +435,6 @@ export default function App() {
         setRecoveryMode(true)
         setActivePage('auth')
       }
-      if (event === 'SIGNED_OUT') {
-        setEditorialPreviewMode(false)
-      }
       if (event === 'SIGNED_IN' || event === 'SIGNED_OUT' || event === 'USER_UPDATED') {
         queueMicrotask(() => {
           void syncUserSession()
@@ -516,12 +512,7 @@ export default function App() {
     [filteredEntries, activeEntry.id],
   )
 
-  const pendingSandboxCount = useMemo(
-    () => sandboxItems.filter((i) => i.status === 'pending').length,
-    [sandboxItems],
-  )
-
-  // Navigate cleanly between independent pages with history pushState + instant scroll reset
+// Navigate cleanly between independent pages with history pushState + instant scroll reset
   const navigatePage = useCallback(
     (
       nextPage: AppPage,
@@ -755,7 +746,6 @@ export default function App() {
 
   function handleOpenModerationSandbox() {
     setFocusMode(false)
-    if (!isStaffRole) setEditorialPreviewMode(true)
     setForceSandboxModeration(true)
     navigatePage('editorial')
   }
@@ -969,14 +959,7 @@ export default function App() {
           </button>
         )}
 
-        <button
-          type="button"
-          onClick={() => setEditorialPreviewMode(true)}
-          className="inline-flex min-h-[42px] items-center gap-2 rounded-full border border-zinc-300 bg-white px-5 py-2 text-xs font-semibold text-zinc-800 hover:bg-zinc-50 transition-colors cursor-pointer dark:border-white/15 dark:bg-[#07070A] dark:text-zinc-200 dark:hover:border-[#D9FF43]/60"
-        >
-          <Eye className="h-4 w-4 text-emerald-700 dark:text-[#D9FF43]" />
-          <span>معاينة تجريبية معزولة (للفحص التقني)</span>
-        </button>
+        
 
         <button
           type="button"
@@ -1060,8 +1043,6 @@ export default function App() {
             darkMode={darkMode}
             onToggleDarkMode={() => setDarkMode((prev) => !prev)}
             isStaffRole={isStaffRole}
-            editorialPreviewMode={editorialPreviewMode}
-            onToggleEditorialPreview={() => setEditorialPreviewMode(false)}
             onOpenContributors={() => navigatePage('contributors')}
           />
         </div>
@@ -1080,8 +1061,6 @@ export default function App() {
           userRole={reviewerProfile?.role ?? null}
           canAccessEditorialTools={canAccessEditorialTools}
           isStaffRole={isStaffRole}
-          editorialPreviewMode={editorialPreviewMode}
-          onToggleEditorialPreview={() => setEditorialPreviewMode((prev) => !prev)}
           darkMode={darkMode}
           onToggleDarkMode={() => setDarkMode((prev) => !prev)}
           dataMode={dataMode}
@@ -1091,7 +1070,6 @@ export default function App() {
           completedTodayCount={completedTodayCount}
           draftsCount={draftsList.length}
           unreadMessagesCount={unreadMessagesCount}
-          pendingSandboxCount={pendingSandboxCount}
           onReloadCorpus={loadCorpus}
           onOpenCommandPalette={() => setCommandPaletteOpen(true)}
           onNavigatePage={navigatePage}
@@ -1132,19 +1110,6 @@ export default function App() {
 
                   {/* Contextual Header Status / Mode Switcher */}
                   <div className="flex flex-wrap items-center gap-2.5">
-                    {!isStaffRole && editorialPreviewMode && (
-                      <div className="flex items-center gap-2 rounded-xl border border-amber-300/80 bg-amber-50/80 px-3.5 py-1.5 text-xs text-amber-950 dark:border-amber-800/60 dark:bg-amber-950/30 dark:text-amber-200">
-                        <span>وضع معاينة المحررين مفعّل</span>
-                        <span aria-hidden="true">·</span>
-                        <button
-                          type="button"
-                          onClick={() => setEditorialPreviewMode(false)}
-                          className="font-semibold underline cursor-pointer"
-                        >
-                          إيقاف
-                        </button>
-                      </div>
-                    )}
 
                     {dataMode === 'cached' && (
                       <button
@@ -1722,7 +1687,6 @@ export default function App() {
                   userEmail={userEmail}
                   isAdmin={reviewerProfile?.role === 'admin'}
                   isEditor={reviewerProfile?.role === 'editor'}
-                  editorialPreviewMode={editorialPreviewMode}
                   liveMembers={liveAdminMembers}
                   sandboxMembers={sandboxMembers}
                   loadingMembers={loadingMembers}
