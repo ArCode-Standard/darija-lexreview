@@ -18,15 +18,19 @@ export function cosineSimilarity(left: number[], right: number[]): number {
     throw new TypeError('vectors must contain only finite numbers')
   }
 
+  const leftScale = Math.max(...left.map(Math.abs))
+  const rightScale = Math.max(...right.map(Math.abs))
+  if (leftScale === 0 || rightScale === 0) return 0
   let dot = 0
   let leftNorm = 0
   let rightNorm = 0
   for (let index = 0; index < left.length; index += 1) {
-    dot += left[index] * right[index]
-    leftNorm += left[index] ** 2
-    rightNorm += right[index] ** 2
+    const leftValue = left[index] / leftScale
+    const rightValue = right[index] / rightScale
+    dot += leftValue * rightValue
+    leftNorm += leftValue ** 2
+    rightNorm += rightValue ** 2
   }
-  if (leftNorm === 0 || rightNorm === 0) return 0
   return dot / (Math.sqrt(leftNorm) * Math.sqrt(rightNorm))
 }
 
