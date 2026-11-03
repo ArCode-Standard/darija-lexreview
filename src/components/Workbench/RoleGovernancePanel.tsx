@@ -470,17 +470,7 @@ export function RoleGovernancePanel({
               >
                 <RefreshCw className={`h-3.5 w-3.5 ${loadingLive ? 'animate-spin' : ''}`} />
                 <span>تحديث</span>
-              </button>
-            ) : (
-              <button
-                type="button"
-                onClick={onResetSandboxGovernance}
-                className="inline-flex min-h-[34px] items-center gap-1.5 rounded-full border border-zinc-300 bg-zinc-50 px-3.5 py-1.5 text-xs font-medium text-zinc-700 hover:bg-zinc-100 cursor-pointer dark:border-white/15 dark:bg-[#07070A] dark:text-zinc-300 dark:hover:border-white/30"
-              >
-                <RotateCcw className="h-3.5 w-3.5" />
-                <span>إعادة ضبط بيانات الحوكمة</span>
-              </button>
-            )}
+              </button> )}
           </div>
         </div>
 
