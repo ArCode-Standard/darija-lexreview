@@ -152,6 +152,11 @@ describe('governed learning pipeline', () => {
       decision: 'approve', reason: 'Second review',
     })).toThrow(/twice/)
   })
+  it('does not export a forged approved status without independent review records', async () => {
+    const forged = { ...makeCandidate('content_safety'), status: 'approved' as const }
+    const dataset = await buildApprovedDataset([forged], 'dataset-forged')
+    expect(dataset.train.length + dataset.validation.length + dataset.test.length).toBe(0)
+  })
   it('calculates class metrics and enforces release gates', () => {
     const report = calculateEvaluationReport('dataset-1', ['safe', 'unsafe'], ['safe', 'safe'])
     expect(report.classes.find((item) => item.label === 'unsafe')?.falseNegative).toBe(1)
