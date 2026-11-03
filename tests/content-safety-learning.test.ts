@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { normalizeSafetyText, obfuscationSkeleton, scanContent, type SafetyPolicy } from '../algorithms/content-safety'
+import { createDefaultDarijaSafetyPolicy, normalizeSafetyText, obfuscationSkeleton, scanContent, type SafetyPolicy } from '../algorithms/content-safety'
 import { scanContentPayload } from '../algorithms/content-safety/gateway'
 import { buildApprovedDataset, calculateEvaluationReport, evaluateReleaseGate, reviewFeedbackCandidate, submitFeedbackCandidate } from '../algorithms/learning-system'
 import type { FeedbackCandidate } from '../algorithms/learning-system'
@@ -27,6 +27,29 @@ function makeCandidate(domain: 'linguistic' | 'content_safety' = 'linguistic'): 
 }
 
 describe('content safety engine', () => {
+  it('ships a versioned Moroccan Darija starter lexicon with Arabic and Arabizi entries', () => {
+    const seed = createDefaultDarijaSafetyPolicy()
+    expect(seed.version).toBe('darija-seed-1.0.0')
+    expect(seed.rules.some((rule) => rule.phrase === 'خرا' && rule.category === 'profanity')).toBe(true)
+    expect(seed.rules.some((rule) => rule.phrase === '7mar' && rule.category === 'personal_abuse')).toBe(true)
+    expect(seed.rules.some((rule) => rule.phrase === 'قحبة' && rule.category === 'personal_abuse')).toBe(true)
+  })
+  it('detects seeded Darija profanity as a review signal, not an automatic block', () => {
+    const seed = createDefaultDarijaSafetyPolicy()
+    const result = scanContent({ text: 'خرا', surface: 'comment' }, seed)
+    expect(result.decision).toBe('review')
+    expect(result.signals.some((signal) => signal.ruleId === 'darija-prof-001')).toBe(true)
+  })
+  it('does not block a seeded insult without trusted targeting context', () => {
+    const seed = createDefaultDarijaSafetyPolicy()
+    const result = scanContent({ text: 'حمار', surface: 'comment' }, seed)
+    expect(result.decision).toBe('review')
+  })
+  it('blocks a seeded personal insult only when trusted context confirms targeting', () => {
+    const seed = createDefaultDarijaSafetyPolicy()
+    const result = scanContent({ text: 'حمار', surface: 'comment', context: { purpose: 'general', targetedAtPerson: true } }, seed)
+    expect(result.decision).toBe('block')
+  })
   it('does not block profanity-only mention in trusted linguistic context', () => {
     const result = scanContent({
       text: 'sample-profanity', surface: 'lexicon',
