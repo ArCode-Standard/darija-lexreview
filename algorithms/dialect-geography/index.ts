@@ -23,6 +23,7 @@ export function summarizeRegionalDistribution(rows: RegionalObservation[]): Regi
     const count = row.count === undefined ? 1 : row.count
     if (!Number.isFinite(count) || count < 0) throw new RangeError('Observation counts must be finite and non-negative')
     const amount = Math.floor(count)
+    if (amount === 0) continue
     const group = groups.get(entryId) ?? { regions: new Map<string, number>(), unknown: 0 }
     const region = row.region?.trim()
     if (region) group.regions.set(region, (group.regions.get(region) ?? 0) + amount)
