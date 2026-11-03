@@ -20,7 +20,7 @@ export function normalizeArabicForSearch(input: string, options: NormalizationOp
 /** Conservative Arabizi normalization; ambiguous phonemes are not collapsed. */
 export function normalizeArabiziForSearch(input: string): string {
   return input.normalize('NFKC').replace(INVISIBLE, '').toLocaleLowerCase('en').trim()
-    .replace(/[’‘\`´]/gu, "'")
+    .replace(/[’‘´]/gu, "'")
     .replace(/[-‐‑‒–—_]+/gu, ' ')
     .replace(/\s+/gu, ' ')
 }
