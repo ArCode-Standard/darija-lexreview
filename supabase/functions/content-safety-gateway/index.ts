@@ -53,7 +53,7 @@ const OPERATIONS: Record<Operation, OperationSpec> = {
   "member_moderation_reports.create": {
     surface: "report", requiredRole: "editor",
     allowedKeys: ["target_user_id", "target_display_name", "recommended_action", "reason"],
-    contexts: { reason: { purpose: "moderation_report" } },
+    contexts: { reason: { purpose: "moderation_report", quotedForEvidence: true } },
   },
   "member_moderation_reports.resolve": {
     surface: "admin", requiredRole: "admin",
@@ -107,7 +107,6 @@ function flattenText(value: unknown, output: string[], depth = 0): void {
     const entries = Object.entries(value as Record<string, unknown>);
     if (entries.length > 100) throw new RangeError("Content object exceeds scan limits");
     for (const [key, child] of entries) {
-      output.push(key);
       flattenText(child, output, depth + 1);
     }
     return;
@@ -146,8 +145,16 @@ function scanFields(payload: Record<string, unknown>): Record<string, string | s
 function loadPolicy(): SafetyPolicy {
   const raw = Deno.env.get("CONTENT_SAFETY_POLICY_JSON");
   if (!raw) throw new Error("CONTENT_SAFETY_POLICY_NOT_CONFIGURED");
-  const policy = JSON.parse(raw) as SafetyPolicy;
-  if (!policy.version || !Array.isArray(policy.rules) || policy.rules.length === 0) throw new Error("CONTENT_SAFETY_POLICY_INVALID");
+  let policy: SafetyPolicy;
+  try {
+    policy = JSON.parse(raw) as SafetyPolicy;
+  } catch {
+    throw new Error("CONTENT_SAFETY_POLICY_INVALID");
+  }
+  if (!policy || typeof policy.version !== "string" || !policy.version.trim() ||
+      !Array.isArray(policy.rules) || policy.rules.length === 0) {
+    throw new Error("CONTENT_SAFETY_POLICY_INVALID");
+  }
   return policy;
 }
 
@@ -175,7 +182,11 @@ Deno.serve(async (req: Request) => {
     if (encoder.encode(rawBody).byteLength > MAX_BODY_BYTES) {
       return json({ error: "payload_too_large" }, 413, requestOrigin);
     }
-    const body = JSON.parse(rawBody) as { operation?: string; payload?: unknown };
+    const parsed: unknown = JSON.parse(rawBody);
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+      return json({ error: "invalid_request" }, 400, requestOrigin);
+    }
+    const body = parsed as { operation?: string; payload?: unknown };
     if (!body.operation || !Object.hasOwn(OPERATIONS, body.operation)) {
       return json({ error: "unsupported_operation" }, 400, requestOrigin);
     }
@@ -206,9 +217,11 @@ Deno.serve(async (req: Request) => {
       .maybeSingle();
     if (profileError || !profile) return json({ error: "active_profile_required" }, 403, requestOrigin);
 
-    const suspended = profile.account_status === "suspended" &&
-      (!profile.suspended_until || new Date(profile.suspended_until).getTime() > Date.now());
-    if (profile.account_status === "banned" || suspended || !["active", "warned"].includes(profile.account_status)) {
+    const suspensionExpiry = profile.suspended_until ? new Date(profile.suspended_until).getTime() : Number.NaN;
+    const suspensionExpired = profile.account_status === "suspended" &&
+      Number.isFinite(suspensionExpiry) && suspensionExpiry <= Date.now();
+    const standingAllowed = ["active", "warned"].includes(profile.account_status) || suspensionExpired;
+    if (profile.account_status === "banned" || !standingAllowed) {
       return json({ error: "account_not_active" }, 403, requestOrigin);
     }
     if (spec.requiredRole === "editor" && !["editor", "admin"].includes(profile.role)) {
@@ -267,7 +280,7 @@ Deno.serve(async (req: Request) => {
   } catch (error) {
     const message = error instanceof Error ? error.message : "unknown_error";
     const status = message.includes("CONTENT_SAFETY_POLICY") ? 503
-      : message.includes("Unsupported") || message.includes("payload") || message.includes("Content") ? 400 : 500;
+      : error instanceof SyntaxError || message.includes("Unsupported") || message.includes("payload") || message.includes("Content") ? 400 : 500;
     console.error(JSON.stringify({ event: "content_safety_gateway_error", code: message.slice(0, 120) }));
     return json({ error: status === 503 ? "policy_unavailable" : status === 400 ? "invalid_request" : "gateway_error" }, status, requestOrigin);
   }
