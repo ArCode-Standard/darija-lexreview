@@ -227,11 +227,7 @@ export function MemberMessagesPage({
                             جديد
                           </span>
                         )}
-                        {msg.is_sandbox && (
-                          <span className="rounded-md border border-zinc-200 px-1.5 py-0.5 text-[10px] text-zinc-500 dark:border-white/10 dark:text-zinc-400">
-                            وضع المعاينة
-                          </span>
-                        )}
+
                       </div>
                       <h3 className="font-display text-base sm:text-lg font-bold text-zinc-950 dark:text-white">
                         {msg.title}

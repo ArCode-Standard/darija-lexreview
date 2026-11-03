@@ -19,7 +19,6 @@ import type {
   AttestationVerdict,
   CommunityAttestationRecord,
   EntryAttestationSummary,
-  EvidenceItem,
   ExampleAttestationSummary,
   LexicalEntry,
   LocalDraft,
@@ -81,15 +80,8 @@ interface RapidReviewPanelProps {
   onSkipEntry: (entryId: string, exampleId?: string) => void
   onUndoLastStep: () => Promise<string | null>
   onResetSessionSkips: () => void
-  onAddSandboxSubmission: (params: {
-    entryId: string
-    proposedData: ProposedFields
-    evidence: EvidenceItem[]
-    reviewerNote: string | null
-  }) => void
   onSaveDraft: (draft: LocalDraft) => void
   onOpenDetailedEntry: (entry: LexicalEntry) => void
-  onOpenModerationSandbox: () => void
   onRequireLogin: () => void
   onSubmissionSuccess: () => void
 }
@@ -118,16 +110,11 @@ export function RapidReviewPanel({
   onSkipEntry,
   onUndoLastStep,
   onResetSessionSkips,
-  onAddSandboxSubmission,
   onSaveDraft,
   onOpenDetailedEntry,
-  onOpenModerationSandbox,
   onRequireLogin,
   onSubmissionSuccess,
 }: RapidReviewPanelProps) {
-  void onAddSandboxSubmission
-  void onOpenModerationSandbox
-  void onAddSandboxSubmission
   const [microTask, setMicroTask] = useState<RapidMicroTask>('verify_words')
   const [categoryFilter, setCategoryFilter] = useState<string>('all')
   const [showAlreadyReviewed, setShowAlreadyReviewed] = useState(false)
@@ -172,7 +159,6 @@ export function RapidReviewPanel({
   const [toast, setToast] = useState<{
     type: 'success' | 'info' | 'error'
     text: string
-    showSandboxLink?: boolean
   } | null>(null)
 
   const corpusArabiziLookup = useMemo(() => buildCorpusArabiziLookup(entries), [entries])
@@ -737,7 +723,6 @@ export function RapidReviewPanel({
         : !userEmail
           ? `حُفظ تصحيح «${entry.word}» في مسوداتك المحلية؛ يمكنك تسجيل الدخول في أي وقت لإرساله باسمك.`
           : `تم تسجيل تصحيح «${entry.word}» والانتقال للمفردة التالية.`,
-      showSandboxLink: !sentToLiveBackend && canAccessEditorialTools,
     })
   }
 

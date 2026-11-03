@@ -5,7 +5,6 @@ import {
   AlertTriangle,
   ExternalLink,
   RefreshCw,
-  Edit3,
   ArrowLeft,
   ShieldAlert,
   CheckSquare,
@@ -15,14 +14,10 @@ import { supabase } from '../../lib/supabase'
 import type {
   EntryAttestationSummary,
   LexicalEntry,
-  PromotionRequestStatus,
   ProposedFields,
-  ReviewDecisionEvent,
   ReviewerProfile,
-  RolePromotionRequest,
   SubmissionRecord,
   SubmissionStatus,
-  UserRole,
 } from '../../types/lexicon'
 import { formatAccessionCode, formatStatusLabel } from '../../services/dataset'
 import { isNewEntrySubmission } from '../../services/exporter'
@@ -36,44 +31,14 @@ import { DecisionAuditTimeline } from './DecisionAuditTimeline'
 
 interface EditorModerationPanelProps {
   entries: LexicalEntry[]
-  categories: string[]
   corpusVersion: string
   userEmail: string | null
   profile: ReviewerProfile | null
-  sandboxItems: SubmissionRecord[]
-  sandboxEvents: ReviewDecisionEvent[]
-  sandboxProfiles: ReviewerProfile[]
-  sandboxPromotionRequests: RolePromotionRequest[]
   attestationSummaries: Record<string, EntryAttestationSummary>
-  forceSandboxMode?: boolean
   forceGovernanceSection?: boolean
   onClearForceGovernanceSection?: () => void
-  onModerateSandbox: (params: {
-    id: string
-    status: SubmissionStatus
-    editorNote: string | null
-    proposedData: ProposedFields
-    editorId?: string
-    editorDisplayName?: string
-  }) => void
-  onBulkApproveSandbox: (params: {
-    ids: string[]
-    editorNote: string
-    editorId?: string
-    editorDisplayName?: string
-  }) => void
-  onResetSandbox: () => void
-  onReviewSandboxPromotion: (params: {
-    requestId: string
-    decision: Exclude<PromotionRequestStatus, 'pending'>
-    adminNote: string | null
-    adminId?: string
-    adminName?: string
-  }) => void
-  onUpdateSandboxMemberRole: (userId: string, nextRole: UserRole) => void
-  onResetSandboxGovernance: () => void
   onOpenAuth: () => void
-  onGoToExporter: (source: 'live' | 'sandbox') => void
+  onGoToExporter: () => void
 }
 
 const DIFF_FIELDS: Array<{
@@ -97,38 +62,22 @@ const DIFF_FIELDS: Array<{
 
 export function EditorModerationPanel({
   entries,
-  categories,
   corpusVersion,
   userEmail,
   profile,
-  sandboxItems,
-  sandboxEvents,
-  sandboxProfiles,
-  sandboxPromotionRequests,
   attestationSummaries,
-  forceSandboxMode,
   forceGovernanceSection,
   onClearForceGovernanceSection,
-  onModerateSandbox,
-  onBulkApproveSandbox,
-  onResetSandbox,
-  onReviewSandboxPromotion,
-  onUpdateSandboxMemberRole,
-  onResetSandboxGovernance,
   onOpenAuth,
   onGoToExporter,
 }: EditorModerationPanelProps) {
-  void sandboxItems
-  void onResetSandbox
   const isAuthorizedLiveEditor =
     Boolean(userEmail) && (profile?.role === 'editor' || profile?.role === 'admin')
 
-  const [queueSource, setQueueSource] = useState<'live' | 'sandbox'>('live')
   const [moderationSection, setModerationSection] = useState<'adjudication' | 'governance'>(
     () => (forceGovernanceSection ? 'governance' : 'adjudication'),
   )
 
-  useEffect(() => { setQueueSource('live') }, [forceSandboxMode, isAuthorizedLiveEditor])
 
   useEffect(() => {
     if (forceGovernanceSection) {
@@ -153,8 +102,6 @@ export function EditorModerationPanel({
   const [bulkBusy, setBulkBusy] = useState(false)
   const [bulkError, setBulkError] = useState<string | null>(null)
 
-  const [editMode, setEditMode] = useState(false)
-  const [editableProposed, setEditableProposed] = useState<ProposedFields>({})
   const [editorNote, setEditorNote] = useState('')
   const [savingDecision, setSavingDecision] = useState(false)
   const [auditRefreshCounter, setAuditRefreshCounter] = useState(0)
@@ -209,10 +156,8 @@ export function EditorModerationPanel({
     setSelectedBatchIds(new Set())
     setBulkModalOpen(false)
     setBulkError(null)
-    if (queueSource === 'live') {
-      fetchLiveQueue()
-    }
-  }, [queueSource, fetchLiveQueue])
+    fetchLiveQueue()
+  }, [fetchLiveQueue])
 
   const activePool = liveItems
 
@@ -263,9 +208,7 @@ export function EditorModerationPanel({
 
   useEffect(() => {
     if (activeSubmission) {
-      setEditableProposed({ ...activeSubmission.proposed_data })
       setEditorNote(activeSubmission.editor_note ?? '')
-      setEditMode(false)
       setActionMessage(null)
     }
   }, [activeSubmission?.id])
@@ -274,7 +217,7 @@ export function EditorModerationPanel({
   const submissionWarnings = useMemo(() => {
     if (!activeSubmission) return []
     const warnings: string[] = []
-    const p = editableProposed
+    const p = activeSubmission.proposed_data
     const isNew = isNewEntrySubmission(activeSubmission)
 
     if (isNew) {
@@ -296,7 +239,7 @@ export function EditorModerationPanel({
         !p.french_translation?.trim()
       ) {
         warnings.push(
-          'نقص إلزامي: أحد الحقول الخمسة المطلوبة في المعجم فارغ؛ فعّل «تهذيب الحقول» لاستكماله قبل الاعتماد.',
+          'نقص إلزامي: أحد الحقول الخمسة المطلوبة في المعجم فارغ؛ يجب استكماله في المقترح قبل أن يتمكن المحرر من اعتماده.',
         )
       }
     } else {
@@ -320,7 +263,7 @@ export function EditorModerationPanel({
     }
 
     return warnings
-  }, [activeSubmission, editableProposed, entries, activePool])
+  }, [activeSubmission, entries, activePool])
 
   const acceptedCountInSource = useMemo(
     () => activePool.filter((s) => s.status === 'accepted' && !s.exported_in_version).length,
@@ -354,7 +297,7 @@ export function EditorModerationPanel({
     }
 
     if (nextStatus === 'accepted' && isNewEntrySubmission(activeSubmission)) {
-      const p = editableProposed
+      const p = activeSubmission.proposed_data
       if (
         !p.word_ar?.trim() ||
         !p.arabizi?.trim() ||
@@ -370,28 +313,7 @@ export function EditorModerationPanel({
       }
     }
 
-    if (false) {
-      onModerateSandbox({
-        id: activeSubmission.id,
-        status: nextStatus,
-        editorNote: editorNote.trim() || null,
-        proposedData: editableProposed,
-        editorId: profile?.id ?? 'ed-session',
-        editorDisplayName:
-          profile?.display_name?.trim() || userEmail || 'المحرر الحالي (جلسة محاكاة)',
-      })
-      setEditMode(false)
-      setAuditRefreshCounter((c) => c + 1)
-      setActionMessage({
-        type: 'success',
-        text: isRevokingAccepted
-          ? `تم سحب الاعتماد وتحويل الحالة إلى «${formatStatusLabel(nextStatus)}» مع تسجيل الحدث في سجل التدقيق.`
-          : `تم تحديث قرار المحاكاة إلى «${formatStatusLabel(nextStatus)}».`,
-      })
-      return
-    }
-
-    if (!supabase || !isAuthorizedLiveEditor) {
+        if (!supabase || !isAuthorizedLiveEditor) {
       setActionMessage({
         type: 'error',
         text: 'ليست لديك صلاحية محرر (editor/admin) لتحديث سجل المنصة الرسمي.',
@@ -459,7 +381,6 @@ export function EditorModerationPanel({
       next.delete(activeSubmission.id)
       return next
     })
-    setEditMode(false)
     setAuditRefreshCounter((c) => c + 1)
     setActionMessage({
       type: 'success',
@@ -474,14 +395,12 @@ export function EditorModerationPanel({
       filteredQueue
         .filter((item) => {
           if (item.status === 'accepted' || item.status === 'merged') return false
-          if (queueSource === 'live') {
-            if (item.status !== 'pending' && item.status !== 'needs_changes') return false
-            if (profile?.id && item.reviewer_id === profile.id) return false
-          }
+          if (item.status !== 'pending' && item.status !== 'needs_changes') return false
+          if (profile?.id && item.reviewer_id === profile.id) return false
           return true
         })
         .map((item) => item.id),
-    [filteredQueue, queueSource, profile?.id],
+    [filteredQueue, profile?.id],
   )
 
   const allSelectableChecked =
@@ -523,27 +442,7 @@ export function EditorModerationPanel({
   }) {
     if (eligibleIds.length === 0) return
 
-    if (false) {
-      onBulkApproveSandbox({
-        ids: eligibleIds,
-        editorNote: justificationComment,
-        editorId: profile?.id ?? 'ed-session',
-        editorDisplayName:
-          profile?.display_name?.trim() || userEmail || 'المحرر الحالي (جلسة محاكاة)',
-      })
-      if (activeSubmission && eligibleIds.includes(activeSubmission.id)) {
-        setEditorNote(justificationComment)
-      }
-      setSelectedBatchIds(new Set())
-      setBulkModalOpen(false)
-      setActionMessage({
-        type: 'success',
-        text: `تم توقيع واعتماد دفعة مكونة من ${eligibleIds.length} مقترحات بنجاح في بيئة المحاكاة.`,
-      })
-      return
-    }
-
-    if (!supabase || !isAuthorizedLiveEditor) {
+        if (!supabase || !isAuthorizedLiveEditor) {
       setBulkError('ليست لديك صلاحية محرر (editor/admin) لتنفيذ اعتماد جماعي في سجل المنصة الرسمي.')
       return
     }
@@ -614,29 +513,12 @@ export function EditorModerationPanel({
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            <div
-              role="group"
-              aria-label="مصدر طابور التحكيم"
-              className="inline-flex items-center gap-1 rounded-lg border border-zinc-200 bg-zinc-100 p-1 dark:border-white/10 dark:bg-[#07070A]"
-            >
-              <button
-                type="button"
-                onClick={() => setQueueSource('live')}
-                className={`min-h-[34px] rounded-md px-3 py-1.5 text-xs font-semibold transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
-                  queueSource === 'live'
-                    ? 'bg-zinc-950 text-white dark:bg-[#D9FF43] dark:text-[#050507]'
-                    : 'text-zinc-600 hover:text-zinc-950 dark:text-zinc-400'
-                }`}
-              >
-                سجل المراجعة الرسمي
-              </button>
-              
-            </div>
+
 
             {acceptedCountInSource > 0 && (
               <button
                 type="button"
-                onClick={() => onGoToExporter(queueSource)}
+                onClick={onGoToExporter}
                 className="inline-flex min-h-[38px] items-center gap-1.5 rounded-lg bg-zinc-950 px-4 py-1.5 text-xs font-semibold text-white hover:bg-zinc-800 whitespace-nowrap shrink-0 cursor-pointer dark:bg-[#D9FF43] dark:text-[#050507] dark:hover:bg-[#e5ff73]"
               >
                 <span>تصدير المعتمد ({acceptedCountInSource})</span>
@@ -661,7 +543,7 @@ export function EditorModerationPanel({
         </div>
 
         {/* Permission notice for accounts without editorial privileges */}
-        {queueSource === 'live' && !isAuthorizedLiveEditor && (
+        {!isAuthorizedLiveEditor && (
           <div className="mt-4 flex flex-wrap items-center justify-between gap-4 rounded-lg border border-amber-300 bg-amber-50/80 p-4 text-xs text-amber-950 dark:border-amber-800/60 dark:bg-amber-950/30 dark:text-amber-200">
             <div className="flex items-start gap-2.5 max-w-[72ch]">
               <ShieldAlert className="h-4 w-4 shrink-0 mt-0.5 text-amber-700 dark:text-amber-400" />
@@ -686,20 +568,11 @@ export function EditorModerationPanel({
                   تسجيل الدخول
                 </button>
               )}
-              
             </div>
           </div>
         )}
 
-        {false && (
-          <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-zinc-300 bg-zinc-50 px-4 py-2.5 text-xs text-zinc-700 dark:border-white/15 dark:bg-[#07070A] dark:text-zinc-300">
-            <span>
-              <strong>وضع المحاكاة التحريرية المعزول:</strong> جميع القرارات هنا محفوظة في متصفحك فقط ولا تختلط بالسجل الرسمي.
-            </span>
-            
-          </div>
-        )}
-        {/* Sub-view Switcher: Submissions Adjudication vs RBAC Role Governance */}
+                {/* Sub-view Switcher: Submissions Adjudication vs RBAC Role Governance */}
         <div className="mt-4 pt-4 border-t border-zinc-200 flex flex-wrap items-center justify-between gap-3 dark:border-white/10">
           <div
             role="tablist"
@@ -731,10 +604,6 @@ export function EditorModerationPanel({
               }`}
             >
               حوكمة الصلاحيات وطلبات الترقية
-              {false &&
-              sandboxPromotionRequests.filter((r) => r.status === 'pending').length > 0
-                ? ` (${sandboxPromotionRequests.filter((r) => r.status === 'pending').length})`
-                : ''}
             </button>
           </div>
 
@@ -748,31 +617,23 @@ export function EditorModerationPanel({
 
       {moderationSection === 'governance' ? (
         <RoleGovernancePanel
-          queueSource={queueSource}
           currentUserEmail={userEmail}
           currentUserProfile={profile}
           submissions={activePool}
-          sandboxProfiles={sandboxProfiles}
-          sandboxPromotionRequests={sandboxPromotionRequests}
-          onSwitchQueueSource={setQueueSource}
-          onReviewSandboxPromotion={onReviewSandboxPromotion}
-          onUpdateSandboxMemberRole={onUpdateSandboxMemberRole}
-          onResetSandboxGovernance={onResetSandboxGovernance}
           onOpenAuth={onOpenAuth}
         />
       ) : (
         <>
           {/* Editorial Activity & Turnaround Analytics Dashboard */}
-          {(false || isAuthorizedLiveEditor) && (
+          {isAuthorizedLiveEditor && (
             <ModerationAnalyticsDashboard
               submissions={activePool}
               editorNamesMap={editorNamesMap}
-              queueSource={queueSource}
             />
           )}
 
           {/* Main Queue + Inspection Split */}
-          {(false || isAuthorizedLiveEditor) && (
+          {isAuthorizedLiveEditor && (
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-12 items-start">
           {/* Queue List Sidebar */}
           <aside className="lg:col-span-4 rounded-xl border border-zinc-200 bg-white p-4 sm:p-5 space-y-3.5 dark:border-white/10 dark:bg-[#0B0B10]">
@@ -780,8 +641,7 @@ export function EditorModerationPanel({
               <span className="font-display text-sm font-bold text-zinc-950 dark:text-white">
                 قائمة المقترحات ({filteredQueue.length})
               </span>
-              {queueSource === 'live' && (
-                <button
+              <button
                   type="button"
                   onClick={fetchLiveQueue}
                   disabled={loadingLive}
@@ -790,7 +650,6 @@ export function EditorModerationPanel({
                   <RefreshCw className={`h-3.5 w-3.5 ${loadingLive ? 'animate-spin' : ''}`} />
                   <span>تحديث</span>
                 </button>
-              )}
             </div>
 
             <div className="flex flex-wrap gap-1 rounded-lg bg-zinc-100 p-1 dark:bg-[#07070A]">
@@ -855,7 +714,7 @@ export function EditorModerationPanel({
               className="w-full min-h-[36px] rounded-lg border border-zinc-300 bg-zinc-50 px-2.5 py-1.5 text-xs text-zinc-950 dark:border-white/15 dark:bg-[#07070A] dark:text-white"
             />
 
-            {liveError && queueSource === 'live' && (
+            {liveError && (
               <p className="text-xs text-red-700 dark:text-red-400">{liveError}</p>
             )}
 
@@ -908,7 +767,7 @@ export function EditorModerationPanel({
             )}
 
             <div className="max-h-[520px] overflow-y-auto space-y-1.5 pe-1">
-              {loadingLive && queueSource === 'live' ? (
+              {loadingLive ? (
                 <div className="py-8 text-center text-xs text-zinc-500">جارٍ جلب الطابور...</div>
               ) : filteredQueue.length === 0 ? (
                 <div className="py-10 text-center text-xs text-zinc-500 dark:text-zinc-400">
@@ -1031,31 +890,16 @@ export function EditorModerationPanel({
                     </div>
                     <h4 className="mt-2 font-display text-2xl font-bold text-zinc-950 dark:text-white">
                       {isNewEntrySubmission(activeSubmission)
-                        ? editableProposed.word_ar || 'مفردة جديدة'
+                        ? activeSubmission.proposed_data.word_ar || 'مفردة جديدة'
                         : targetCanonicalEntry?.word || `مدخل #${activeSubmission.entry_id}`}
                     </h4>
                   </div>
 
-                  {false && activeSubmission.status !== 'merged' ? (
-                    <button
-                      type="button"
-                      onClick={() => setEditMode((v) => !v)}
-                      className={`inline-flex min-h-[36px] items-center gap-1.5 rounded-lg border px-3.5 py-1.5 text-xs font-semibold transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
-                        editMode
-                          ? 'border-zinc-950 bg-zinc-950 text-white dark:border-[#D9FF43] dark:bg-[#D9FF43] dark:text-[#050507]'
-                          : 'border-zinc-300 bg-zinc-50 text-zinc-800 hover:bg-zinc-100 dark:border-white/15 dark:bg-[#07070A] dark:text-zinc-200'
-                      }`}
-                    >
-                      <Edit3 className="h-3.5 w-3.5" />
-                      <span>{editMode ? 'إنهاء تهذيب الحقول' : 'تهذيب الحقول'}</span>
-                    </button>
-                  ) : (
-                    <span className="text-[11px] text-zinc-500 dark:text-zinc-400">
-                      {activeSubmission.status === 'merged'
-                        ? `مدمج ومؤرشف رسمياً${activeSubmission.exported_in_version ? ` (v${activeSubmission.exported_in_version})` : ''}`
-                        : 'محتوى المقترح ثابت بعد الإرسال (اطلب تعديلاً عند الحاجة)'}
-                    </span>
-                  )}
+                  <span className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                    {activeSubmission.status === 'merged'
+                      ? `مدمج ومؤرشف رسمياً${activeSubmission.exported_in_version ? ` (v${activeSubmission.exported_in_version})` : ''}`
+                      : 'القيم المقترحة محفوظة كما أرسلها المساهم'}
+                  </span>
                 </div>
 
                 {/* Crowd Human Validation Signals + Weighted Trust Score on Target Entry */}
@@ -1157,20 +1001,20 @@ export function EditorModerationPanel({
                             </th>
                           )}
                           <th className="py-2.5 px-3 text-start font-medium">
-                            القيمة المقترحة {editMode ? '(قابلة للتعديل)' : ''}
+                            القيمة المقترحة
                           </th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-zinc-200 dark:divide-white/10">
                         {DIFF_FIELDS.map((field) => {
-                          const propVal = editableProposed[field.key]
+                          const propVal = activeSubmission.proposed_data[field.key]
                           const propStr = typeof propVal === 'string' ? propVal : ''
                           const currentStr =
                             field.entryProp && targetCanonicalEntry
                               ? String(targetCanonicalEntry[field.entryProp] ?? '—')
                               : '—'
 
-                          if (!editMode && !propStr && !field.entryProp) {
+                          if (!propStr && !field.entryProp) {
                             return null
                           }
 
@@ -1199,48 +1043,10 @@ export function EditorModerationPanel({
                                 </td>
                               )}
                               <td className="py-2.5 px-3">
-                                {editMode ? (
-                                  field.key === 'category' ? (
-                                    <select
-                                      value={propStr}
-                                      onChange={(e) =>
-                                        setEditableProposed((prev) => ({
-                                          ...prev,
-                                          category: e.target.value,
-                                        }))
-                                      }
-                                      className="w-full rounded border border-zinc-300 bg-white px-2.5 py-1.5 text-xs text-zinc-950 dark:border-white/15 dark:bg-[#07070A] dark:text-white"
-                                    >
-                                      <option value="">بدون تغيير</option>
-                                      {categories.map((c) => (
-                                        <option key={c} value={c}>
-                                          {c}
-                                        </option>
-                                      ))}
-                                    </select>
-                                  ) : (
-                                    <input
-                                      type="text"
-                                      dir={field.dir}
-                                      value={propStr}
-                                      onChange={(e) =>
-                                        setEditableProposed((prev) => ({
-                                          ...prev,
-                                          [field.key]: e.target.value,
-                                        }))
-                                      }
-                                      placeholder="فارغ (يبقى النص الأصلي دون تعديل)"
-                                      className={`w-full rounded border border-zinc-300 bg-white px-2.5 py-1.5 text-xs text-zinc-950 dark:border-white/15 dark:bg-[#07070A] dark:text-white ${
-                                        field.dir === 'ltr' ? 'font-mono text-left' : ''
-                                      }`}
-                                    />
-                                  )
-                                ) : isModified ? (
+                                {isModified ? (
                                   <span
                                     dir={field.dir}
-                                    className={`font-semibold text-zinc-950 dark:text-white ${
-                                      field.dir === 'ltr' ? 'font-mono' : ''
-                                    }`}
+                                    className={`font-semibold text-zinc-950 dark:text-white ${field.dir === 'ltr' ? 'font-mono' : ''}`}
                                   >
                                     {propStr}
                                   </span>
@@ -1422,8 +1228,6 @@ export function EditorModerationPanel({
                 {/* Immutable Decision Audit Trail */}
                 <DecisionAuditTimeline
                   submissionId={activeSubmission.id}
-                  queueSource={queueSource}
-                  sandboxEvents={sandboxEvents}
                   editorNamesMap={editorNamesMap}
                   refreshKey={auditRefreshCounter}
                 />
@@ -1441,9 +1245,8 @@ export function EditorModerationPanel({
         entries={entries}
         currentEditorId={profile?.id ?? null}
         editorLabel={
-          profile?.display_name?.trim() || userEmail || 'المحرر الحالي (جلسة محاكاة)'
+          profile?.display_name?.trim() || userEmail || 'المحرر الحالي'
         }
-        queueSource={queueSource}
         busy={bulkBusy}
         errorMessage={bulkError}
         onClose={() => {

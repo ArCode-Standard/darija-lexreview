@@ -140,7 +140,6 @@ export interface SubmissionRecord {
   baseline_fingerprint?: string | null
   exported_in_version?: string | null
   exported_at?: string | null
-  is_sandbox?: boolean
 }
 
 export interface ReviewDecisionEvent {
@@ -176,7 +175,6 @@ export interface ReviewerProfile {
   accepted_count?: number
   attestations_count?: number
   created_at?: string
-  is_sandbox?: boolean
 }
 
 export interface PublicContributorRecord {
@@ -192,7 +190,6 @@ export interface PublicContributorRecord {
   accepted_count: number
   attestations_count: number
   joined_year: number
-  is_sandbox?: boolean
 }
 
 export type MemberMessageCategory =
@@ -218,7 +215,6 @@ export interface MemberMessageRecord {
   acknowledged_at: string | null
   pinned_until: string | null
   created_at: string
-  is_sandbox?: boolean
 }
 
 export type MemberModerationAction =
@@ -242,7 +238,6 @@ export interface MemberModerationEvent {
   new_status: AccountStatus | null
   reason: string | null
   occurred_at: string
-  is_sandbox?: boolean
 }
 
 export interface MemberModerationReport {
@@ -258,7 +253,6 @@ export interface MemberModerationReport {
   admin_note: string | null
   created_at: string
   updated_at: string
-  is_sandbox?: boolean
 }
 
 export type PromotionRequestStatus = 'pending' | 'approved' | 'rejected'
@@ -277,7 +271,6 @@ export interface RolePromotionRequest {
   admin_note: string | null
   created_at: string
   updated_at: string
-  is_sandbox?: boolean
 }
 
 export interface RawOfficialCorpus {
@@ -344,7 +337,6 @@ export interface ReleaseManifestRecord {
   exported_by?: string | null
   exported_by_name: string | null
   created_at: string
-  is_sandbox?: boolean
 }
 
 export type AttestationVerdict = 'accurate' | 'needs_correction' | 'regional_variant'

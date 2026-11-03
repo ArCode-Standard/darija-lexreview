@@ -22,22 +22,9 @@ import { sanitizeExternalUrl } from '../../utils/validation'
 import { humanizeSystemError } from '../../utils/humanizeError'
 
 interface RoleGovernancePanelProps {
-  queueSource: 'live' | 'sandbox'
   currentUserEmail: string | null
   currentUserProfile: ReviewerProfile | null
   submissions: SubmissionRecord[]
-  sandboxProfiles: ReviewerProfile[]
-  sandboxPromotionRequests: RolePromotionRequest[]
-  onSwitchQueueSource: (next: 'live' | 'sandbox') => void
-  onReviewSandboxPromotion: (params: {
-    requestId: string
-    decision: Exclude<PromotionRequestStatus, 'pending'>
-    adminNote: string | null
-    adminId?: string
-    adminName?: string
-  }) => void
-  onUpdateSandboxMemberRole: (userId: string, nextRole: UserRole) => void
-  onResetSandboxGovernance: () => void
   onOpenAuth: () => void
 }
 
@@ -54,22 +41,11 @@ function formatPromotionStatusText(status: PromotionRequestStatus): string {
 }
 
 export function RoleGovernancePanel({
-  queueSource,
   currentUserEmail,
   currentUserProfile,
   submissions,
-  sandboxProfiles,
-  sandboxPromotionRequests,
-  onSwitchQueueSource,
-  onReviewSandboxPromotion,
-  onUpdateSandboxMemberRole,
-  onResetSandboxGovernance,
   onOpenAuth,
 }: RoleGovernancePanelProps) {
-  void sandboxProfiles
-  void sandboxPromotionRequests
-  void onSwitchQueueSource
-  void onResetSandboxGovernance
   const [liveRequests, setLiveRequests] = useState<RolePromotionRequest[]>([])
   const [liveProfiles, setLiveProfiles] = useState<ReviewerProfile[]>([])
   const [loadingLive, setLoadingLive] = useState(false)
@@ -130,10 +106,10 @@ export function RoleGovernancePanel({
 
   useEffect(() => {
     setFeedback(null)
-    if (queueSource === 'live' && isLiveAdmin) {
+    if (isLiveAdmin) {
       fetchLiveGovernanceData()
     }
-  }, [queueSource, isLiveAdmin, fetchLiveGovernanceData])
+  }, [isLiveAdmin, fetchLiveGovernanceData])
 
   const activeProfiles = liveProfiles
   const activeRequests = liveRequests
@@ -194,26 +170,7 @@ export function RoleGovernancePanel({
       return
     }
 
-    if (queueSource === 'sandbox') {
-      onReviewSandboxPromotion({
-        requestId: req.id,
-        decision,
-        adminNote: note || null,
-        adminId: currentUserProfile?.id ?? 'usr-admin-01',
-        adminName:
-          currentUserProfile?.display_name?.trim() ||
-          currentUserEmail ||
-          'المشرف العام (محاكاة)',
-      })
-      setFeedback({
-        type: 'success',
-        text:
-          decision === 'approved'
-            ? `تمت الموافقة على طلب «${req.requester_name}» وترقية صلاحيته إلى محرر معتمد في بيئة المحاكاة.`
-            : `تم رفض طلب الترقية المقدم من «${req.requester_name}» مع حفظ الملاحظة.`,
-      })
-      return
-    }
+
 
     if (!supabase || !isLiveAdmin) return
     setBusyId(req.id)
@@ -282,14 +239,7 @@ export function RoleGovernancePanel({
   async function handleDirectRoleChange(member: ReviewerProfile, nextRole: 'reviewer' | 'editor') {
     if (member.role === 'admin') return
 
-    if (queueSource === 'sandbox') {
-      onUpdateSandboxMemberRole(member.id, nextRole)
-      setFeedback({
-        type: 'success',
-        text: `تم تحديث صلاحية «${member.display_name || member.id}» إلى ${formatRoleBadgeText(nextRole)} في المحاكاة.`,
-      })
-      return
-    }
+
 
     if (!supabase || !isLiveAdmin) return
     setBusyId(member.id)
@@ -319,7 +269,7 @@ export function RoleGovernancePanel({
     })
   }
 
-  if (queueSource === 'live' && !isLiveAdmin) {
+  if (!isLiveAdmin) {
     return (
       <div className="rounded-2xl border border-zinc-200 bg-white p-6 sm:p-8 dark:border-white/10 dark:bg-[#0C0C10]">
         <div className="flex flex-wrap items-start justify-between gap-4">
@@ -400,7 +350,7 @@ export function RoleGovernancePanel({
         </div>
       </div>
 
-      {liveSchemaNotice && queueSource === 'live' && (
+      {liveSchemaNotice && (
         <div className="rounded-2xl border border-amber-300 bg-amber-50/90 p-4 text-xs leading-relaxed text-amber-950 dark:border-amber-500/30 dark:bg-amber-950/25 dark:text-amber-200">
           {liveSchemaNotice}
         </div>
@@ -464,8 +414,7 @@ export function RoleGovernancePanel({
               ))}
             </div>
 
-            {queueSource === 'live' && (
-              <button
+            <button
                 type="button"
                 disabled={loadingLive}
                 onClick={fetchLiveGovernanceData}
@@ -473,11 +422,11 @@ export function RoleGovernancePanel({
               >
                 <RefreshCw className={`h-3.5 w-3.5 ${loadingLive ? 'animate-spin' : ''}`} />
                 <span>تحديث</span>
-              </button> )}
+            </button>
           </div>
         </div>
 
-        {loadingLive && queueSource === 'live' ? (
+        {loadingLive ? (
           <div className="py-10 text-center text-xs text-zinc-500">
             جارٍ جلب طلبات الترقية وسجل الأعضاء...
           </div>

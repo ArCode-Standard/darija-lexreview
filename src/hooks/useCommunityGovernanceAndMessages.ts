@@ -12,18 +12,11 @@ import type {
   UserRole,
 } from '../types/lexicon'
 
-const SANDBOX_MEMBERS_KEY = 'arcode_lexreview_sandbox_gov_members_v1'
-const SANDBOX_MESSAGES_KEY = 'arcode_lexreview_sandbox_messages_v1'
-const SANDBOX_MOD_EVENTS_KEY = 'arcode_lexreview_sandbox_mod_events_v1'
-const SANDBOX_MOD_REPORTS_KEY = 'arcode_lexreview_sandbox_mod_reports_v1'
 const LOCAL_READ_MSG_IDS_KEY = 'arcode_lexreview_read_msg_ids_v1'
 const LOCAL_DISMISSED_BROADCASTS_KEY = 'arcode_lexreview_dismissed_broadcasts_v1'
 const LOCAL_PUBLIC_LISTED_PREF_KEY = 'arcode_lexreview_public_listed_pref_v1'
 
-function createInitialSandboxMembers(): ReviewerProfile[] {
-  // Sandbox state starts empty; never fabricate contributor identities or moderation history.
-  return []
-}
+
 
 function createWelcomeMessage(recipientId: string | null): MemberMessageRecord {
   return {
@@ -72,14 +65,12 @@ export function saveLocalPublicListedFallback(userId: string, listed: boolean) {
 export interface UseCommunityGovernanceParams {
   currentProfile: ReviewerProfile | null
   userEmail: string | null
-  editorialPreviewMode: boolean
   totalAttestationsCount: number
 }
 
 export function useCommunityGovernanceAndMessages({
   currentProfile,
   userEmail,
-  editorialPreviewMode,
   totalAttestationsCount,
 }: UseCommunityGovernanceParams) {
   const [livePublicContributors, setLivePublicContributors] = useState<PublicContributorRecord[]>(
@@ -92,25 +83,6 @@ export function useCommunityGovernanceAndMessages({
   const [loadingDirectory, setLoadingDirectory] = useState(false)
   const [loadingMembers, setLoadingMembers] = useState(false)
 
-  const [sandboxMembers, setSandboxMembers] = useState<ReviewerProfile[]>(() => {
-    // Clear any previously persisted seeded/demo identities from this feature rollout.
-    try {
-      localStorage.removeItem(SANDBOX_MEMBERS_KEY)
-    } catch {
-      // Ignore storage errors
-    }
-    return []
-  })
-  const [sandboxMessages, setSandboxMessages] = useState<MemberMessageRecord[]>(() =>
-    safeReadJson<MemberMessageRecord[]>(SANDBOX_MESSAGES_KEY, []),
-  )
-  const [sandboxModEvents, setSandboxModEvents] = useState<MemberModerationEvent[]>(() =>
-    safeReadJson<MemberModerationEvent[]>(SANDBOX_MOD_EVENTS_KEY, []),
-  )
-  const [sandboxModReports, setSandboxModReports] = useState<MemberModerationReport[]>(() =>
-    safeReadJson<MemberModerationReport[]>(SANDBOX_MOD_REPORTS_KEY, []),
-  )
-
   const [localReadIds, setLocalReadIds] = useState<string[]>(() =>
     safeReadJson<string[]>(LOCAL_READ_MSG_IDS_KEY, []),
   )
@@ -118,37 +90,9 @@ export function useCommunityGovernanceAndMessages({
     safeReadJson<string[]>(LOCAL_DISMISSED_BROADCASTS_KEY, []),
   )
 
-  useEffect(() => {
-    try {
-      localStorage.setItem(SANDBOX_MEMBERS_KEY, JSON.stringify(sandboxMembers))
-    } catch {
-      // Ignore quota
-    }
-  }, [sandboxMembers])
 
-  useEffect(() => {
-    try {
-      localStorage.setItem(SANDBOX_MESSAGES_KEY, JSON.stringify(sandboxMessages))
-    } catch {
-      // Ignore quota
-    }
-  }, [sandboxMessages])
 
-  useEffect(() => {
-    try {
-      localStorage.setItem(SANDBOX_MOD_EVENTS_KEY, JSON.stringify(sandboxModEvents))
-    } catch {
-      // Ignore quota
-    }
-  }, [sandboxModEvents])
 
-  useEffect(() => {
-    try {
-      localStorage.setItem(SANDBOX_MOD_REPORTS_KEY, JSON.stringify(sandboxModReports))
-    } catch {
-      // Ignore quota
-    }
-  }, [sandboxModReports])
 
   useEffect(() => {
     try {
@@ -279,7 +223,7 @@ export function useCommunityGovernanceAndMessages({
     void refreshAdminGovernance()
   }, [refreshAdminGovernance])
 
-  // Combined Public Contributors List (Live + Current Opt-in User + Sandbox when previewing)
+  // Combine the official public directory with the current authenticated contributor.
   const publicContributors = useMemo<PublicContributorRecord[]>(() => {
     const list: PublicContributorRecord[] = [...livePublicContributors]
 
@@ -318,116 +262,67 @@ export function useCommunityGovernanceAndMessages({
       }
     }
 
-    if (editorialPreviewMode) {
-      for (const sm of sandboxMembers) {
-        const status = sm.account_status ?? 'active'
-        if ((sm.public_listed ?? true) && status !== 'suspended' && status !== 'banned') {
-          list.push({
-            public_slug: sm.id,
-            display_name: sm.display_name || 'مساهم تجريبي',
-            dialect_region: sm.dialect_region ?? null,
-            specialty: sm.specialty ?? null,
-            github_handle: sm.github_handle ?? null,
-            role: sm.role,
-            accepted_count: sm.accepted_count ?? 0,
-            attestations_count: sm.attestations_count ?? 0,
-            joined_year: sm.created_at ? new Date(sm.created_at).getFullYear() : 2026,
-            is_sandbox: true,
-          })
-        }
-      }
-    }
+
 
     return list
   }, [
     livePublicContributors,
     currentProfile,
     totalAttestationsCount,
-    editorialPreviewMode,
-    sandboxMembers,
   ])
 
-  // Combined Inbox Messages — Strictly for Authenticated Members (or Active Sandbox Preview)
-  const isMemberOrPreview = Boolean(userEmail) || editorialPreviewMode
+  // Inbox messages are limited to authenticated recipients and official broadcasts.
+  const isAuthenticatedMember = Boolean(userEmail)
 
   const inboxMessages = useMemo<MemberMessageRecord[]>(() => {
-    if (!isMemberOrPreview) {
-      return []
-    }
-
+    if (!userEmail) return []
     const currentUserId = currentProfile?.id ?? null
-    const relevantSandbox = editorialPreviewMode
-      ? sandboxMessages.filter(
-          (m) =>
-            m.is_broadcast ||
-            (currentUserId && m.recipient_id === currentUserId) ||
-            m.recipient_id === 'self-preview' ||
-            isAdmin,
-        )
-      : []
-
-    const relevantLive = liveMessages.filter(
-      (m) => m.is_broadcast || (currentUserId && m.recipient_id === currentUserId),
+    const merged = liveMessages.filter(
+      (message) => message.is_broadcast || (currentUserId && message.recipient_id === currentUserId),
     )
-
-    const merged = [...relevantLive, ...relevantSandbox]
-    const hasWelcome = merged.some((m) => m.category === 'welcome')
-    if (!hasWelcome && userEmail) {
+    if (!merged.some((message) => message.category === 'welcome')) {
       merged.push(createWelcomeMessage(currentUserId))
     }
-
     return merged
-      .map((m) => ({
-        ...m,
-        read_at: m.read_at || (localReadIds.includes(m.id) ? new Date().toISOString() : null),
+      .map((message) => ({
+        ...message,
+        read_at: message.read_at || (localReadIds.includes(message.id) ? new Date().toISOString() : null),
       }))
       .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-  }, [
-    isMemberOrPreview,
-    editorialPreviewMode,
-    sandboxMessages,
-    liveMessages,
-    currentProfile,
-    isAdmin,
-    userEmail,
-    localReadIds,
-  ])
+  }, [userEmail, liveMessages, currentProfile, localReadIds])
 
   const unreadMessagesCount = useMemo(() => {
-    if (!isMemberOrPreview) return 0
+    if (!isAuthenticatedMember) return 0
     return inboxMessages.filter(
       (m) =>
         !m.read_at &&
         (m.is_broadcast ||
           (currentProfile && m.recipient_id === currentProfile.id) ||
-          (editorialPreviewMode && m.recipient_id === 'self-preview') ||
           m.id === 'system-welcome-default'),
     ).length
-  }, [isMemberOrPreview, inboxMessages, currentProfile, editorialPreviewMode])
+  }, [isAuthenticatedMember, inboxMessages, currentProfile])
 
   const unacknowledgedWarnings = useMemo(() => {
-    if (!isMemberOrPreview) return []
+    if (!isAuthenticatedMember) return []
     return inboxMessages.filter(
       (m) =>
         m.category === 'warning' &&
         m.requires_ack &&
         !m.acknowledged_at &&
-        ((currentProfile && m.recipient_id === currentProfile.id) ||
-          (editorialPreviewMode && m.recipient_id === 'self-preview')),
+        currentProfile && m.recipient_id === currentProfile.id,
     )
-  }, [isMemberOrPreview, inboxMessages, currentProfile, editorialPreviewMode])
+  }, [isAuthenticatedMember, inboxMessages, currentProfile])
 
-  const activeAnnouncements = useMemo(() => {
-    const broadcastPool = editorialPreviewMode
-      ? [...liveMessages, ...sandboxMessages]
-      : liveMessages
-    return broadcastPool.filter(
-      (m) =>
-        m.is_broadcast &&
-        !dismissedBroadcastIds.includes(m.id) &&
-        (!m.pinned_until || new Date(m.pinned_until).getTime() > Date.now()),
-    )
-  }, [editorialPreviewMode, liveMessages, sandboxMessages, dismissedBroadcastIds])
+  const activeAnnouncements = useMemo(
+    () =>
+      liveMessages.filter(
+        (message) =>
+          message.is_broadcast &&
+          !dismissedBroadcastIds.includes(message.id) &&
+          (!message.pinned_until || new Date(message.pinned_until).getTime() > Date.now()),
+      ),
+    [liveMessages, dismissedBroadcastIds],
+  )
 
   // Actions: Mark Read / Acknowledge Warning / Dismiss Broadcast
   const markMessageRead = useCallback(
@@ -435,11 +330,8 @@ export function useCommunityGovernanceAndMessages({
       setLocalReadIds((prev) => (prev.includes(messageId) ? prev : [...prev, messageId]))
       const now = new Date().toISOString()
 
-      setSandboxMessages((prev) =>
-        prev.map((m) => (m.id === messageId && !m.read_at ? { ...m, read_at: now } : m)),
-      )
 
-      if (supabase && currentProfile && !messageId.startsWith('sandbox-') && messageId !== 'system-welcome-default') {
+      if (supabase && currentProfile && messageId !== 'system-welcome-default') {
         await supabase
           .from('member_messages')
           .update({ read_at: now })
@@ -456,7 +348,6 @@ export function useCommunityGovernanceAndMessages({
     setLocalReadIds((prev) => Array.from(new Set([...prev, ...ids])))
     const now = new Date().toISOString()
 
-    setSandboxMessages((prev) => prev.map((m) => (m.read_at ? m : { ...m, read_at: now })))
 
     if (supabase && currentProfile) {
       await supabase
@@ -473,13 +364,8 @@ export function useCommunityGovernanceAndMessages({
       const now = new Date().toISOString()
       setLocalReadIds((prev) => (prev.includes(messageId) ? prev : [...prev, messageId]))
 
-      setSandboxMessages((prev) =>
-        prev.map((m) =>
-          m.id === messageId ? { ...m, read_at: m.read_at ?? now, acknowledged_at: now } : m,
-        ),
-      )
 
-      if (supabase && currentProfile && !messageId.startsWith('sandbox-')) {
+      if (supabase && currentProfile && messageId !== 'system-welcome-default') {
         await supabase
           .from('member_messages')
           .update({ read_at: now, acknowledged_at: now })
@@ -497,16 +383,13 @@ export function useCommunityGovernanceAndMessages({
   // Admin / Staff Actions: Change Role, Change Standing (Warn / Suspend / Ban / Restore), Send Message, Submit Report
   const applyMemberGovernanceAction = useCallback(
     async (params: {
-      source: 'live' | 'sandbox'
       targetMember: ReviewerProfile
       action: MemberModerationAction
       nextRole?: UserRole
       reason?: string
       suspendDays?: number
     }): Promise<{ ok: boolean; error?: string }> => {
-      const now = new Date().toISOString()
       const cleanReason = params.reason?.trim() || null
-      const actorName = currentProfile?.display_name || userEmail?.split('@')[0] || 'مشرف عام'
 
       const nextStatus: AccountStatus =
         params.action === 'warn'
@@ -525,90 +408,7 @@ export function useCommunityGovernanceAndMessages({
           ? new Date(Date.now() + params.suspendDays * 86_400_000).toISOString()
           : null
 
-      if (params.source === 'sandbox' || params.targetMember.is_sandbox) {
-        setSandboxMembers((prev) =>
-          prev.map((m) =>
-            m.id === params.targetMember.id
-              ? {
-                  ...m,
-                  role: nextRole,
-                  account_status: nextStatus,
-                  status_reason: cleanReason,
-                  suspended_until: suspendedUntil,
-                  status_updated_at: now,
-                }
-              : m,
-          ),
-        )
 
-        const newEvent: MemberModerationEvent = {
-          id: `sandbox-evt-${Date.now()}`,
-          target_user_id: params.targetMember.id,
-          target_display_name: params.targetMember.display_name,
-          actor_id: currentProfile?.id ?? 'sandbox-admin',
-          actor_display_name: actorName,
-          action_type: params.action,
-          previous_role: params.targetMember.role,
-          new_role: nextRole,
-          previous_status: params.targetMember.account_status ?? 'active',
-          new_status: nextStatus,
-          reason: cleanReason,
-          occurred_at: now,
-          is_sandbox: true,
-        }
-        setSandboxModEvents((prev) => [newEvent, ...prev])
-
-        // Also generate corresponding sandbox message
-        const msgCategory: MemberMessageCategory =
-          params.action === 'promote' || params.action === 'demote'
-            ? 'role_update'
-            : params.action === 'warn'
-              ? 'warning'
-              : params.action === 'suspend' || params.action === 'ban'
-                ? 'suspension_notice'
-                : 'editorial_note'
-
-        const msgTitle =
-          params.action === 'promote'
-            ? `تمت ترقية صلاحيتك إلى «${nextRole === 'admin' ? 'مشرف عام' : 'محرر معتمد'}»`
-            : params.action === 'demote'
-              ? 'تحديث مستوى الصلاحية في المنصة'
-              : params.action === 'warn'
-                ? 'إنذار رسمي بخصوص ضوابط المساهمة المعجمية'
-                : params.action === 'ban'
-                  ? 'إشعار بطرد وحظر الحساب نهائياً'
-                  : params.action === 'suspend'
-                    ? 'إشعار بتجميد الحساب مؤقتاً'
-                    : 'تمت إعادة تفعيل حسابك بالكامل'
-
-        const msgBody =
-          cleanReason ||
-          (params.action === 'promote'
-            ? 'نقدّر مساهماتك الرصينة في إثراء المعجم المغربي ويسعدنا منحك الصلاحية الجديدة.'
-            : 'تم تحديث حالة حسابك من قِبل إدارة الحوكمة.')
-
-        setSandboxMessages((prev) => [
-          {
-            id: `sandbox-msg-${Date.now()}`,
-            recipient_id: params.targetMember.id,
-            is_broadcast: false,
-            sender_id: currentProfile?.id ?? 'sandbox-admin',
-            sender_label: actorName,
-            category: msgCategory,
-            title: msgTitle,
-            body: msgBody,
-            requires_ack: params.action === 'warn',
-            read_at: null,
-            acknowledged_at: null,
-            pinned_until: null,
-            created_at: now,
-            is_sandbox: true,
-          },
-          ...prev,
-        ])
-
-        return { ok: true }
-      }
 
       if (!supabase || !isAdmin) {
         return { ok: false, error: 'تتطلب هذه العملية صلاحية مشرف عام متصل بقاعدة البيانات.' }
@@ -665,7 +465,6 @@ export function useCommunityGovernanceAndMessages({
 
   const sendDirectOrBroadcastMessage = useCallback(
     async (params: {
-      source: 'live' | 'sandbox'
       recipientId: string | null
       isBroadcast: boolean
       category: MemberMessageCategory
@@ -674,39 +473,19 @@ export function useCommunityGovernanceAndMessages({
       requiresAck?: boolean
       pinDays?: number
     }): Promise<{ ok: boolean; error?: string }> => {
-      const now = new Date().toISOString()
       const senderLabel =
         currentProfile?.role === 'admin'
           ? `الإدارة العامة (${currentProfile.display_name || 'مشرف'})`
           : currentProfile?.role === 'editor'
             ? `هيئة التحرير (${currentProfile.display_name || 'محرر'})`
-            : 'إدارة المعجم (وضع المعاينة)'
+            : 'إدارة المعجم'
 
       const pinnedUntil =
         params.isBroadcast && params.pinDays
           ? new Date(Date.now() + params.pinDays * 86_400_000).toISOString()
           : null
 
-      if (params.source === 'sandbox' || params.recipientId === 'self-preview' || params.recipientId?.startsWith('sandbox-')) {
-        const msg: MemberMessageRecord = {
-          id: `sandbox-msg-${Date.now()}`,
-          recipient_id: params.isBroadcast ? null : (params.recipientId ?? 'self-preview'),
-          is_broadcast: params.isBroadcast,
-          sender_id: currentProfile?.id ?? 'sandbox-staff',
-          sender_label: senderLabel,
-          category: params.category,
-          title: params.title.trim(),
-          body: params.body.trim(),
-          requires_ack: params.isBroadcast ? false : Boolean(params.requiresAck),
-          read_at: null,
-          acknowledged_at: null,
-          pinned_until: pinnedUntil,
-          created_at: now,
-          is_sandbox: true,
-        }
-        setSandboxMessages((prev) => [msg, ...prev])
-        return { ok: true }
-      }
+
 
       if (!supabase || (!isAdmin && !isEditor)) {
         return { ok: false, error: 'صلاحية الإرسال متاحة للمحررين والمشرفين المعتمدين فقط.' }
@@ -740,34 +519,13 @@ export function useCommunityGovernanceAndMessages({
 
   const submitModerationReport = useCallback(
     async (params: {
-      source: 'live' | 'sandbox'
       targetUserId: string
       targetDisplayName: string
       recommendedAction: 'warn' | 'suspend' | 'ban'
       reason: string
     }): Promise<{ ok: boolean; error?: string }> => {
-      const now = new Date().toISOString()
-      const reporterName = currentProfile?.display_name || userEmail?.split('@')[0] || 'محرر معتمد'
 
-      if (params.source === 'sandbox' || params.targetUserId.startsWith('sandbox-')) {
-        const report: MemberModerationReport = {
-          id: `sandbox-rep-${Date.now()}`,
-          target_user_id: params.targetUserId,
-          target_display_name: params.targetDisplayName,
-          reporter_id: currentProfile?.id ?? 'sandbox-editor',
-          reporter_display_name: reporterName,
-          recommended_action: params.recommendedAction,
-          reason: params.reason.trim(),
-          status: 'open',
-          reviewed_by: null,
-          admin_note: null,
-          created_at: now,
-          updated_at: now,
-          is_sandbox: true,
-        }
-        setSandboxModReports((prev) => [report, ...prev])
-        return { ok: true }
-      }
+
 
       if (!supabase || (!isEditor && !isAdmin)) {
         return { ok: false, error: 'يتطلب رفع البلاغات صلاحية محرر معتمد.' }
@@ -798,21 +556,7 @@ export function useCommunityGovernanceAndMessages({
       adminNote?: string
     }) => {
       const now = new Date().toISOString()
-      if (params.report.is_sandbox) {
-        setSandboxModReports((prev) =>
-          prev.map((r) =>
-            r.id === params.report.id
-              ? {
-                  ...r,
-                  status: params.resolution,
-                  admin_note: params.adminNote?.trim() || null,
-                  updated_at: now,
-                }
-              : r,
-          ),
-        )
-        return
-      }
+
       if (!supabase || !isAdmin) return
       await supabase
         .from('member_moderation_reports')
@@ -828,23 +572,14 @@ export function useCommunityGovernanceAndMessages({
     [currentProfile, isAdmin, refreshAdminGovernance],
   )
 
-  const resetSandboxCommunityState = useCallback(() => {
-    setSandboxMembers(createInitialSandboxMembers())
-    setSandboxMessages([])
-    setSandboxModEvents([])
-    setSandboxModReports([])
-  }, [])
 
   return {
     publicContributors,
     loadingDirectory,
     liveAdminMembers,
-    sandboxMembers,
     loadingMembers,
     liveModEvents,
-    sandboxModEvents,
     liveModReports,
-    sandboxModReports,
     inboxMessages,
     unreadMessagesCount,
     unacknowledgedWarnings,
@@ -857,7 +592,6 @@ export function useCommunityGovernanceAndMessages({
     sendDirectOrBroadcastMessage,
     submitModerationReport,
     resolveModerationReport,
-    resetSandboxCommunityState,
     refreshPublicDirectory,
     refreshAdminGovernance,
     refreshMessages,

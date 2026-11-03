@@ -26,7 +26,6 @@ import type {
   MemberModerationAction,
   MemberModerationEvent,
   MemberModerationReport,
-  RolePromotionRequest,
   ReviewerProfile,
   UserRole,
 } from '../../types/lexicon'
@@ -38,15 +37,10 @@ interface AdminMembersPanelProps {
   isAdmin: boolean
   isEditor: boolean
   liveMembers: ReviewerProfile[]
-  sandboxMembers: ReviewerProfile[]
   loadingMembers: boolean
   liveModEvents: MemberModerationEvent[]
-  sandboxModEvents: MemberModerationEvent[]
   liveModReports: MemberModerationReport[]
-  sandboxModReports: MemberModerationReport[]
-  sandboxPromotionRequests: RolePromotionRequest[]
   onApplyGovernanceAction: (params: {
-    source: 'live' | 'sandbox'
     targetMember: ReviewerProfile
     action: MemberModerationAction
     nextRole?: UserRole
@@ -54,7 +48,6 @@ interface AdminMembersPanelProps {
     suspendDays?: number
   }) => Promise<{ ok: boolean; error?: string }>
   onSendMessage: (params: {
-    source: 'live' | 'sandbox'
     recipientId: string | null
     isBroadcast: boolean
     category: MemberMessageCategory
@@ -64,7 +57,6 @@ interface AdminMembersPanelProps {
     pinDays?: number
   }) => Promise<{ ok: boolean; error?: string }>
   onSubmitReport: (params: {
-    source: 'live' | 'sandbox'
     targetUserId: string
     targetDisplayName: string
     recommendedAction: 'warn' | 'suspend' | 'ban'
@@ -75,7 +67,6 @@ interface AdminMembersPanelProps {
     resolution: 'resolved' | 'dismissed'
     adminNote?: string
   }) => Promise<void>
-  onResetSandbox: () => void
   onOpenPublicDirectory: () => void
 }
 
@@ -161,24 +152,15 @@ export function AdminMembersPanel({
   isAdmin,
   isEditor,
   liveMembers,
-  sandboxMembers,
   loadingMembers,
   liveModEvents,
-  sandboxModEvents,
   liveModReports,
-  sandboxModReports,
   onApplyGovernanceAction,
   onSendMessage,
   onSubmitReport,
   onResolveReport,
-  onResetSandbox,
   onOpenPublicDirectory,
 }: AdminMembersPanelProps) {
-  void sandboxMembers
-  void sandboxModEvents
-  void sandboxModReports
-  void onResetSandbox
-  const dataSource = 'live' as const
   const [activeTab, setActiveTab] = useState<AdminTab>('members')
   const [memberFilter, setMemberFilter] = useState<MemberFilter>('all')
   const [query, setQuery] = useState('')
@@ -267,7 +249,6 @@ export function AdminMembersPanel({
         ? 'promote'
         : 'demote'
     const res = await onApplyGovernanceAction({
-      source: dataSource,
       targetMember: member,
       action,
       nextRole,
@@ -293,7 +274,6 @@ export function AdminMembersPanel({
     }
     setBusyId(actionModal.member.id)
     const res = await onApplyGovernanceAction({
-      source: dataSource,
       targetMember: actionModal.member,
       action: actionModal.action,
       reason: trimmedReason,
@@ -320,7 +300,6 @@ export function AdminMembersPanel({
   async function handleRestoreMember(member: ReviewerProfile) {
     setBusyId(member.id)
     const res = await onApplyGovernanceAction({
-      source: dataSource,
       targetMember: member,
       action: 'restore',
       reason: 'إعادة تفعيل الحساب بعد المراجعة الإدارية.',
@@ -341,7 +320,6 @@ export function AdminMembersPanel({
     }
     setBusyId(messageModalMember.id)
     const res = await onSendMessage({
-      source: dataSource,
       recipientId: messageModalMember.id,
       isBroadcast: false,
       category: msgCategory,
@@ -365,7 +343,6 @@ export function AdminMembersPanel({
       return
     }
     const res = await onSendMessage({
-      source: dataSource,
       recipientId: null,
       isBroadcast: true,
       category: 'announcement',
@@ -394,7 +371,6 @@ export function AdminMembersPanel({
       return
     }
     const res = await onSubmitReport({
-      source: dataSource,
       targetUserId: reportTargetId,
       targetDisplayName: reportTargetName,
       recommendedAction: reportRecommended,

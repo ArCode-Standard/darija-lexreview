@@ -29,12 +29,10 @@ interface SubmissionsPanelProps {
   corpusVersion: string
   canAccessEditorialTools: boolean
   totalAttestationsCount: number
-  sandboxItems: SubmissionRecord[]
   userEmail: string | null
   refreshTrigger: number
   onResumeDraft: (entryId: string) => void
   onStartRevision: (submission: SubmissionRecord) => void
-  onWithdrawSandboxSubmission: (id: string) => void
   onDeleteDraft: (entryId: string) => void
   onRemoveMultipleDrafts: (entryIds: string[]) => void
   onOpenAuth: () => void
@@ -84,12 +82,10 @@ export function SubmissionsPanel({
   corpusVersion,
   canAccessEditorialTools,
   totalAttestationsCount,
-  sandboxItems,
   userEmail,
   refreshTrigger,
   onResumeDraft,
   onStartRevision,
-  onWithdrawSandboxSubmission,
   onDeleteDraft,
   onRemoveMultipleDrafts,
   onOpenAuth,
@@ -209,15 +205,7 @@ export function SubmissionsPanel({
 
   async function handleConfirmWithdraw(sub: SubmissionRecord) {
     setSyncMsg(null)
-    if (sub.is_sandbox) {
-      onWithdrawSandboxSubmission(sub.id)
-      setConfirmWithdrawId(null)
-      setSyncMsg({
-        type: 'success',
-        text: 'تم سحب المقترح بنجاح.',
-      })
-      return
-    }
+
     if (!supabase) return
     setWithdrawingId(sub.id)
     const { error } = await supabase.rpc('withdraw_own_submission', {
@@ -366,20 +354,6 @@ export function SubmissionsPanel({
       </div>
     )
   }
-
-  const sandboxRevisableOrRecent = useMemo(
-    () =>
-      sandboxItems.filter(
-        (s) =>
-          s.status === 'pending' ||
-          s.status === 'needs_changes' ||
-          s.status === 'rejected' ||
-          s.status === 'superseded' ||
-          s.status === 'withdrawn' ||
-          Boolean(s.supersedes_id),
-      ),
-    [sandboxItems],
-  )
 
   return (
     <div className="rounded-2xl border border-zinc-200 bg-white p-5 sm:p-8 space-y-10 dark:border-white/10 dark:bg-[#0C0C10]">
@@ -607,18 +581,6 @@ export function SubmissionsPanel({
       </div>
 
       {/* Section 3: Staff-Only Test Queue */}
-      {false && canAccessEditorialTools && sandboxRevisableOrRecent.length > 0 && (
-        <div className="pt-8 border-t border-zinc-200 dark:border-white/10">
-          <div className="pb-3 border-b border-zinc-200 dark:border-white/10">
-            <h4 className="font-display text-sm font-bold text-zinc-950 dark:text-[#F5F5F7]">
-              طابور الاختبار للمحررين ({sandboxRevisableOrRecent.length})
-            </h4>
           </div>
-          <div className="divide-y divide-zinc-200 dark:divide-white/10">
-            {sandboxRevisableOrRecent.map((sub) => renderSubmissionRow(sub))}
-          </div>
-        </div>
-      )}
-    </div>
   )
 }

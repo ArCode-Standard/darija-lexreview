@@ -7,8 +7,6 @@ import { humanizeSystemError } from '../../utils/humanizeError'
 
 interface DecisionAuditTimelineProps {
   submissionId: string
-  queueSource: 'live' | 'sandbox'
-  sandboxEvents: ReviewDecisionEvent[]
   editorNamesMap: Record<string, string>
   refreshKey?: string | number
 }
@@ -39,8 +37,6 @@ function formatEventTitle(ev: ReviewDecisionEvent): string {
 
 export function DecisionAuditTimeline({
   submissionId,
-  queueSource,
-  sandboxEvents,
   editorNamesMap,
   refreshKey,
 }: DecisionAuditTimelineProps) {
@@ -49,7 +45,7 @@ export function DecisionAuditTimeline({
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
 
   const fetchLiveAuditEvents = useCallback(async () => {
-    if (queueSource !== 'live' || !supabase || !submissionId) {
+    if (!supabase || !submissionId) {
       setLiveEvents([])
       return
     }
@@ -83,23 +79,13 @@ export function DecisionAuditTimeline({
         actor_display_name: row.actor_id ? editorNamesMap[row.actor_id] ?? null : null,
       })),
     )
-  }, [queueSource, submissionId, editorNamesMap])
+  }, [submissionId, editorNamesMap])
 
   useEffect(() => {
-    if (queueSource === 'live') {
-      fetchLiveAuditEvents()
-    }
-  }, [queueSource, fetchLiveAuditEvents, refreshKey])
+    fetchLiveAuditEvents()
+  }, [fetchLiveAuditEvents, refreshKey])
 
-  const events: ReviewDecisionEvent[] =
-    queueSource === 'live'
-      ? liveEvents
-      : sandboxEvents
-          .filter((e) => e.submission_id === submissionId)
-          .sort(
-            (a, b) =>
-              new Date(a.occurred_at).getTime() - new Date(b.occurred_at).getTime(),
-          )
+  const events = liveEvents
 
   return (
     <div className="pt-4 border-t border-zinc-200 space-y-3 dark:border-white/10">
@@ -111,7 +97,7 @@ export function DecisionAuditTimeline({
           </h5>
         </div>
 
-        {queueSource === 'live' && (
+        {(
           <button
             type="button"
             onClick={fetchLiveAuditEvents}
@@ -124,11 +110,11 @@ export function DecisionAuditTimeline({
         )}
       </div>
 
-      {loading && queueSource === 'live' ? (
+      {loading ? (
         <p className="text-xs text-zinc-500 dark:text-zinc-400">
           جارٍ جلب التسلسل الزمني للقرارات...
         </p>
-      ) : errorMsg && queueSource === 'live' ? (
+      ) : errorMsg ? (
         <p className="text-xs text-zinc-500 dark:text-zinc-400">
           {errorMsg}
         </p>
