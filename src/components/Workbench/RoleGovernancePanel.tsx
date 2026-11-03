@@ -414,8 +414,7 @@ export function RoleGovernancePanel({
               ))}
             </div>
 
-            {
-              <button
+            <button
                 type="button"
                 disabled={loadingLive}
                 onClick={fetchLiveGovernanceData}
@@ -423,7 +422,7 @@ export function RoleGovernancePanel({
               >
                 <RefreshCw className={`h-3.5 w-3.5 ${loadingLive ? 'animate-spin' : ''}`} />
                 <span>تحديث</span>
-              </button> )}
+            </button>
           </div>
         </div>
 
