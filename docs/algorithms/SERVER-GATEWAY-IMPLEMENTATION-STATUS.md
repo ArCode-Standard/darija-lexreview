@@ -21,7 +21,8 @@
    - no submitted text in logs.
 3. Added a SQL implementation draft outside the executable migrations directory. It defines private one-time token storage, transaction-scoped consumption, table triggers, SECURITY INVOKER write RPCs, scan audit metadata, and private learning registries.
 4. Changed the proposed signup trigger in the SQL draft so unreviewed raw_user_meta_data is not copied into the canonical public profile.
-5. Added Edge Function runtime configuration and a deployment/security README.
+5. Added a second Edge Function for consented learning feedback intake and independent editorial review.
+6. Added Edge Function runtime configuration and deployment/security READMEs.
 
 ## Important limitations — not complete or production-ready
 
@@ -31,11 +32,11 @@
 - No Moroccan profanity catalogue is fabricated or shipped. A policy must be curated, licensed, benchmarked, and reviewed by Darija editors before the gateway can issue write tokens.
 - The frontend write paths are not yet migrated to the new Edge Function and RPCs. Existing direct REST writes remain in shadow mode until every client path is moved and verified.
 - The database draft defaults to shadow; it must not be switched to enforce until client migration and bypass tests pass.
-- Durable learning tables are scaffolded as private storage only. User-facing feedback submission, independent review RPCs, dataset snapshot jobs, evaluation jobs, and model-release/rollback workflows still need implementation and tests.
+- Durable learning tables and server-only candidate ingestion plus independent review RPCs are drafted. User-facing editor review UI, dataset snapshot/freeze jobs, evaluation jobs, and model-release/rollback workflows still need implementation and tests.
 
 ## Required next steps
 
-1. Generate the migration with the Supabase CLI, then review every DDL/function/grant.
+1. The CI workflow now runs supabase migration new and materializes the SQL draft as a generated migration in its isolated runner; review the DDL/functions/grants after CI and generate/commit the proper migration when the CLI is available locally.
 2. Run supabase db reset --local and supabase test db in CI. Add pgTAP coverage for:
    - direct REST INSERT/UPDATE rejection in enforce mode;
    - valid token + matching payload + matching actor success;
