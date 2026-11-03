@@ -680,9 +680,9 @@ begin
   if v_role <> 'service_role' then
     raise exception 'Service role required for feedback ingestion' using errcode = '42501';
   end if;
-  if p_actor_id is null or p_domain not in ('linguistic','content_safety')
-     or p_source not in ('lexicon_suggestion','editor_correction','moderation_appeal','moderation_decision','benchmark_annotation')
-     or p_source_surface not in ('profile','lexicon','contribution','review','comment','discussion','report','benchmark')
+  if p_actor_id is null or p_domain is null or p_domain not in ('linguistic','content_safety')
+     or p_source is null or p_source not in ('lexicon_suggestion','editor_correction','moderation_appeal','moderation_decision','benchmark_annotation')
+     or p_source_surface is null or p_source_surface not in ('profile','lexicon','contribution','review','comment','discussion','report','benchmark')
      or p_group_id is null or pg_catalog.btrim(p_group_id) = ''
      or p_text is null or pg_catalog.char_length(pg_catalog.btrim(p_text)) not between 1 and 5000
      or p_label is null or pg_catalog.char_length(pg_catalog.btrim(p_label)) not between 1 and 120
@@ -810,3 +810,31 @@ as $function$
 $function$;
 revoke all on function public.review_learning_feedback_candidate(uuid,text,text) from public, anon;
 grant execute on function public.review_learning_feedback_candidate(uuid,text,text) to authenticated;
+
+
+create or replace function public.submit_learning_feedback_candidate(
+  p_actor_id uuid,
+  p_domain text,
+  p_source text,
+  p_source_surface text,
+  p_group_id text,
+  p_text text,
+  p_label text,
+  p_rationale text,
+  p_consent boolean,
+  p_license text,
+  p_provenance jsonb,
+  p_screening_version text,
+  p_source_reference text default null
+) returns uuid
+language sql
+security invoker
+set search_path = ''
+as $function$
+  select private.create_learning_feedback_candidate(
+    p_actor_id,p_domain,p_source,p_source_surface,p_group_id,p_text,p_label,
+    p_rationale,p_consent,p_license,p_provenance,p_screening_version,p_source_reference
+  );
+$function$;
+revoke all on function public.submit_learning_feedback_candidate(uuid,text,text,text,text,text,text,text,boolean,text,jsonb,text,text) from public, anon, authenticated;
+grant execute on function public.submit_learning_feedback_candidate(uuid,text,text,text,text,text,text,text,boolean,text,jsonb,text,text) to service_role;
