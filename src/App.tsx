@@ -242,7 +242,7 @@ export default function App() {
   const [revisionTarget, setRevisionTarget] = useState<SubmissionRecord | null>(null)
   const [forceSandboxModeration, setForceSandboxModeration] = useState(false)
   const [forceGovernanceSection, setForceGovernanceSection] = useState(false)
-  const [preferredExportSource, setPreferredExportSource] = useState<'live' | 'sandbox'>('sandbox')
+  const [preferredExportSource, setPreferredExportSource] = useState<'live' | 'sandbox'>('live')
 
   const [authDialogOpen, setAuthDialogOpen] = useState(false)
   const [recoveryMode, setRecoveryMode] = useState(false)
