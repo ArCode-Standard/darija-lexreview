@@ -83,23 +83,32 @@ function buildCandidatePairs(
   const perItem = new Map<number, number>()
   const truncated = new Set<number>()
   for (const item of eligible) {
+    // Keep only exact-form records that still have candidate capacity. This avoids
+    // rescanning a saturated duplicate bucket (which would itself become quadratic).
     const sameKey = exact.get(item.key) ?? []
-    for (let cursor = sameKey.length - 1; cursor >= 0; cursor -= 1) {
+    let itemCount = perItem.get(item.index) ?? 0
+    for (let cursor = sameKey.length - 1; cursor >= 0 && itemCount < options.maxCandidatesPerItem; cursor -= 1) {
       const otherIndex = sameKey[cursor]
       const other = items[otherIndex]
       if (other.id === item.id) continue
-      const itemCount = perItem.get(item.index) ?? 0
       const otherCount = perItem.get(otherIndex) ?? 0
-      if (itemCount >= options.maxCandidatesPerItem || otherCount >= options.maxCandidatesPerItem) {
-        truncated.add(item.index)
-        if (otherCount >= options.maxCandidatesPerItem) truncated.add(otherIndex)
+      if (otherCount >= options.maxCandidatesPerItem) {
+        sameKey.splice(cursor, 1)
+        truncated.add(otherIndex)
         continue
       }
       pairs.add(`${Math.min(otherIndex, item.index)}:${Math.max(otherIndex, item.index)}`)
-      perItem.set(item.index, itemCount + 1)
-      perItem.set(otherIndex, otherCount + 1)
+      itemCount += 1
+      perItem.set(item.index, itemCount)
+      const nextOtherCount = otherCount + 1
+      perItem.set(otherIndex, nextOtherCount)
+      if (nextOtherCount >= options.maxCandidatesPerItem) {
+        sameKey.splice(cursor, 1)
+        truncated.add(otherIndex)
+      }
     }
-    sameKey.push(item.index)
+    if (itemCount < options.maxCandidatesPerItem) sameKey.push(item.index)
+    else truncated.add(item.index)
     exact.set(item.key, sameKey)
 
     for (const gram of uniqueBigrams(item.key)) {
