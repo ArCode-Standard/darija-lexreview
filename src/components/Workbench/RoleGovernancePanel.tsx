@@ -7,7 +7,6 @@ import {
   Search,
   RefreshCw,
   ExternalLink,
-  RotateCcw,
   UserCheck,
   Users,
 } from 'lucide-react'
