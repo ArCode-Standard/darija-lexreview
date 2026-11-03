@@ -42,7 +42,6 @@ interface AuthDialogProps {
   draftsList: LocalDraft[]
   entries: LexicalEntry[]
   corpusVersion: string
-  canAccessEditorialTools: boolean
   totalAttestationsCount: number
   onClearRecovery: () => void
   onAuthChanged: () => void
@@ -81,7 +80,6 @@ export function AuthDialog({
   draftsList,
   entries,
   corpusVersion,
-  canAccessEditorialTools,
   totalAttestationsCount,
   onClearRecovery,
   onAuthChanged,
