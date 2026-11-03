@@ -1,4 +1,4 @@
-import { compactObfuscationKey, countUrls, longestRepeatedCharacterRun, normalizeSafetyText } from './normalize'
+import { countUrls, longestRepeatedCharacterRun, normalizeSafetyText, obfuscationSkeleton } from './normalize'
 import type { ContentSafetyResult, ContentSurface, SafetyLexiconRule, SafetyPolicy, SafetySignal, TrustedContentContext } from './types'
 export * from './normalize'
 export * from './types'
@@ -7,11 +7,18 @@ const CONTEXTUAL_PURPOSES = new Set(['dictionary_definition', 'linguistic_analys
 function phraseMatches(text: string, phrase: string): boolean {
   return (' ' + text + ' ').includes(' ' + normalizeSafetyText(phrase) + ' ')
 }
-function ruleMatches(text: string, compact: string, rule: SafetyLexiconRule): boolean {
+function phraseMatchesWithSeparators(text: string, phrase: string): boolean {
+  const tokens = phrase.split(' ').filter(Boolean)
+  if (!tokens.length) return false
+  const tokenPattern = tokens.map((token) => Array.from(token).join('\\s*')).join('\\s+')
+  return new RegExp('(?:^|\\\\s)' + tokenPattern + '(?:$|\\\\s)', 'u').test(text)
+}
+function ruleMatches(text: string, skeleton: string, rule: SafetyLexiconRule): boolean {
   const normalizedPhrase = normalizeSafetyText(rule.phrase)
   if (!normalizedPhrase) return false
-  const compactPhrase = compactObfuscationKey(normalizedPhrase)
-  return phraseMatches(text, normalizedPhrase) || (compactPhrase.length >= 3 && compact.includes(compactPhrase))
+  const normalizedRuleSkeleton = obfuscationSkeleton(rule.phrase)
+  return phraseMatches(text, normalizedPhrase) ||
+    phraseMatchesWithSeparators(skeleton, normalizedRuleSkeleton)
 }
 function uniqueSignals(signals: SafetySignal[]): SafetySignal[] {
   const seen = new Set<string>()
@@ -39,7 +46,7 @@ export function scanContent(input: ScanContentInput, policy: SafetyPolicy): Cont
   }
   const ruleIds = new Set<string>()
   for (const rule of policy.rules) {
-    if (!rule.id.trim() || ruleIds.has(rule.id) || !normalizeSafetyText(rule.phrase) ||
+    if (!rule.id.trim() || ruleIds.has(rule.id) || !normalizeSafetyText(rule.phrase) || rule.phrase.length > 120 ||
         !Number.isInteger(rule.severity) || rule.severity < 1 || rule.severity > 5) {
       throw new TypeError('Safety rules require unique IDs, non-empty phrases, and severity from 1 to 5')
     }
@@ -50,13 +57,13 @@ export function scanContent(input: ScanContentInput, policy: SafetyPolicy): Cont
       policy.reviewThreshold > policy.blockThreshold) throw new RangeError('Safety thresholds must satisfy 0 <= reviewThreshold <= blockThreshold <= 100')
   const original = input.text ?? ''
   const normalized = normalizeSafetyText(original)
-  const compact = compactObfuscationKey(original)
+  const skeleton = obfuscationSkeleton(original)
   const context = input.context ?? { purpose: 'general' as const }
   const signals: SafetySignal[] = []
   let score = 0
   if (!original.trim()) return makeResult('allow', 0, [], false, policy, input.now)
   for (const rule of policy.rules) {
-    if (!ruleMatches(normalized, compact, rule)) continue
+    if (!ruleMatches(normalized, skeleton, rule)) continue
     const targeted = rule.category === 'threat' ? true
       : rule.category === 'hate_speech' ? Boolean(context.targetedAtGroup || context.explicitIncitement)
       : rule.category === 'personal_abuse' ? Boolean(context.targetedAtPerson) : false
