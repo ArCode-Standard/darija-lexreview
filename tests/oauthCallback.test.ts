@@ -14,7 +14,8 @@ describe('OAuth callback security contract', () => {
     expect(html).toContain('<script src="/auth/callback/callback.js" defer></script>')
     expect(html).not.toContain('<script>')
     expect(headers).toContain("script-src 'self'")
-    expect(headers.split('\n').find((line) => line.includes('script-src'))).not.toContain("'unsafe-inline'")
+    const scriptPolicy = headers.match(/script-src ([^;]+)/)?.[1] ?? ''
+    expect(scriptPolicy).not.toContain("'unsafe-inline'")
   })
 
   it('never posts authorization material to an opener or wildcard origin', () => {
