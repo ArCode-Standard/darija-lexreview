@@ -22,7 +22,8 @@
 3. Added a SQL implementation draft outside the executable migrations directory. It defines private one-time token storage, transaction-scoped consumption, table triggers, SECURITY INVOKER write RPCs, scan audit metadata, and private learning registries.
 4. Changed the proposed signup trigger in the SQL draft so unreviewed raw_user_meta_data is not copied into the canonical public profile.
 5. Added a second Edge Function for consented learning feedback intake and independent editorial review.
-6. Added Edge Function runtime configuration and deployment/security READMEs.
+6. Added privacy-preserving durable scan-decision audit events (digest, engine/policy version, bounded signal metadata; no raw text) and per-actor rate limits.
+7. Added Edge Function runtime configuration and deployment/security READMEs.
 
 ## Important limitations — not complete or production-ready
 
