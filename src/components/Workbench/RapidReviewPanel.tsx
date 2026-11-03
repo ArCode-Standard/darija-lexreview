@@ -700,14 +700,6 @@ export function RapidReviewPanel({
     }
 
     if (!sentToLiveBackend) {
-      if (canAccessEditorialTools) {
-        onAddSandboxSubmission({
-          entryId: entry.id,
-          proposedData: finalProposal,
-          evidence: [],
-          reviewerNote: noteText,
-        })
-      }
       if (!userEmail) {
         onSaveDraft({
           entryId: entry.id,
@@ -1212,7 +1204,7 @@ export function RapidReviewPanel({
             )}
             <span>{toast.text}</span>
           </div>
-          {toast.showSandboxLink && canAccessEditorialTools && (
+          {false && toast.showSandboxLink && canAccessEditorialTools && (
             <button
               type="button"
               onClick={onOpenModerationSandbox}
