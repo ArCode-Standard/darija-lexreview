@@ -29,10 +29,12 @@ function makeCandidate(domain: 'linguistic' | 'content_safety' = 'linguistic'): 
 describe('content safety engine', () => {
   it('ships a versioned Moroccan Darija starter lexicon with Arabic and Arabizi entries', () => {
     const seed = createDefaultDarijaSafetyPolicy()
-    expect(seed.version).toBe('darija-seed-1.0.0')
+    expect(seed.version).toBe('darija-seed-1.1.0')
     expect(seed.rules.some((rule) => rule.phrase === 'خرا' && rule.category === 'profanity')).toBe(true)
     expect(seed.rules.some((rule) => rule.phrase === '7mar' && rule.category === 'personal_abuse')).toBe(true)
     expect(seed.rules.some((rule) => rule.phrase === 'قحبة' && rule.category === 'personal_abuse')).toBe(true)
+    expect(seed.rules.some((rule) => rule.phrase === 'سير تقود')).toBe(true)
+    expect(seed.rules.some((rule) => rule.phrase === 'تبون')).toBe(false)
   })
   it('detects seeded Darija profanity as a review signal, not an automatic block', () => {
     const seed = createDefaultDarijaSafetyPolicy()
@@ -83,6 +85,24 @@ describe('content safety engine', () => {
     }, policy)
     expect(result.decision).toBe('review')
     expect(result.signals.some((signal) => signal.category === 'profanity')).toBe(true)
+  })
+  it('matches Darija terms when letters are separated by spaces or punctuation', () => {
+    const seed = createDefaultDarijaSafetyPolicy()
+    for (const text of ['k h r a', 'k.h.r.a', 'k-h-r-a']) {
+      const result = scanContent({ text, surface: 'comment' }, seed)
+      expect(result.signals.some((signal) => signal.ruleId === 'darija-lat-001')).toBe(true)
+      expect(result.decision).toBe('review')
+    }
+  })
+  it('matches a multiword insult when separators are inserted between letters', () => {
+    const seed = createDefaultDarijaSafetyPolicy()
+    const result = scanContent({ text: 's i r   t 9 a w e d', surface: 'comment' }, seed)
+    expect(result.signals.some((signal) => signal.ruleId === 'darija-lat-018')).toBe(true)
+  })
+  it('does not match a short lexicon term inside a longer unrelated word', () => {
+    const seed = createDefaultDarijaSafetyPolicy()
+    const result = scanContent({ text: 'khraology', surface: 'comment' }, seed)
+    expect(result.signals.some((signal) => signal.ruleId === 'darija-lat-001')).toBe(false)
   })
   it('allows quoted threat evidence to enter the report review path', () => {
     const result = scanContent({
