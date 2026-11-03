@@ -3,7 +3,7 @@ const INVISIBLE = /[\u200B-\u200F\u202A-\u202E\u2060\uFEFF]/gu
 const TATWEEL = /\u0640/gu
 const ARABIC_FOLD: Record<string, string> = {
   'أ': 'ا', 'إ': 'ا', 'آ': 'ا', 'ٱ': 'ا',
-  'ى': 'ي', 'ئ': 'ي', 'ؤ': 'و', 'ة': 'ه',
+  'ى': 'ي', 'ئ': 'ي', 'ؤ': 'و',
   'ک': 'ك', 'ی': 'ي',
 }
 const CONFUSABLE_FOLD: Record<string, string> = {
