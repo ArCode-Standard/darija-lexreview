@@ -16,6 +16,9 @@ export function submitFeedbackCandidate(input: SubmitFeedbackInput): FeedbackCan
   if (!input.id.trim() || !input.groupId.trim() || !input.contributorRef.trim()) throw new TypeError('Candidate identifiers and provenance are required')
   const text = input.text.trim()
   if (!text || !input.label.trim() || !input.rationale.trim()) throw new TypeError('Text, label, and rationale are required')
+  if (text.length > 5000 || input.label.length > 120 || input.rationale.length > 2000 || input.license.length > 250) {
+    throw new RangeError('Feedback text or metadata exceeds the configured length limits')
+  }
   if (PERSONAL_DATA_PATTERNS.some((pattern) => pattern.test(text))) throw new Error('Candidate appears to contain personal data and must be redacted before submission')
   return { ...input, text, status: 'pending', containsPersonalData: false, createdAt: (input.createdAt ?? new Date()).toISOString(), reviews: [] }
 }
@@ -49,9 +52,19 @@ export async function buildApprovedDataset(candidates: FeedbackCandidate[], vers
     const uniqueReviewers = new Set(approvals.map((review) => review.reviewerRef))
     const rejected = candidate.reviews.some((review) => review.decision === 'reject')
     const requiredApprovals = candidate.domain === 'content_safety' ? 2 : 1
+    const validReviews = approvals.every((review) =>
+      Boolean(review.reviewerRef.trim() && review.reason.trim()) &&
+      (review.role === 'editor' || review.role === 'admin') &&
+      Number.isFinite(Date.parse(review.reviewedAt)) &&
+      review.reviewerRef !== candidate.contributorRef
+    )
     return candidate.status === 'approved' && candidate.consentToDatasetUse &&
-      !candidate.containsPersonalData && ALLOWED_SURFACES.has(candidate.sourceSurface.toLowerCase()) &&
-      candidate.license.trim().length > 0 && !rejected && uniqueReviewers.size >= requiredApprovals &&
+      !candidate.containsPersonalData && !PERSONAL_DATA_PATTERNS.some((pattern) => pattern.test(candidate.text)) &&
+      ALLOWED_SURFACES.has(candidate.sourceSurface.toLowerCase()) && ALLOWED_SOURCES.has(candidate.source) &&
+      (candidate.domain === 'linguistic' || candidate.domain === 'content_safety') &&
+      candidate.text.trim().length > 0 && candidate.text.length <= 5000 &&
+      candidate.license.trim().length > 0 && candidate.license.length <= 250 &&
+      !rejected && validReviews && uniqueReviewers.size >= requiredApprovals &&
       approvals.every((review) => review.reviewerRef !== candidate.contributorRef)
   })
   const unique = new Map<string, DatasetExample>()
