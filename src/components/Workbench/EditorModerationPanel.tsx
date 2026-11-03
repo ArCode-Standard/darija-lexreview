@@ -32,7 +32,6 @@ import { DecisionAuditTimeline } from './DecisionAuditTimeline'
 
 interface EditorModerationPanelProps {
   entries: LexicalEntry[]
-  categories: string[]
   corpusVersion: string
   userEmail: string | null
   profile: ReviewerProfile | null
@@ -64,7 +63,6 @@ const DIFF_FIELDS: Array<{
 
 export function EditorModerationPanel({
   entries,
-  categories,
   corpusVersion,
   userEmail,
   profile,
@@ -105,8 +103,6 @@ export function EditorModerationPanel({
   const [bulkBusy, setBulkBusy] = useState(false)
   const [bulkError, setBulkError] = useState<string | null>(null)
 
-  const [editMode, setEditMode] = useState(false)
-  const [editableProposed, setEditableProposed] = useState<ProposedFields>({})
   const [editorNote, setEditorNote] = useState('')
   const [savingDecision, setSavingDecision] = useState(false)
   const [auditRefreshCounter, setAuditRefreshCounter] = useState(0)
@@ -213,9 +209,7 @@ export function EditorModerationPanel({
 
   useEffect(() => {
     if (activeSubmission) {
-      setEditableProposed({ ...activeSubmission.proposed_data })
       setEditorNote(activeSubmission.editor_note ?? '')
-      setEditMode(false)
       setActionMessage(null)
     }
   }, [activeSubmission?.id])
@@ -224,7 +218,7 @@ export function EditorModerationPanel({
   const submissionWarnings = useMemo(() => {
     if (!activeSubmission) return []
     const warnings: string[] = []
-    const p = editableProposed
+    const p = activeSubmission.proposed_data
     const isNew = isNewEntrySubmission(activeSubmission)
 
     if (isNew) {
@@ -270,7 +264,7 @@ export function EditorModerationPanel({
     }
 
     return warnings
-  }, [activeSubmission, editableProposed, entries, activePool])
+  }, [activeSubmission, entries, activePool])
 
   const acceptedCountInSource = useMemo(
     () => activePool.filter((s) => s.status === 'accepted' && !s.exported_in_version).length,
@@ -304,7 +298,7 @@ export function EditorModerationPanel({
     }
 
     if (nextStatus === 'accepted' && isNewEntrySubmission(activeSubmission)) {
-      const p = editableProposed
+      const p = activeSubmission.proposed_data
       if (
         !p.word_ar?.trim() ||
         !p.arabizi?.trim() ||
@@ -388,7 +382,6 @@ export function EditorModerationPanel({
       next.delete(activeSubmission.id)
       return next
     })
-    setEditMode(false)
     setAuditRefreshCounter((c) => c + 1)
     setActionMessage({
       type: 'success',
@@ -574,8 +567,7 @@ export function EditorModerationPanel({
                   className="min-h-[36px] rounded-lg bg-zinc-950 px-4 py-1.5 text-xs font-semibold text-white hover:bg-zinc-800 dark:bg-[#D9FF43] dark:text-[#050507] dark:hover:bg-[#e5ff73] whitespace-nowrap cursor-pointer"
                 >
                   تسجيل الدخول
-                </button>
-              )}
+              </button>
               
             </div>
           </div>
@@ -642,7 +634,7 @@ export function EditorModerationPanel({
           )}
 
           {/* Main Queue + Inspection Split */}
-          {(false || isAuthorizedLiveEditor) && (
+          {isAuthorizedLiveEditor && (
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-12 items-start">
           {/* Queue List Sidebar */}
           <aside className="lg:col-span-4 rounded-xl border border-zinc-200 bg-white p-4 sm:p-5 space-y-3.5 dark:border-white/10 dark:bg-[#0B0B10]">
@@ -650,8 +642,7 @@ export function EditorModerationPanel({
               <span className="font-display text-sm font-bold text-zinc-950 dark:text-white">
                 قائمة المقترحات ({filteredQueue.length})
               </span>
-              {(
-                <button
+              <button
                   type="button"
                   onClick={fetchLiveQueue}
                   disabled={loadingLive}
@@ -901,31 +892,16 @@ export function EditorModerationPanel({
                     </div>
                     <h4 className="mt-2 font-display text-2xl font-bold text-zinc-950 dark:text-white">
                       {isNewEntrySubmission(activeSubmission)
-                        ? editableProposed.word_ar || 'مفردة جديدة'
+                        ? activeSubmission.proposed_data.word_ar || 'مفردة جديدة'
                         : targetCanonicalEntry?.word || `مدخل #${activeSubmission.entry_id}`}
                     </h4>
                   </div>
 
-                  {false && activeSubmission.status !== 'merged' ? (
-                    <button
-                      type="button"
-                      onClick={() => setEditMode((v) => !v)}
-                      className={`inline-flex min-h-[36px] items-center gap-1.5 rounded-lg border px-3.5 py-1.5 text-xs font-semibold transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
-                        editMode
-                          ? 'border-zinc-950 bg-zinc-950 text-white dark:border-[#D9FF43] dark:bg-[#D9FF43] dark:text-[#050507]'
-                          : 'border-zinc-300 bg-zinc-50 text-zinc-800 hover:bg-zinc-100 dark:border-white/15 dark:bg-[#07070A] dark:text-zinc-200'
-                      }`}
-                    >
-                      <Edit3 className="h-3.5 w-3.5" />
-                      <span>{editMode ? 'إنهاء تهذيب الحقول' : 'تهذيب الحقول'}</span>
-                    </button>
-                  ) : (
-                    <span className="text-[11px] text-zinc-500 dark:text-zinc-400">
-                      {activeSubmission.status === 'merged'
-                        ? `مدمج ومؤرشف رسمياً${activeSubmission.exported_in_version ? ` (v${activeSubmission.exported_in_version})` : ''}`
-                        : 'محتوى المقترح ثابت بعد الإرسال (اطلب تعديلاً عند الحاجة)'}
-                    </span>
-                  )}
+                  <span className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                    {activeSubmission.status === 'merged'
+                      ? `مدمج ومؤرشف رسمياً${activeSubmission.exported_in_version ? ` (v${activeSubmission.exported_in_version})` : ''}`
+                      : 'القيم المقترحة محفوظة كما أرسلها المساهم'}
+                  </span>
                 </div>
 
                 {/* Crowd Human Validation Signals + Weighted Trust Score on Target Entry */}
@@ -1027,20 +1003,20 @@ export function EditorModerationPanel({
                             </th>
                           )}
                           <th className="py-2.5 px-3 text-start font-medium">
-                            القيمة المقترحة {editMode ? '(قابلة للتعديل)' : ''}
+                            القيمة المقترحة
                           </th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-zinc-200 dark:divide-white/10">
                         {DIFF_FIELDS.map((field) => {
-                          const propVal = editableProposed[field.key]
+                          const propVal = activeSubmission.proposed_data[field.key]
                           const propStr = typeof propVal === 'string' ? propVal : ''
                           const currentStr =
                             field.entryProp && targetCanonicalEntry
                               ? String(targetCanonicalEntry[field.entryProp] ?? '—')
                               : '—'
 
-                          if (!editMode && !propStr && !field.entryProp) {
+                          if (!propStr && !field.entryProp) {
                             return null
                           }
 
@@ -1069,48 +1045,10 @@ export function EditorModerationPanel({
                                 </td>
                               )}
                               <td className="py-2.5 px-3">
-                                {editMode ? (
-                                  field.key === 'category' ? (
-                                    <select
-                                      value={propStr}
-                                      onChange={(e) =>
-                                        setEditableProposed((prev) => ({
-                                          ...prev,
-                                          category: e.target.value,
-                                        }))
-                                      }
-                                      className="w-full rounded border border-zinc-300 bg-white px-2.5 py-1.5 text-xs text-zinc-950 dark:border-white/15 dark:bg-[#07070A] dark:text-white"
-                                    >
-                                      <option value="">بدون تغيير</option>
-                                      {categories.map((c) => (
-                                        <option key={c} value={c}>
-                                          {c}
-                                        </option>
-                                      ))}
-                                    </select>
-                                  ) : (
-                                    <input
-                                      type="text"
-                                      dir={field.dir}
-                                      value={propStr}
-                                      onChange={(e) =>
-                                        setEditableProposed((prev) => ({
-                                          ...prev,
-                                          [field.key]: e.target.value,
-                                        }))
-                                      }
-                                      placeholder="فارغ (يبقى النص الأصلي دون تعديل)"
-                                      className={`w-full rounded border border-zinc-300 bg-white px-2.5 py-1.5 text-xs text-zinc-950 dark:border-white/15 dark:bg-[#07070A] dark:text-white ${
-                                        field.dir === 'ltr' ? 'font-mono text-left' : ''
-                                      }`}
-                                    />
-                                  )
-                                ) : isModified ? (
+                                {isModified ? (
                                   <span
                                     dir={field.dir}
-                                    className={`font-semibold text-zinc-950 dark:text-white ${
-                                      field.dir === 'ltr' ? 'font-mono' : ''
-                                    }`}
+                                    className={`font-semibold text-zinc-950 dark:text-white ${field.dir === 'ltr' ? 'font-mono' : ''}`}
                                   >
                                     {propStr}
                                   </span>
