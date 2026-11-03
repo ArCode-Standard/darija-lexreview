@@ -117,7 +117,7 @@ export function RoleGovernancePanel({
 
     if (requestsRes.error) {
       setLiveSchemaNotice(
-        'سجل طلبات الترقية السحابي قيد التهيئة حالياً. يمكنك تجربة دورة مراجعة الطلبات كاملة في وضع المحاكاة.',
+        'سجل طلبات الترقية غير متاح حالياً. يرجى مراجعة إعدادات خدمات المنصة قبل إعادة المحاولة.',
       )
       setLiveRequests([])
     } else {
