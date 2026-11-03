@@ -19,7 +19,6 @@ import type {
   AttestationVerdict,
   CommunityAttestationRecord,
   EntryAttestationSummary,
-  EvidenceItem,
   ExampleAttestationSummary,
   LexicalEntry,
   LocalDraft,
