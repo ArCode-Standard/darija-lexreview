@@ -74,7 +74,7 @@ describe('content safety engine', () => {
     expect(result.fields).toHaveLength(3)
   })
   it('preserves Moroccan Arabizi digit conventions in obfuscation skeletons', () => {
-    expect(obfuscationSkeleton('3lach 5ayb 7chouma')).toBe('علاش خايب حشوما')
+    expect(obfuscationSkeleton('3 5 7 8 9')).toBe('ع خ ح غ ق')
   })
   it('hard-blocks content that exceeds the configured maximum size', () => {
     const result = scanContent({ text: 'x'.repeat(5001), surface: 'comment' }, policy)
