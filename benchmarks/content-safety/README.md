@@ -25,7 +25,8 @@ Annotate target, intent, context, and confidence separately. A text can contain 
 - Language mix: Darija-only, Darija/French, Darija/Arabic, other code-switching.
 - Region: only where supported by consent and evidence; do not infer region from a name.
 - Surface: lexicon, contribution, profile, comment/discussion, report, message.
-- Context: directed abuse, playful banter, neutral mention, definition, academic analysis, quote/evidence, threat language, ambiguous mixed intent.\n- Cue combinations: insult + second-person address; insult + laughter; profanity + dictionary question; threat + report marker; quoted threat without report marker.
+- Context: directed abuse, playful banter, neutral mention, definition, academic analysis, quote/evidence, threat language, ambiguous mixed intent.
+- Cue combinations: insult + second-person address; insult + laughter; profanity + dictionary question; threat + report marker; quoted threat without report marker.
 - Obfuscation: elongation, spacing, punctuation, digits, homoglyphs, transliteration variants.
 - Provenance: source ID, license, permission, annotation history.
 
