@@ -760,7 +760,6 @@ export default function App() {
 
   function handleGoToExporter(source: 'live' | 'sandbox') {
     setFocusMode(false)
-    if (!isStaffRole) setEditorialPreviewMode(true)
     setPreferredExportSource(source)
     navigatePage('export')
   }
