@@ -29,10 +29,10 @@ allow_with_context means the workflow may accept a quoted or linguistic mention 
 - block: clear targeted abuse or configured severe policy violation.
 - urgent_escalation: threat signal requiring urgent human review.
 
-A profanity-only hit is not an automatic block. Compact or obfuscated matches are context signals and must be validated against a human-labelled benchmark.
+A profanity-only hit is not an automatic block. Compact or obfuscated matches are context signals and must be validated against a human-labelled benchmark. Moroccan Arabizi digit conventions (2/3/5/6/7/8/9) are normalized to their Arabic phonetic counterparts; English leetspeak substitutions are kept separate to avoid conflating Darija transliteration with unrelated Latin characters. Content exceeding the configured maximum character count is rejected before expensive lexical scanning.
 
 ## Server-side requirement
 
 This library has no authentication, database, RLS, persistence, or audit storage. It must run in a trusted server process. Calling it from React does not protect a Supabase table from direct REST writes.
 
-Every insert and update must enumerate all writable text fields. Do not assume the payload scanner automatically discovers nested fields or JSON keys. Add explicit field maps and tests for each database table.
+Every insert and update must enumerate all writable text fields. Do not assume the payload scanner automatically discovers nested fields or JSON keys. The payload adapter rejects object-valued or otherwise unmapped fields, caps field count and array sizes, and scans only explicit string values. Add explicit field maps and tests for each database table.
