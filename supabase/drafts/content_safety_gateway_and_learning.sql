@@ -787,8 +787,6 @@ create table if not exists private.feedback_candidates (
   license text not null check (char_length(license) between 1 and 250),
   provenance jsonb not null default '{}'::jsonb,
   status text not null default 'pending' check (status in ('pending','approved','rejected')),
-  pii_screened boolean not null default false,
-  screening_version text,
   consent_recorded_at timestamptz not null default now(),
   source_reference text,
   created_at timestamptz not null default now()
@@ -868,7 +866,7 @@ grant select, insert, update, delete on private.feedback_candidates, private.fee
 
 
 -- Trusted ingestion is service-role-only; the Edge Function verifies the user JWT,
--- checks standing, records explicit consent, and performs PII screening first.
+-- checks standing and records explicit dataset-use consent.
 create or replace function private.create_learning_feedback_candidate(
   p_actor_id uuid,
   p_domain text,
@@ -881,7 +879,6 @@ create or replace function private.create_learning_feedback_candidate(
   p_consent boolean,
   p_license text,
   p_provenance jsonb,
-  p_screening_version text,
   p_source_reference text default null
 ) returns uuid
 language plpgsql
@@ -908,9 +905,8 @@ begin
      or p_rationale is null or pg_catalog.char_length(pg_catalog.btrim(p_rationale)) not between 1 and 2000
      or p_consent is distinct from true
      or p_license is null or pg_catalog.char_length(pg_catalog.btrim(p_license)) not between 1 and 250
-     or p_provenance is null or pg_catalog.jsonb_typeof(p_provenance) <> 'object'
-     or p_screening_version is null or pg_catalog.btrim(p_screening_version) = '' then
-    raise exception 'Feedback provenance, consent, license, PII screening, or content validation failed'
+     or p_provenance is null or pg_catalog.jsonb_typeof(p_provenance) <> 'object' then
+    raise exception 'Feedback provenance, consent, license, or content validation failed'
       using errcode = '22023';
   end if;
 
@@ -937,20 +933,18 @@ begin
 
   insert into private.feedback_candidates(
     domain,source,source_surface,group_id,text_value,text_digest,label,rationale,
-    contributor_id,consent_to_dataset_use,license,provenance,
-    pii_screened,screening_version,source_reference
+    contributor_id,consent_to_dataset_use,license,provenance,source_reference
   ) values (
     p_domain,p_source,p_source_surface,pg_catalog.btrim(p_group_id),
     pg_catalog.btrim(p_text),extensions.digest(pg_catalog.convert_to(pg_catalog.btrim(p_text),'UTF8'),'sha256'),
     pg_catalog.btrim(p_label),pg_catalog.btrim(p_rationale),
     p_actor_id,true,pg_catalog.btrim(p_license),p_provenance,
-    true,pg_catalog.btrim(p_screening_version),
     nullif(pg_catalog.btrim(coalesce(p_source_reference,'')),'')
   ) returning id into v_id;
   return v_id;
 end;
 $function$;
-revoke all on function private.create_learning_feedback_candidate(uuid,text,text,text,text,text,text,text,boolean,text,jsonb,text,text) from public, anon, authenticated;
+revoke all on function private.create_learning_feedback_candidate(uuid,text,text,text,text,text,text,text,boolean,text,jsonb,text) from public, anon, authenticated;
 grant execute on function private.create_learning_feedback_candidate(uuid,text,text,text,text,text,text,text,boolean,text,jsonb,text,text) to service_role;
 
 create or replace function private.review_learning_feedback_candidate(
@@ -996,9 +990,8 @@ begin
   if v_candidate.contributor_id = v_actor then
     raise exception 'Contributors cannot review their own feedback' using errcode = '42501';
   end if;
-  if not v_candidate.consent_to_dataset_use or not v_candidate.pii_screened
-     or v_candidate.screening_version is null or v_candidate.license = '' then
-    raise exception 'Candidate has not passed consent, license, and PII gates' using errcode = '55000';
+  if not v_candidate.consent_to_dataset_use or v_candidate.license = '' then
+    raise exception 'Candidate has not passed consent and license gates' using errcode = '55000';
   end if;
 
   insert into private.feedback_reviews(candidate_id,reviewer_id,reviewer_role,decision,reason)
@@ -1048,7 +1041,6 @@ create or replace function public.submit_learning_feedback_candidate(
   p_consent boolean,
   p_license text,
   p_provenance jsonb,
-  p_screening_version text,
   p_source_reference text default null
 ) returns uuid
 language sql
@@ -1057,7 +1049,7 @@ set search_path = ''
 as $function$
   select private.create_learning_feedback_candidate(
     p_actor_id,p_domain,p_source,p_source_surface,p_group_id,p_text,p_label,
-    p_rationale,p_consent,p_license,p_provenance,p_screening_version,p_source_reference
+    p_rationale,p_consent,p_license,p_provenance,p_source_reference
   );
 $function$;
 revoke all on function public.submit_learning_feedback_candidate(uuid,text,text,text,text,text,text,text,boolean,text,jsonb,text,text) from public, anon, authenticated;
@@ -1264,13 +1256,13 @@ begin
     from private.feedback_candidates c
     where c.id = any(p_source_candidate_ids)
       and (c.status <> 'approved' or c.domain <> p_domain
-           or not c.consent_to_dataset_use or not c.pii_screened
+           or not c.consent_to_dataset_use
            or c.license is null or pg_catalog.btrim(c.license) = '')
   ) or (
     select count(*) from private.feedback_candidates c
     where c.id = any(p_source_candidate_ids)
   ) <> pg_catalog.cardinality(p_source_candidate_ids) then
-    raise exception 'All dataset candidates must exist, be approved, licensed, consented, and screened'
+    raise exception 'All dataset candidates must exist, be approved, licensed, and consented'
       using errcode = '55000';
   end if;
 
