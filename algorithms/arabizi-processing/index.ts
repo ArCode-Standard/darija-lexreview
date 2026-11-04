@@ -13,11 +13,44 @@ export interface ArabiziHypothesis {
   decisions: string[]
 }
 
+export interface ArabiziContextEntry {
+  /** Exact normalized Arabizi token this entry describes. */
+  arabizi: string
+  /** Reviewed Arabic-script spelling candidate. */
+  arabic: string
+  /** Optional immediately adjacent source token constraints. */
+  leftContext?: string
+  rightContext?: string
+  /** Optional contributor-supplied dialect label; never inferred by the engine. */
+  region?: string
+  /** Provenance identifier for the caller-supplied source. */
+  sourceId: string
+}
+
+export interface ArabiziMorphologyRule {
+  /** Latin prefix to strip before decoding the lexical stem. */
+  arabiziPrefix: string
+  /** Arabic prefix restored in the output. */
+  arabicPrefix: string
+  /** Optional Latin suffix to strip before decoding the lexical stem. */
+  arabiziSuffix?: string
+  /** Optional Arabic suffix restored in the output. */
+  arabicSuffix?: string
+  /** Provenance identifier for the caller-supplied morphology rule. */
+  sourceId: string
+}
+
 export interface ArabiziTransliterationOptions {
   /** Maximum number of distinct full-string hypotheses to return. */
   maxCandidates?: number
   /** 'arabizi-hinted' preserves likely English tokens; 'all' transliterates every Latin token. */
   latinTokenPolicy?: 'arabizi-hinted' | 'all'
+  /** Optional reviewed context lexicon. Entries are caller-supplied and source-attributed. */
+  contextEntries?: ArabiziContextEntry[]
+  /** Optional reviewed affix rules; applied as hypotheses, never definitive segmentation. */
+  morphologyRules?: ArabiziMorphologyRule[]
+  /** Optional contributor-supplied region used only to filter context entries. */
+  region?: string
 }
 
 interface Choice {
@@ -153,7 +186,13 @@ function keepBestByValue(items: PartialHypothesis[], limit: number): PartialHypo
     .slice(0, limit)
 }
 
-function transliterateTokenCandidates(token: string, limit: number): PartialHypothesis[] {
+function transliterateTokenCandidates(
+  token: string,
+  limit: number,
+  options: ArabiziTransliterationOptions = {},
+  leftContext?: string,
+  rightContext?: string,
+): PartialHypothesis[] {
   let beam: PartialHypothesis[] = [{ value: '', score: 0, decisions: [] }]
   for (let index = 0; index < token.length;) {
     const { choices, width } = choicesAt(token, index)
@@ -177,12 +216,52 @@ function transliterateTokenCandidates(token: string, limit: number): PartialHypo
       { value: lexicalHint, score: 1.5, decisions: [`seed-lexicon:${token}`] },
     ], limit)
   }
+
+  for (const rule of options.morphologyRules ?? []) {
+    const prefix = rule.arabiziPrefix.toLowerCase()
+    const suffix = rule.arabiziSuffix?.toLowerCase() ?? ''
+    if (!prefix || !token.startsWith(prefix) || (suffix && !token.endsWith(suffix))) continue
+    const stemEnd = suffix ? token.length - suffix.length : token.length
+    const stem = token.slice(prefix.length, stemEnd)
+    if (stem.length < 2) continue
+    const stemCandidates = transliterateTokenCandidates(stem, limit, {
+      ...options,
+      morphologyRules: [],
+      contextEntries: [],
+    })
+    const morphologyCandidates = stemCandidates.map((candidate) => ({
+      value: rule.arabicPrefix + candidate.value + (rule.arabicSuffix ?? ''),
+      score: candidate.score + 0.35,
+      decisions: [
+        `morphology:${rule.sourceId}`,
+        ...candidate.decisions,
+      ],
+    }))
+    beam = keepBestByValue([...beam, ...morphologyCandidates], limit)
+  }
+
+  for (const entry of options.contextEntries ?? []) {
+    if (entry.arabizi.trim().toLowerCase() !== token) continue
+    if (entry.region && entry.region !== options.region) continue
+    if (entry.leftContext && entry.leftContext.toLowerCase() !== leftContext) continue
+    if (entry.rightContext && entry.rightContext.toLowerCase() !== rightContext) continue
+    const hasContextConstraint = Boolean(entry.leftContext || entry.rightContext || entry.region)
+    beam = keepBestByValue([
+      ...beam,
+      {
+        value: entry.arabic,
+        score: hasContextConstraint ? 2.0 : 0.85,
+        decisions: [`context-lexicon:${entry.sourceId}`],
+      },
+    ], limit)
+  }
   return beam
 }
 
 /**
  * Returns ranked Arabic-script hypotheses. Scores are deterministic ranking
  * signals only; they are not probabilities and do not establish lexical validity.
+ * Optional context and morphology resources are caller-supplied and provenance-traced.
  */
 export function transliterateArabiziCandidates(
   input: string,
@@ -198,11 +277,21 @@ export function transliterateArabiziCandidates(
   // Arabic text, likely English words, punctuation, whitespace, and symbols are preserved.
   const segments = input.split(/([A-Za-z0-9]+)/u)
   let beam: PartialHypothesis[] = [{ value: '', score: 0, decisions: [] }]
-  for (const segment of segments) {
+  for (let segmentIndex = 0; segmentIndex < segments.length; segmentIndex++) {
+    const segment = segments[segmentIndex]
     if (!segment) continue
-    const candidates = /^[A-Za-z0-9]+$/u.test(segment)
+    const isWord = /^[A-Za-z0-9]+$/u.test(segment)
+    const previousWord = segments[segmentIndex - 2]?.toLowerCase()
+    const nextWord = segments[segmentIndex + 2]?.toLowerCase()
+    const candidates = isWord
       && shouldTransliterateToken(segment, latinTokenPolicy)
-      ? transliterateTokenCandidates(segment.toLowerCase(), maxCandidates)
+      ? transliterateTokenCandidates(
+          segment.toLowerCase(),
+          maxCandidates,
+          options,
+          previousWord,
+          nextWord,
+        )
       : [{ value: segment, score: 0, decisions: [] }]
 
     const expanded: PartialHypothesis[] = []
