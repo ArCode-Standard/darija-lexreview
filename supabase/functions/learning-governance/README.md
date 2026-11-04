@@ -8,8 +8,7 @@ This function accepts explicitly consented learning-feedback candidates and rout
 - Requires explicit `consentToDatasetUse: true` and a documented license.
 - Accepts only allowlisted source types and surfaces; `private_message` is not an eligible source.
 - Editor-only sources are checked against the server-side profile role.
-- Applies PII screening to text and rationale; candidates containing obvious email addresses or phone numbers are rejected for redaction.
-- Restricts provenance to non-text identifiers and records a screening version.
+- Restricts provenance to non-text identifiers.
 - Applies a database-side contributor rate limit and duplicate fingerprint constraint.
 - New candidates are always pending; the client cannot submit an approved status.
 
