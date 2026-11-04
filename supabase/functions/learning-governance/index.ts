@@ -1,4 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2.57.0";
+import { containsPii } from "../_shared/pii-screen.ts";
 
 const MAX_BODY_BYTES = 16 * 1024;
 const SOURCES = new Set([
@@ -10,10 +11,7 @@ const SURFACES = new Set([
   "comment", "discussion", "report", "benchmark",
 ]);
 const EDITOR_SOURCES = new Set(["editor_correction", "moderation_decision", "benchmark_annotation"]);
-const PII_PATTERNS = [
-  /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/iu,
-  /(?:\+?\d[\d\s().-]{7,}\d)/u,
-];
+const PII_SCREENING_VERSION = "pii-regex-2-ma";
 
 function response(body: unknown, status = 200, origin?: string) {
   const headers = new Headers({
@@ -106,7 +104,7 @@ Deno.serve(async (req: Request) => {
       if (EDITOR_SOURCES.has(String(source)) && !["editor", "admin"].includes(profile.role)) {
         return response({ error: "editor_role_required" }, 403, origin);
       }
-      if (PII_PATTERNS.some((pattern) => pattern.test(text) || pattern.test(label) || pattern.test(rationale))) {
+      if (containsPii([text, label, rationale])) {
         return response({ error: "personal_data_must_be_redacted" }, 422, origin);
       }
 
@@ -137,7 +135,7 @@ Deno.serve(async (req: Request) => {
         p_consent: true,
         p_license: license.trim(),
         p_provenance: provenanceRecord,
-        p_screening_version: "pii-regex-1",
+        p_screening_version: PII_SCREENING_VERSION,
         p_source_reference: sourceReference,
       });
       if (error || typeof candidateId !== "string") {
@@ -165,7 +163,7 @@ Deno.serve(async (req: Request) => {
           typeof body.reason !== "string" || !body.reason.trim() || body.reason.length > 2000) {
         return response({ error: "invalid_review_request" }, 422, origin);
       }
-      if (PII_PATTERNS.some((pattern) => pattern.test(body.reason as string))) {
+      if (containsPii([body.reason as string])) {
         return response({ error: "personal_data_must_be_redacted" }, 422, origin);
       }
       const { data: status, error } = await userClient.rpc("review_learning_feedback_candidate", {
