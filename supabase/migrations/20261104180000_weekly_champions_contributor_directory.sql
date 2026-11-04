@@ -1,7 +1,12 @@
 -- Migration: Add weekly contributions count calculation to public contributors directory
 -- Allows calculating the past 7 days activity dynamically without fake data.
+--
+-- PostgreSQL does not allow CREATE OR REPLACE FUNCTION to change a
+-- RETURNS TABLE row type. The new weekly_contributions_count column changes
+-- that row type, so remove the old zero-argument RPC before recreating it.
+drop function if exists public.get_public_contributors_directory();
 
-create or replace function public.get_public_contributors_directory()
+create function public.get_public_contributors_directory()
 returns table (
     public_slug text,
     display_name text,
