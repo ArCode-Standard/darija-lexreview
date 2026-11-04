@@ -272,7 +272,7 @@ describe('JSX React child safety & SSR smoke rendering', () => {
     ).not.toThrow()
   })
 
-  it('strictly limits Quick Search (⌘K) and Command Palette to registered authenticated members', () => {
+  it('preserves the original visitor navbar and simplifies the authenticated navbar', () => {
     const noop = () => {}
 
     const visitorNavbarHtml = renderToStaticMarkup(
@@ -310,9 +310,12 @@ describe('JSX React child safety & SSR smoke rendering', () => {
         onNavigatePage={noop}
       />,
     )
-    expect(memberNavbarHtml).toContain('⌘K')
-    expect(memberNavbarHtml).toContain('بحث سريع')
-    expect(memberNavbarHtml).toContain('التبديل إلى الوضع الليلي')
+    expect(memberNavbarHtml).toContain('بحث في المعجم والصفحات')
+    expect(memberNavbarHtml).not.toContain('⌘K')
+    expect(memberNavbarHtml).not.toContain('بحث سريع')
+    expect(memberNavbarHtml).not.toContain('التبديل إلى الوضع الليلي')
+    expect(memberNavbarHtml).not.toContain('صندوق الرسائل')
+    expect(memberNavbarHtml).not.toContain('فتح قائمة التنقل')
 
     const visitorShellHtml = renderToStaticMarkup(
       <WorkspaceShell
