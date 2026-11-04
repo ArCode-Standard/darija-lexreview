@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { supabase } from '../lib/supabase'
+import { writeScannedContent } from '../lib/contentGateway'
 import type {
   AttestationVerdict,
   CommunityAttestationRecord,
@@ -553,34 +554,16 @@ export function useCommunityAttestations(userEmail: string | null, corpusVersion
           data: { user },
         } = await supabase.auth.getUser()
         if (user) {
-          let upsertRes = await supabase.from('community_attestations').upsert(
-            {
-              entry_id: params.entryId,
-              example_id: cleanExId,
-              reviewer_id: user.id,
-              verdict: params.verdict,
-              dialect_region: regionVal,
-              note: noteVal,
-              corpus_version: corpusVersion,
-              baseline_fingerprint: params.baselineFingerprint ?? null,
-              response_ms: clampedMs,
-            },
-            { onConflict: 'entry_id,example_id,reviewer_id' },
-          )
-
-          // Graceful backwards compatibility if DB has not applied example_id column yet (only for headwords)
-          if (upsertRes.error && !isExample) {
-            upsertRes = await supabase.from('community_attestations').upsert(
-              {
-                entry_id: params.entryId,
-                reviewer_id: user.id,
-                verdict: params.verdict,
-                dialect_region: regionVal,
-                note: noteVal,
-              },
-              { onConflict: 'entry_id,reviewer_id' },
-            )
-          }
+          const upsertRes = await writeScannedContent('community_attestations.upsert', {
+            entry_id: params.entryId,
+            example_id: cleanExId,
+            verdict: params.verdict,
+            dialect_region: regionVal,
+            note: noteVal,
+            corpus_version: corpusVersion,
+            baseline_fingerprint: params.baselineFingerprint ?? null,
+            response_ms: clampedMs,
+          })
 
           if (!upsertRes.error) {
             const newRec: CommunityAttestationRecord = {
