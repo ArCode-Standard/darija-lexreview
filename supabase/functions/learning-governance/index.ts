@@ -1,5 +1,4 @@
 import { createClient } from "npm:@supabase/supabase-js@2.57.0";
-import { containsPii } from "../_shared/pii-screen.ts";
 
 const MAX_BODY_BYTES = 16 * 1024;
 const SOURCES = new Set([
@@ -11,7 +10,6 @@ const SURFACES = new Set([
   "comment", "discussion", "report", "benchmark",
 ]);
 const EDITOR_SOURCES = new Set(["editor_correction", "moderation_decision", "benchmark_annotation"]);
-const PII_SCREENING_VERSION = "pii-regex-2-ma";
 
 function response(body: unknown, status = 200, origin?: string) {
   const headers = new Headers({
@@ -104,10 +102,6 @@ Deno.serve(async (req: Request) => {
       if (EDITOR_SOURCES.has(String(source)) && !["editor", "admin"].includes(profile.role)) {
         return response({ error: "editor_role_required" }, 403, origin);
       }
-      if (containsPii([text, label, rationale])) {
-        return response({ error: "personal_data_must_be_redacted" }, 422, origin);
-      }
-
       const provenance = body.provenance;
       if (!provenance || typeof provenance !== "object" || Array.isArray(provenance)) {
         return response({ error: "invalid_provenance" }, 422, origin);
@@ -135,7 +129,6 @@ Deno.serve(async (req: Request) => {
         p_consent: true,
         p_license: license.trim(),
         p_provenance: provenanceRecord,
-        p_screening_version: PII_SCREENING_VERSION,
         p_source_reference: sourceReference,
       });
       if (error || typeof candidateId !== "string") {
@@ -162,9 +155,6 @@ Deno.serve(async (req: Request) => {
           !["approve", "reject"].includes(String(body.decision)) ||
           typeof body.reason !== "string" || !body.reason.trim() || body.reason.length > 2000) {
         return response({ error: "invalid_review_request" }, 422, origin);
-      }
-      if (containsPii([body.reason as string])) {
-        return response({ error: "personal_data_must_be_redacted" }, 422, origin);
       }
       const { data: status, error } = await userClient.rpc("review_learning_feedback_candidate", {
         p_candidate_id: body.candidateId,
