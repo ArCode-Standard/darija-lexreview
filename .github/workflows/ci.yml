@@ -71,4 +71,4 @@ jobs:
         run: |
           deno check --config supabase/functions/deno.json supabase/functions/content-safety-gateway/index.ts
           deno check --config supabase/functions/deno.json supabase/functions/learning-governance/index.ts
-          deno test --config supabase/functions/deno.json supabase/functions/_shared/pii-screen.test.ts
+          deno test --config supabase/functions/deno.json supabase/functions/_shared/pii-screen.deno.ts
