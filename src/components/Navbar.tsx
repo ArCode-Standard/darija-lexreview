@@ -130,7 +130,7 @@ export function Navbar({
           {!isFocusMode && (
             <nav
               aria-label="التنقل الرئيسي"
-              className="hidden xl:flex items-center justify-center gap-5 2xl:gap-6 text-[13px] font-medium text-zinc-600 dark:text-zinc-400 min-w-0"
+              className="hidden xl:flex flex-1 min-w-0 items-center justify-start gap-4 2xl:gap-5 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden px-2 text-[13px] font-medium text-zinc-600 dark:text-zinc-400"
             >
               <a
                 href="/lexicon"
