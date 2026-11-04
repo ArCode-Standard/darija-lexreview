@@ -1,6 +1,6 @@
 begin;
 
-select plan(38);
+select plan(40);
 
 select ok(to_regclass('private.content_scan_tokens') is not null, 'private one-time token table exists');
 select ok(to_regclass('private.feedback_candidates') is not null, 'private governed feedback table exists');
@@ -35,6 +35,19 @@ select ok(exists(select 1 from pg_trigger where tgrelid='public.member_moderatio
 select ok(exists(select 1 from pg_trigger where tgrelid='public.role_promotion_requests'::regclass and tgname='content_safety_guard' and not tgisinternal), 'promotion requests have content guard');
 
 select is((select enforcement_mode from private.content_safety_settings where singleton), 'shadow', 'gateway starts in shadow mode');
+
+select ok(
+  private.content_projection_has_text(
+    private.content_scan_projection('community_attestations', '{"dialect_region":"الريف"}'::jsonb)
+  ),
+  'community dialect region is treated as scanned text'
+);
+select ok(
+  private.content_projection_has_text(
+    private.content_scan_projection('role_promotion_requests', '{"dialect_region":"الشمال"}'::jsonb)
+  ),
+  'promotion request dialect region is treated as scanned text'
+);
 
 insert into auth.users(id, aud, role, email, raw_app_meta_data, raw_user_meta_data, created_at, updated_at)
 values
