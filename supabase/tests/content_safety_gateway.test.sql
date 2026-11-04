@@ -292,7 +292,7 @@ select set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000038
 select set_config('request.jwt.claim.role', 'authenticated', true);
 set local role authenticated;
 select throws_ok(
-  $$select public.review_learning_feedback_candidate(current_setting('app.test_candidate_id')::uuid,'approve','Self review attempt')$,
+  $select public.review_learning_feedback_candidate(current_setting('app.test_candidate_id')::uuid,'approve','Self review attempt')$,
   '42501', null,
   'contributors cannot review their own training examples'
 );
