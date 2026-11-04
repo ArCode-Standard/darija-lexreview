@@ -259,14 +259,22 @@ export function syncPageSeo(params: {
     }
   }
 
+  const ogImageUrl = `${siteOrigin}/assets/og-social-card.jpg`
+
   document.title = title
   setMetaContent('meta[name="description"]', 'name', 'description', description)
   setMetaContent('meta[property="og:type"]', 'property', 'og:type', ogType)
   setMetaContent('meta[property="og:title"]', 'property', 'og:title', title)
   setMetaContent('meta[property="og:description"]', 'property', 'og:description', description)
+  setMetaContent('meta[property="og:url"]', 'property', 'og:url', canonicalUrl)
+  setMetaContent('meta[property="og:image"]', 'property', 'og:image', ogImageUrl)
+  setMetaContent('meta[property="og:image:width"]', 'property', 'og:image:width', '1200')
+  setMetaContent('meta[property="og:image:height"]', 'property', 'og:image:height', '630')
+  setMetaContent('meta[property="og:image:alt"]', 'property', 'og:image:alt', title)
+  setMetaContent('meta[name="twitter:card"]', 'name', 'twitter:card', 'summary_large_image')
   setMetaContent('meta[name="twitter:title"]', 'name', 'twitter:title', title)
   setMetaContent('meta[name="twitter:description"]', 'name', 'twitter:description', description)
-  setMetaContent('meta[property="og:url"]', 'property', 'og:url', canonicalUrl)
+  setMetaContent('meta[name="twitter:image"]', 'name', 'twitter:image', ogImageUrl)
 
   let canonicalLink = document.head.querySelector('link[rel="canonical"]') as HTMLLinkElement | null
   if (!canonicalLink) {

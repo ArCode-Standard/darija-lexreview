@@ -11,6 +11,7 @@ import {
   FolderKanban,
   Home,
   Layers,
+  LogIn,
   Search,
   ShieldCheck,
   Sparkles,
@@ -126,31 +127,54 @@ export function CommandPalette({
         icon: FilePlus2,
         action: () => onNavigatePage('contribute'),
       },
-      {
-        id: 'submissions' as const,
-        label:
-          draftsCount > 0
-            ? `مساهماتي ومسوداتي المحفوظة (${draftsCount})`
-            : 'مساهماتي ومسوداتي المحفوظة',
-        hint: '/submissions',
-        icon: FolderKanban,
-        action: () => onNavigatePage('submissions'),
-      },
-      {
-        id: 'messages' as const,
-        label: 'صندوق رسائل الأعضاء والتنبيهات',
-        hint: '/messages',
-        icon: Bell,
-        action: () => onNavigatePage('messages'),
-      },
-      {
-        id: 'profile' as const,
-        label: 'ملفي الشخصي وربط GitHub / Google',
-        hint: '/profile',
-        icon: UserRound,
-        action: () => onNavigatePage('profile'),
-      },
-      ...(canAccessEditorialTools
+      ...(isAuthenticated
+        ? [
+            {
+              id: 'submissions' as const,
+              label:
+                draftsCount > 0
+                  ? `مساهماتي ومسوداتي المحفوظة (${draftsCount})`
+                  : 'مساهماتي ومسوداتي المحفوظة',
+              hint: '/submissions',
+              icon: FolderKanban,
+              action: () => onNavigatePage('submissions'),
+            },
+            {
+              id: 'messages' as const,
+              label: 'صندوق رسائل الأعضاء والتنبيهات',
+              hint: '/messages',
+              icon: Bell,
+              action: () => onNavigatePage('messages'),
+            },
+            {
+              id: 'profile' as const,
+              label: 'ملفي الشخصي وربط GitHub / Google',
+              hint: '/profile',
+              icon: UserRound,
+              action: () => onNavigatePage('profile'),
+            },
+          ]
+        : [
+            ...(draftsCount > 0
+              ? [
+                  {
+                    id: 'submissions' as const,
+                    label: `مسوداتي المحفوظة بالمتصفح (${draftsCount})`,
+                    hint: '/submissions',
+                    icon: FolderKanban,
+                    action: () => onNavigatePage('submissions'),
+                  },
+                ]
+              : []),
+            {
+              id: 'auth' as const,
+              label: 'تسجيل الدخول أو إنشاء حساب مساهم',
+              hint: '/auth',
+              icon: LogIn,
+              action: () => onNavigatePage('auth'),
+            },
+          ]),
+      ...(isAuthenticated && canAccessEditorialTools
         ? [
             {
               id: 'editorial' as const,
@@ -194,7 +218,7 @@ export function CommandPalette({
     return entries.filter((e) => matchesDarijaQuery(e, trimmed)).slice(0, 8)
   }, [entries, trimmed])
 
-  if (!open || !isAuthenticated) return null
+  if (!open) return null
 
   return (
     <div
@@ -215,7 +239,7 @@ export function CommandPalette({
             type="search"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="ابحث عن مفردة دارجة أو انتقل مباشرةً لأي صفحة مستقلة..."
+            placeholder="ابحث عن مفردة دارجة (بالعربية أو Arabizi) أو انتقل لأي قسم عام..."
             className="min-w-0 flex-1 min-h-[54px] bg-transparent py-2 text-sm text-zinc-950 placeholder:text-zinc-400 focus:outline-none dark:text-white dark:placeholder:text-zinc-500"
           />
           {query && (

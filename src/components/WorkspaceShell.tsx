@@ -595,7 +595,7 @@ export function WorkspaceShell({
               >
                 <span>إنهاء وضع التركيز</span>
               </button>
-            ) : isAuthenticated ? (
+            ) : (
               <button
                 type="button"
                 onClick={onOpenCommandPalette}
@@ -612,7 +612,7 @@ export function WorkspaceShell({
                   ⌘K
                 </kbd>
               </button>
-            ) : null}
+            )}
 
             {/* Member Inbox Bell — Strictly Hidden from Unauthenticated Visitors */}
             {!isFocusMode && isAuthenticated && (

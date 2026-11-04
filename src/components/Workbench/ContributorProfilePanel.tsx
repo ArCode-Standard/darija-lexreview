@@ -48,6 +48,7 @@ interface ContributorProfilePanelProps {
   onRemoveBookmark?: (entryId: string) => void
   onProfileSaved: () => void
   onOpenContributorsDirectory?: (slug?: string | null) => void
+  onOpenPromotionModal?: () => void
 }
 
 const roleLabels = { reviewer: 'مراجع مساهم', editor: 'محرر معتمد', admin: 'مشرف عام' } as const
@@ -75,6 +76,7 @@ export function ContributorProfilePanel({
   onRemoveBookmark,
   onProfileSaved,
   onOpenContributorsDirectory,
+  onOpenPromotionModal,
 }: ContributorProfilePanelProps) {
   const [name, setName] = useState(profile?.display_name ?? '')
   const [region, setRegion] = useState(profile?.dialect_region ?? '')
@@ -366,11 +368,20 @@ export function ContributorProfilePanel({
             إدارة هويتك العلمية، ربط GitHub وGoogle، ومتابعة أثر مساهماتك في إثراء المعجم.
           </p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-2.5">
           <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-700 dark:text-[#D9FF43]">
             <BadgeCheck className="h-4 w-4" />
             <span>{roleLabels[profile.role]}</span>
           </span>
+          {profile.role === 'reviewer' && onOpenPromotionModal && (
+            <button
+              type="button"
+              onClick={onOpenPromotionModal}
+              className="inline-flex min-h-9 items-center gap-1.5 rounded-full border border-emerald-600/40 bg-emerald-50 px-3.5 py-1.5 text-xs font-bold text-emerald-900 hover:bg-emerald-100 transition-colors cursor-pointer dark:border-[#D9FF43]/40 dark:bg-[#D9FF43]/12 dark:text-[#D9FF43] dark:hover:bg-[#D9FF43]/20"
+            >
+              <span>طلب ترقية إلى محرر معتمد</span>
+            </button>
+          )}
           <button
             type="button"
             onClick={handleSignOut}

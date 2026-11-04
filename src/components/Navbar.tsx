@@ -234,13 +234,13 @@ export function Navbar({
               </div>
             )}
 
-            {/* Quick Search & Jump (⌘K) — Strictly Registered Members Only */}
-            {!isFocusMode && isAuthenticated && onOpenCommandPalette && (
+            {/* Quick Lexicon Search & Jump (⌘K) — Open to Visitors & Members */}
+            {!isFocusMode && onOpenCommandPalette && (
               <button
                 type="button"
                 onClick={onOpenCommandPalette}
-                aria-label="بحث وتنقل سريع بين الصفحات (⌘K)"
-                title="بحث وتنقل سريع (⌘K)"
+                aria-label="بحث سريع في المعجم والصفحات (⌘K)"
+                title="بحث سريع في المعجم والصفحات (⌘K)"
                 className="inline-flex h-9 sm:h-10 items-center justify-center gap-1.5 rounded-full border border-zinc-200 bg-white px-2.5 sm:px-3.5 text-xs text-zinc-600 hover:border-zinc-400 hover:text-zinc-950 shrink-0 whitespace-nowrap transition-colors cursor-pointer dark:border-white/12 dark:bg-[#0C0C10] dark:text-zinc-300 dark:hover:border-[#D9FF43]/60 dark:hover:text-white"
               >
                 <Search className="h-3.5 w-3.5 shrink-0 text-emerald-700 dark:text-[#D9FF43]" />

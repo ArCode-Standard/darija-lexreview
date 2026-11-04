@@ -308,5 +308,52 @@ describe('Public Contributors Honor Roll interactive profile card', () => {
     expect(citations.english).toContain('Certified Lexicon Editor')
     expect(citations.english).toContain('https://darija.arcode.org/contributors/salma-9f2a1c')
   })
+
+  it('renders interactive badge buttons and opens the Badge Criteria & Purpose modal explaining earning rules and scientific goal', () => {
+    const noop = () => {}
+
+    const listHtml = renderToStaticMarkup(
+      <PublicContributorsPage
+        contributors={sampleContributors}
+        loading={false}
+        isAuthenticated={false}
+        entriesCount={120}
+        corpusVersion="2.4.0"
+        onOpenProfileOrAuth={noop}
+        onStartContributing={noop}
+      />,
+    )
+
+    expect(listHtml).toContain('عرض تفاصيل ومعايير وسام')
+    expect(listHtml).toContain('عرض معايير والهدف من الوسام القادم')
+
+    const badgeModalHtml = renderToStaticMarkup(
+      <PublicContributorsPage
+        contributors={sampleContributors}
+        loading={false}
+        isAuthenticated={false}
+        entriesCount={120}
+        corpusVersion="2.4.0"
+        onOpenProfileOrAuth={noop}
+        onStartContributing={noop}
+        initialInspectedBadgeId="category_expert"
+      />,
+    )
+
+    expect(badgeModalHtml).toContain('id="merit-badge-dialog-title"')
+    expect(badgeModalHtml).toContain('خاتم الزليج الدلالي')
+    expect(badgeModalHtml).toContain('خبير الفئات')
+    expect(badgeModalHtml).toContain('ARC-S05')
+    expect(badgeModalHtml).toContain('+30 نقطة جدارة')
+    expect(badgeModalHtml).toContain('معايير الحصول على الوسام')
+    expect(badgeModalHtml).toContain('توثيق 4 مفردات فأكثر مع تحديد التخصص اللساني')
+    expect(badgeModalHtml).toContain('الهدف من الوسام وقيمته العلمية')
+    expect(badgeModalHtml).toContain('يُثبت الكفاءة في التبويب الدلالي وبناء المعاجم الموضوعاتية المتخصصة')
+    expect(badgeModalHtml).toContain('حاملو الوسام في لوحة الشرف')
+    expect(badgeModalHtml).toContain('سلمى الإدريسي')
+    expect(badgeModalHtml).toContain('تصفية حاملي الوسام (1)')
+    expect(badgeModalHtml).toContain('ابدأ المساهمة لنيل الوسام')
+  })
 })
+
 

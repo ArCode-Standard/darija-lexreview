@@ -60,6 +60,7 @@ interface PublicContributorsPageProps {
   onExploreRegionInLexicon?: (region: string) => void
   onInspectWordInLexicon?: (word: string) => void
   initialSelectedSlug?: string | null
+  initialInspectedBadgeId?: MeritBadgeId | null
   activeSprintBadgeLabel?: string | null
   onSelectedSlugChange?: (slug: string | null) => void
 }
@@ -115,6 +116,7 @@ export function PublicContributorsPage({
   onExploreRegionInLexicon,
   onInspectWordInLexicon,
   initialSelectedSlug = null,
+  initialInspectedBadgeId = null,
   activeSprintBadgeLabel = null,
   onSelectedSlugChange,
 }: PublicContributorsPageProps) {
@@ -127,6 +129,9 @@ export function PublicContributorsPage({
   const [selectedContributorSlug, setSelectedContributorSlug] = useState<string | null>(
     initialSelectedSlug,
   )
+  const [inspectedBadgeId, setInspectedBadgeId] = useState<MeritBadgeId | null>(
+    initialInspectedBadgeId,
+  )
   const [copiedProfileLink, setCopiedProfileLink] = useState(false)
   const [downloadedHonorCard, setDownloadedHonorCard] = useState(false)
   const [citationLang, setCitationLang] = useState<'ar' | 'en'>('ar')
@@ -135,6 +140,18 @@ export function PublicContributorsPage({
   useEffect(() => {
     setSelectedContributorSlug(initialSelectedSlug ?? null)
   }, [initialSelectedSlug])
+
+  useEffect(() => {
+    setInspectedBadgeId(initialInspectedBadgeId ?? null)
+  }, [initialInspectedBadgeId])
+
+  const openBadgeDetails = useCallback((badge: MeritBadge) => {
+    setInspectedBadgeId(badge.id)
+  }, [])
+
+  const closeBadgeDetails = useCallback(() => {
+    setInspectedBadgeId(null)
+  }, [])
 
   const selectContributor = useCallback(
     (slug: string | null) => {
@@ -315,16 +332,35 @@ export function PublicContributorsPage({
     )
   }, [selectedPerson, corpusVersion, selectedBadges])
 
+  const inspectedBadge = useMemo(
+    () =>
+      inspectedBadgeId
+        ? MERIT_BADGE_CATALOG.find((badge) => badge.id === inspectedBadgeId) ?? null
+        : null,
+    [inspectedBadgeId],
+  )
+
+  const inspectedBadgeHolders = useMemo(() => {
+    if (!inspectedBadge) return []
+    return contributors.filter((c) =>
+      (badgesBySlug.get(c.public_slug) ?? []).some((b) => b.id === inspectedBadge.id),
+    )
+  }, [contributors, badgesBySlug, inspectedBadge])
+
   useEffect(() => {
-    if (!selectedPerson) return
+    if (!inspectedBadge && !selectedPerson) return
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
+        if (inspectedBadge) {
+          closeBadgeDetails()
+          return
+        }
         selectContributor(null)
       }
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [selectedPerson, selectContributor])
+  }, [inspectedBadge, selectedPerson, closeBadgeDetails, selectContributor])
 
   async function handleCopyContributorPermalink(slug: string) {
     const shareHref = buildContributorProfileUrl(slug)
@@ -481,12 +517,25 @@ export function PublicContributorsPage({
           {badges.length > 0 && (
             <div className="flex flex-wrap items-center gap-1.5" aria-label="أوسمة الإنجاز المعجمي">
               {badges.slice(0, 4).map((badge) => (
-                <MeritBadgeChip key={badge.id} badge={badge} size="sm" />
+                <MeritBadgeChip
+                  key={badge.id}
+                  badge={badge}
+                  size="sm"
+                  onClick={openBadgeDetails}
+                />
               ))}
               {badges.length > 4 && (
-                <span className="rounded-lg border border-zinc-200 px-2 py-0.5 font-mono text-[10px] font-semibold text-zinc-500 dark:border-white/10 dark:text-zinc-400">
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    selectContributor(person.public_slug)
+                  }}
+                  title="عرض جميع الأوسمة في بطاقة المساهم"
+                  className="rounded-lg border border-zinc-200 px-2 py-0.5 font-mono text-[10px] font-semibold text-zinc-500 hover:border-zinc-950 hover:text-zinc-950 cursor-pointer dark:border-white/10 dark:text-zinc-400 dark:hover:border-[#D9FF43]/70 dark:hover:text-[#D9FF43]"
+                >
                   +{badges.length - 4}
-                </span>
+                </button>
               )}
             </div>
           )}
@@ -525,21 +574,30 @@ export function PublicContributorsPage({
           {nextMilestone ? (
             <div className="space-y-1.5">
               <div className="flex items-center justify-between gap-2 text-[11px]">
-                <span className="inline-flex min-w-0 items-center gap-1.5 text-zinc-600 dark:text-zinc-400">
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    openBadgeDetails(nextMilestone.badge)
+                  }}
+                  title={`انقر لمعرفة معايير والهدف من وسام ${nextMilestone.badge.sealName}`}
+                  aria-label={`عرض معايير والهدف من الوسام القادم ${nextMilestone.badge.sealName} (${nextMilestone.badge.label})`}
+                  className="inline-flex min-w-0 items-center gap-1.5 text-start text-zinc-600 hover:text-emerald-800 cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700 dark:text-zinc-400 dark:hover:text-[#D9FF43] dark:focus-visible:outline-[#D9FF43]"
+                >
                   <MeritBadgeEmblemIcon
                     icon={nextMilestone.badge.icon}
                     className="h-3.5 w-3.5 shrink-0 text-emerald-700 dark:text-[#D9FF43]"
                   />
                   <span className="truncate">
                     الوسام القادم:{' '}
-                    <strong className="font-semibold text-zinc-950 dark:text-zinc-100">
+                    <strong className="font-semibold text-zinc-950 underline decoration-zinc-300 underline-offset-4 hover:decoration-emerald-700 dark:text-zinc-100 dark:decoration-white/25 dark:hover:decoration-[#D9FF43]">
                       {nextMilestone.badge.sealName}
                     </strong>{' '}
                     <span className="text-zinc-500 dark:text-zinc-400">
                       ({nextMilestone.badge.label})
                     </span>
                   </span>
-                </span>
+                </button>
 
                 <span className="shrink-0 font-mono text-[10.5px] font-semibold tabular-nums text-emerald-700 dark:text-[#D9FF43]">
                   {nextMilestone.remainingLabel} · {nextMilestone.current}/{nextMilestone.target}
@@ -864,7 +922,7 @@ export function PublicContributorsPage({
                   ميثاق أختام وأوسمة المعجم المغربي المفتوح (3 مراتب استحقاق)
                 </p>
                 <p className="mt-0.5 text-xs text-zinc-600 dark:text-zinc-400">
-                  أختام هندسية مستوحاة من الزليج المغربي والأسطرلاب المراكشي والقلم المبسوط — انقر على أي ختم لتصفية حامليه:
+                  أختام هندسية مستوحاة من الزليج المغربي والأسطرلاب المراكشي والقلم المبسوط — انقر على أي وسام لعرض معاييره والهدف منه:
                 </p>
               </div>
               {selectedBadgeFilter !== 'all' && (
@@ -884,13 +942,9 @@ export function PublicContributorsPage({
                 const earnersCount = badgeEarnersCountMap.get(badge.id) ?? 0
                 const tierColor = getTierPillClasses(badge.tier)
                 return (
-                  <button
+                  <div
                     key={badge.id}
-                    type="button"
-                    onClick={() =>
-                      setSelectedBadgeFilter((prev) => (prev === badge.id ? 'all' : badge.id))
-                    }
-                    className={`flex items-start gap-3 rounded-xl border p-3.5 text-start transition-colors cursor-pointer ${
+                    className={`flex flex-col justify-between rounded-xl border p-3.5 transition-colors ${
                       active
                         ? 'border-zinc-950 bg-white dark:border-[#D9FF43] dark:bg-[#0B0B10]'
                         : badge.tier === 'sovereign'
@@ -898,33 +952,56 @@ export function PublicContributorsPage({
                           : 'border-zinc-200/85 bg-white/85 hover:border-zinc-400 dark:border-white/10 dark:bg-[#0B0B10]/75 dark:hover:border-white/25'
                     }`}
                   >
-                    <MeritSealMedallion
-                      icon={badge.icon}
-                      tone={badge.tone}
-                      tier={badge.tier}
-                      size={42}
-                    />
-                    <div className="min-w-0 flex-1 space-y-1">
-                      <div className="flex items-center justify-between gap-2 text-[10px]">
-                        <span className={`font-bold ${tierColor}`}>{badge.tierLabel}</span>
-                        <span className="font-mono text-zinc-500 dark:text-zinc-400">
-                          {earnersCount} مساهم · {badge.code}
-                        </span>
+                    <button
+                      type="button"
+                      onClick={() => openBadgeDetails(badge)}
+                      aria-label={`عرض معايير والهدف من وسام ${badge.sealName} (${badge.label})`}
+                      className="flex w-full items-start gap-3 text-start cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700 dark:focus-visible:outline-[#D9FF43]"
+                    >
+                      <MeritSealMedallion
+                        icon={badge.icon}
+                        tone={badge.tone}
+                        tier={badge.tier}
+                        size={42}
+                      />
+                      <div className="min-w-0 flex-1 space-y-1">
+                        <div className="flex items-center justify-between gap-2 text-[10px]">
+                          <span className={`font-bold ${tierColor}`}>{badge.tierLabel}</span>
+                          <span className="font-mono tabular-nums text-zinc-500 dark:text-zinc-400">
+                            {earnersCount} مساهم · {badge.code}
+                          </span>
+                        </div>
+                        <p className="text-xs font-bold text-zinc-950 dark:text-white">
+                          {badge.sealName}{' '}
+                          <span className="font-medium text-zinc-600 dark:text-zinc-300">
+                            · {badge.label}
+                          </span>
+                        </p>
+                        <p className="text-[11px] leading-5 text-zinc-600 dark:text-zinc-400">
+                          {badge.criteria}
+                        </p>
                       </div>
-                      <p className="text-xs font-bold text-zinc-950 dark:text-white">
-                        {badge.sealName}{' '}
-                        <span className="font-medium text-zinc-600 dark:text-zinc-300">
-                          · {badge.label}
-                        </span>
-                      </p>
-                      <p className="text-[11px] leading-5 text-zinc-600 dark:text-zinc-400">
-                        {badge.criteria}
-                      </p>
-                      <p className="text-[10.5px] leading-4 text-emerald-800/90 dark:text-zinc-300">
-                        {badge.valueStatement}
-                      </p>
+                    </button>
+
+                    <div className="mt-2.5 flex items-center justify-between gap-2 border-t border-zinc-100 pt-2 text-[11px] dark:border-white/10">
+                      <button
+                        type="button"
+                        onClick={() => openBadgeDetails(badge)}
+                        className="font-semibold text-emerald-700 hover:underline cursor-pointer dark:text-[#D9FF43]"
+                      >
+                        معايير الوسام والهدف
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setSelectedBadgeFilter((prev) => (prev === badge.id ? 'all' : badge.id))
+                        }
+                        className="font-semibold text-zinc-600 hover:text-zinc-950 hover:underline cursor-pointer dark:text-zinc-400 dark:hover:text-white"
+                      >
+                        {active ? 'إلغاء التصفية' : `تصفية الحاملين (${earnersCount})`}
+                      </button>
                     </div>
-                  </button>
+                  </div>
                 )
               })}
             </div>
@@ -1290,6 +1367,7 @@ export function PublicContributorsPage({
                         key={badge.id}
                         badge={badge}
                         scarcityLabel={formatBadgeScarcity(badge.id)}
+                        onClick={openBadgeDetails}
                       />
                     ))}
                   </div>
@@ -1303,7 +1381,12 @@ export function PublicContributorsPage({
                     {selectedMilestones.slice(0, 2).map((m) => (
                       <div key={m.badge.id} className="space-y-1.5">
                         <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
-                          <span className="inline-flex items-center gap-1.5 font-semibold text-zinc-950 dark:text-white">
+                          <button
+                            type="button"
+                            onClick={() => openBadgeDetails(m.badge)}
+                            aria-label={`عرض معايير والهدف من وسام ${m.badge.sealName} (${m.badge.label})`}
+                            className="inline-flex items-center gap-1.5 font-semibold text-zinc-950 hover:text-emerald-700 hover:underline cursor-pointer dark:text-white dark:hover:text-[#D9FF43]"
+                          >
                             <MeritBadgeEmblemIcon
                               icon={m.badge.icon}
                               className="h-3.5 w-3.5 text-emerald-700 dark:text-[#D9FF43]"
@@ -1311,7 +1394,7 @@ export function PublicContributorsPage({
                             <span>
                               {m.badge.sealName} · {m.badge.label}
                             </span>
-                          </span>
+                          </button>
                           <span className="font-mono text-[11px] font-semibold tabular-nums text-emerald-700 dark:text-[#D9FF43]">
                             {m.remainingLabel} ({m.progressLabel})
                           </span>
@@ -1532,6 +1615,201 @@ export function PublicContributorsPage({
                 >
                   <Sparkles className="h-3.5 w-3.5" />
                   <span>شارك في توثيق المعجم</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        )
+      })()}
+
+      {/* 6. Interactive Merit Badge Criteria & Purpose Modal (نافذة معايير الوسام والهدف منه) */}
+      {inspectedBadge && (() => {
+        const tierTextClass = getTierPillClasses(inspectedBadge.tier)
+        const scarcityText = formatBadgeScarcity(inspectedBadge.id)
+        const holdersPreview = inspectedBadgeHolders.slice(0, 5)
+
+        return (
+          <div
+            className="fixed inset-0 z-[60] flex items-center justify-center bg-black/65 p-4 backdrop-blur-xs"
+            onClick={closeBadgeDetails}
+          >
+            <div
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="merit-badge-dialog-title"
+              onClick={(e) => e.stopPropagation()}
+              className="relative max-h-[90vh] w-full max-w-xl overflow-y-auto rounded-2xl border border-zinc-200 bg-white p-6 sm:p-7 text-zinc-950 shadow-2xl dark:border-white/15 dark:bg-[#0B0B10] dark:text-white"
+            >
+              {/* Top Kicker Row */}
+              <div className="flex items-center justify-between gap-3 border-b border-zinc-200 pb-4 dark:border-white/10">
+                <div className="flex flex-wrap items-center gap-2 text-xs">
+                  <span className={`font-bold ${tierTextClass}`}>
+                    {inspectedBadge.tierLabel}
+                  </span>
+                  <span aria-hidden="true" className="text-zinc-400">
+                    ·
+                  </span>
+                  <span className="font-mono text-zinc-500 dark:text-zinc-400">
+                    {inspectedBadge.code}
+                  </span>
+                  <span aria-hidden="true" className="text-zinc-400">
+                    ·
+                  </span>
+                  <span className="font-mono tabular-nums font-semibold text-emerald-700 dark:text-[#D9FF43]">
+                    +{inspectedBadge.pointsWeight} نقطة جدارة
+                  </span>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={closeBadgeDetails}
+                  aria-label="إغلاق نافذة تفاصيل الوسام"
+                  className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-zinc-200 text-zinc-600 hover:border-zinc-400 hover:text-zinc-950 transition-colors cursor-pointer dark:border-white/12 dark:text-zinc-300 dark:hover:border-white/30 dark:hover:text-white"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+
+              {/* Medallion & Title Anchor */}
+              <div className="mt-5 flex items-start gap-4 border-b border-zinc-200 pb-5 dark:border-white/10">
+                <div className="shrink-0">
+                  <MeritSealMedallion
+                    icon={inspectedBadge.icon}
+                    tone={inspectedBadge.tone}
+                    tier={inspectedBadge.tier}
+                    size={68}
+                  />
+                </div>
+                <div className="min-w-0 flex-1 space-y-1.5">
+                  <div className="flex flex-wrap items-baseline gap-2">
+                    <h2
+                      id="merit-badge-dialog-title"
+                      className="font-display text-xl sm:text-2xl font-bold text-zinc-950 dark:text-white"
+                    >
+                      {inspectedBadge.sealName}
+                    </h2>
+                    <span aria-hidden="true" className="text-zinc-400">
+                      ·
+                    </span>
+                    <span className="text-sm font-semibold text-emerald-700 dark:text-[#D9FF43]">
+                      {inspectedBadge.label}
+                    </span>
+                  </div>
+                  <p className="text-sm leading-relaxed text-zinc-600 dark:text-zinc-300">
+                    {inspectedBadge.description}
+                  </p>
+                </div>
+              </div>
+
+              {/* Criteria & Scientific Purpose Sections */}
+              <div className="mt-5 space-y-5 border-b border-zinc-200 pb-5 dark:border-white/10">
+                <div className="space-y-1.5">
+                  <h3 className="text-xs font-bold text-zinc-950 dark:text-white">
+                    معايير الحصول على الوسام
+                  </h3>
+                  <p className="text-sm leading-7 text-zinc-700 dark:text-zinc-300">
+                    {inspectedBadge.criteria}
+                  </p>
+                  <p className="text-xs leading-relaxed text-zinc-500 dark:text-zinc-400">
+                    يُمنح هذا الوسام تلقائياً فور استيفاء الشرط في سجل المساهمات والتصديقات المعتمدة دون الحاجة إلى طلب يدوي.
+                  </p>
+                </div>
+
+                <div className="border-t border-zinc-100 pt-4 space-y-1.5 dark:border-white/10">
+                  <h3 className="text-xs font-bold text-emerald-800 dark:text-[#D9FF43]">
+                    الهدف من الوسام وقيمته العلمية
+                  </h3>
+                  <p className="text-sm leading-7 text-zinc-700 dark:text-zinc-300">
+                    {inspectedBadge.valueStatement}
+                  </p>
+                </div>
+              </div>
+
+              {/* Scarcity & Holders in Honor Roll */}
+              <div className="mt-5 space-y-3">
+                <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
+                  <span className="font-semibold text-zinc-700 dark:text-zinc-300">
+                    حاملو الوسام في لوحة الشرف
+                  </span>
+                  <span className="font-mono tabular-nums text-zinc-500 dark:text-zinc-400">
+                    {scarcityText} · {inspectedBadgeHolders.length.toLocaleString('en-US')} من{' '}
+                    {contributors.length.toLocaleString('en-US')}
+                  </span>
+                </div>
+
+                {holdersPreview.length > 0 ? (
+                  <div className="flex flex-wrap items-center gap-2">
+                    {holdersPreview.map((holder) => (
+                      <button
+                        key={holder.public_slug}
+                        type="button"
+                        onClick={() => {
+                          closeBadgeDetails()
+                          selectContributor(holder.public_slug)
+                        }}
+                        className="inline-flex min-h-[36px] items-center gap-2 rounded-full border border-zinc-200 bg-zinc-50 pe-3 ps-1.5 py-1 text-xs font-semibold text-zinc-800 hover:border-zinc-950 cursor-pointer transition-colors dark:border-white/12 dark:bg-[#07070A] dark:text-zinc-200 dark:hover:border-[#D9FF43]/70"
+                      >
+                        <Avatar
+                          source={holder.avatar_source}
+                          path={holder.avatar_path}
+                          seed={holder.avatar_seed || holder.public_slug}
+                          githubHandle={holder.github_handle}
+                          displayName={holder.display_name}
+                          size={24}
+                        />
+                        <span>{holder.display_name}</span>
+                      </button>
+                    ))}
+                    {inspectedBadgeHolders.length > holdersPreview.length && (
+                      <span className="text-xs font-mono tabular-nums text-zinc-500 dark:text-zinc-400">
+                        +{inspectedBadgeHolders.length - holdersPreview.length} آخرون
+                      </span>
+                    )}
+                  </div>
+                ) : (
+                  <p className="text-xs leading-relaxed text-zinc-500 dark:text-zinc-400">
+                    لم يحصل أي مساهم معلَن في اللوحة على هذا الوسام بعد — كن أول من يوثّق استحقاقه في المتن.
+                  </p>
+                )}
+              </div>
+
+              {/* Footer Actions */}
+              <div className="mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-zinc-200 pt-4 dark:border-white/10">
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={closeBadgeDetails}
+                    className="inline-flex min-h-[40px] items-center justify-center rounded-full border border-zinc-300 bg-white px-4 py-2 text-xs font-semibold text-zinc-800 hover:bg-zinc-50 whitespace-nowrap shrink-0 cursor-pointer dark:border-white/15 dark:bg-[#07070A] dark:text-zinc-200 dark:hover:border-white/35"
+                  >
+                    إغلاق
+                  </button>
+
+                  {inspectedBadgeHolders.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedBadgeFilter(inspectedBadge.id)
+                        closeBadgeDetails()
+                        selectContributor(null)
+                      }}
+                      className="inline-flex min-h-[40px] items-center justify-center rounded-full border border-zinc-300 bg-zinc-50 px-4 py-2 text-xs font-semibold text-zinc-900 hover:border-zinc-950 whitespace-nowrap shrink-0 cursor-pointer dark:border-white/15 dark:bg-[#07070A] dark:text-zinc-100 dark:hover:border-[#D9FF43]/70"
+                    >
+                      تصفية حاملي الوسام ({inspectedBadgeHolders.length})
+                    </button>
+                  )}
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    closeBadgeDetails()
+                    selectContributor(null)
+                    onStartContributing()
+                  }}
+                  className="inline-flex min-h-[40px] items-center gap-2 rounded-full bg-zinc-950 px-5 py-2 text-xs font-bold text-white hover:bg-zinc-800 whitespace-nowrap shrink-0 cursor-pointer dark:bg-[#D9FF43] dark:text-[#050507] dark:hover:bg-[#e5ff73]"
+                >
+                  <span>ابدأ المساهمة لنيل الوسام</span>
+                  <ArrowLeft className="h-3.5 w-3.5" aria-hidden="true" />
                 </button>
               </div>
             </div>

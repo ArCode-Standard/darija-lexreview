@@ -76,9 +76,7 @@ export function DailySpotlightAndRegionalTasks({
     activeSpotlightEntry.id,
     activeSpotlightEntry.numericId,
   )
-  const savedInBookmarks = Boolean(
-    isAuthenticated && isBookmarked?.(activeSpotlightEntry.id),
-  )
+  const savedInBookmarks = Boolean(isBookmarked?.(activeSpotlightEntry.id))
 
   const canSpeak = typeof window !== 'undefined' && 'speechSynthesis' in window
 
@@ -244,7 +242,7 @@ export function DailySpotlightAndRegionalTasks({
                   )}
                 </button>
 
-                {isAuthenticated && onToggleBookmark && (
+                {onToggleBookmark && (
                   <button
                     type="button"
                     onClick={() => onToggleBookmark(activeSpotlightEntry.id)}
@@ -258,7 +256,15 @@ export function DailySpotlightAndRegionalTasks({
                     <Bookmark
                       className={`h-3.5 w-3.5 ${savedInBookmarks ? 'fill-current' : ''}`}
                     />
-                    <span>{savedInBookmarks ? 'محفوظة في مفضلتي' : 'حفظ في مفضلتي'}</span>
+                    <span>
+                      {isAuthenticated
+                        ? savedInBookmarks
+                          ? 'محفوظة في مفضلتي'
+                          : 'حفظ في مفضلتي'
+                        : savedInBookmarks
+                          ? 'محفوظة بالمتصفح'
+                          : 'حفظ مؤقت بالمتصفح'}
+                    </span>
                   </button>
                 )}
               </div>

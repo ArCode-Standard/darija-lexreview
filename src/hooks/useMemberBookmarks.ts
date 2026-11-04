@@ -3,16 +3,63 @@ import { supabase } from '../lib/supabase'
 import type { MemberBookmarkRecord } from '../types/lexicon'
 
 const BOOKMARKS_CACHE_PREFIX = 'arcode_lexreview_member_bookmarks_v1:'
+export const GUEST_BOOKMARKS_STORAGE_KEY = 'arcode_lexreview_guest_bookmarks_v1'
+
+function sanitizeBookmarkList(parsed: unknown): string[] {
+  if (!Array.isArray(parsed)) return []
+  return Array.from(
+    new Set(
+      parsed
+        .filter((id): id is string => typeof id === 'string')
+        .map((id) => id.trim())
+        .filter((id) => id.length > 0),
+    ),
+  )
+}
+
+export function readGuestBookmarks(): string[] {
+  if (typeof localStorage === 'undefined') return []
+  try {
+    const raw = localStorage.getItem(GUEST_BOOKMARKS_STORAGE_KEY)
+    if (!raw) return []
+    return sanitizeBookmarkList(JSON.parse(raw))
+  } catch {
+    return []
+  }
+}
+
+export function writeGuestBookmarks(ids: string[]) {
+  if (typeof localStorage === 'undefined') return
+  try {
+    if (ids.length === 0) {
+      localStorage.removeItem(GUEST_BOOKMARKS_STORAGE_KEY)
+    } else {
+      localStorage.setItem(GUEST_BOOKMARKS_STORAGE_KEY, JSON.stringify(ids))
+    }
+  } catch {
+    // Ignore storage quota errors
+  }
+}
+
+export function mergeGuestAndMemberBookmarks(
+  guestIds: string[],
+  memberIds: string[],
+): string[] {
+  return Array.from(
+    new Set(
+      [...guestIds, ...memberIds]
+        .map((id) => id.trim())
+        .filter((id) => id.length > 0),
+    ),
+  )
+}
 
 function readCachedBookmarks(userKey: string): string[] {
   if (!userKey || typeof localStorage === 'undefined') return []
   try {
     const raw = localStorage.getItem(`${BOOKMARKS_CACHE_PREFIX}${userKey}`)
     if (!raw) return []
-    const parsed = JSON.parse(raw)
-    return Array.isArray(parsed)
-      ? parsed.filter((id): id is string => typeof id === 'string' && id.trim().length > 0)
-      : []
+    return sanitizeBookmarkList(JSON.parse(raw))
   } catch {
     return []
   }
@@ -34,28 +81,62 @@ export interface UseMemberBookmarksParams {
 
 export function useMemberBookmarks({ userId, userEmail }: UseMemberBookmarksParams) {
   const userKey = useMemo(
-    () => (userEmail ? (userId || userEmail.toLowerCase()) : ''),
+    () => (userEmail ? userId || userEmail.toLowerCase() : ''),
     [userId, userEmail],
   )
 
   const [bookmarkedIds, setBookmarkedIds] = useState<string[]>(() =>
-    userKey ? readCachedBookmarks(userKey) : [],
+    userKey ? readCachedBookmarks(userKey) : readGuestBookmarks(),
   )
   const [loadingBookmarks, setLoadingBookmarks] = useState(false)
 
-  // Reset or load user-scoped cache whenever authenticated user changes
+  // Load guest bookmarks when logged out, or migrate guest bookmarks into member cache on login
   useEffect(() => {
     if (!userEmail || !userKey) {
-      setBookmarkedIds([])
+      setBookmarkedIds(readGuestBookmarks())
       return
     }
-    setBookmarkedIds(readCachedBookmarks(userKey))
-  }, [userEmail, userKey])
+    const guestIds = readGuestBookmarks()
+    const cachedMemberIds = readCachedBookmarks(userKey)
+    if (guestIds.length > 0) {
+      const merged = mergeGuestAndMemberBookmarks(guestIds, cachedMemberIds)
+      setBookmarkedIds(merged)
+      writeCachedBookmarks(userKey, merged)
+      // If Supabase userId is already resolved, push guest bookmarks to cloud and clear guest storage
+      if (supabase && userId) {
+        writeGuestBookmarks([])
+        void supabase.from('member_bookmarks').upsert(
+          guestIds.map((entry_id) => ({
+            user_id: userId,
+            entry_id,
+          })),
+          { onConflict: 'user_id,entry_id' },
+        )
+      } else if (!supabase) {
+        writeGuestBookmarks([])
+      }
+    } else {
+      setBookmarkedIds(cachedMemberIds)
+    }
+  }, [userEmail, userKey, userId])
 
   // Sync from Supabase member_bookmarks table for authenticated member
   const refreshBookmarks = useCallback(async () => {
     if (!supabase || !userEmail || !userId) return
     setLoadingBookmarks(true)
+
+    const pendingGuestIds = readGuestBookmarks()
+    if (pendingGuestIds.length > 0) {
+      await supabase.from('member_bookmarks').upsert(
+        pendingGuestIds.map((entry_id) => ({
+          user_id: userId,
+          entry_id,
+        })),
+        { onConflict: 'user_id,entry_id' },
+      )
+      writeGuestBookmarks([])
+    }
+
     const { data, error } = await supabase
       .from('member_bookmarks')
       .select('id, user_id, entry_id, note, created_at')
@@ -72,8 +153,9 @@ export function useMemberBookmarks({ userId, userEmail }: UseMemberBookmarksPara
             .filter((id): id is string => Boolean(id)),
         ),
       )
-      setBookmarkedIds(serverIds)
-      writeCachedBookmarks(userKey, serverIds)
+      const mergedIds = mergeGuestAndMemberBookmarks(pendingGuestIds, serverIds)
+      setBookmarkedIds(mergedIds)
+      writeCachedBookmarks(userKey, mergedIds)
     }
   }, [userEmail, userId, userKey])
 
@@ -84,15 +166,15 @@ export function useMemberBookmarks({ userId, userEmail }: UseMemberBookmarksPara
   const bookmarkedSet = useMemo(() => new Set(bookmarkedIds), [bookmarkedIds])
 
   const isBookmarked = useCallback(
-    (entryId: string) => Boolean(userEmail && bookmarkedSet.has(entryId)),
-    [userEmail, bookmarkedSet],
+    (entryId: string) => Boolean(entryId && bookmarkedSet.has(entryId)),
+    [bookmarkedSet],
   )
 
   const toggleBookmark = useCallback(
-    async (entryId: string): Promise<{ saved: boolean }> => {
+    async (entryId: string): Promise<{ saved: boolean; mode: 'member' | 'guest' }> => {
       const cleanId = entryId.trim()
-      if (!userEmail || !userKey || !cleanId) {
-        return { saved: false }
+      if (!cleanId) {
+        return { saved: false, mode: userEmail ? 'member' : 'guest' }
       }
 
       const currentlySaved = bookmarkedSet.has(cleanId)
@@ -101,6 +183,12 @@ export function useMemberBookmarks({ userId, userEmail }: UseMemberBookmarksPara
         : [cleanId, ...bookmarkedIds.filter((id) => id !== cleanId)]
 
       setBookmarkedIds(nextIds)
+
+      if (!userEmail || !userKey) {
+        writeGuestBookmarks(nextIds)
+        return { saved: !currentlySaved, mode: 'guest' }
+      }
+
       writeCachedBookmarks(userKey, nextIds)
 
       if (supabase && userId) {
@@ -121,7 +209,7 @@ export function useMemberBookmarks({ userId, userEmail }: UseMemberBookmarksPara
         }
       }
 
-      return { saved: !currentlySaved }
+      return { saved: !currentlySaved, mode: 'member' }
     },
     [userEmail, userKey, userId, bookmarkedSet, bookmarkedIds],
   )
@@ -129,10 +217,16 @@ export function useMemberBookmarks({ userId, userEmail }: UseMemberBookmarksPara
   const removeBookmark = useCallback(
     async (entryId: string) => {
       const cleanId = entryId.trim()
-      if (!userEmail || !userKey || !cleanId) return
+      if (!cleanId) return
 
       const nextIds = bookmarkedIds.filter((id) => id !== cleanId)
       setBookmarkedIds(nextIds)
+
+      if (!userEmail || !userKey) {
+        writeGuestBookmarks(nextIds)
+        return
+      }
+
       writeCachedBookmarks(userKey, nextIds)
 
       if (supabase && userId) {
@@ -147,7 +241,8 @@ export function useMemberBookmarks({ userId, userEmail }: UseMemberBookmarksPara
   )
 
   return {
-    bookmarkedIds: userEmail ? bookmarkedIds : [],
+    bookmarkedIds,
+    isGuestBookmarkMode: !userEmail,
     loadingBookmarks,
     isBookmarked,
     toggleBookmark,

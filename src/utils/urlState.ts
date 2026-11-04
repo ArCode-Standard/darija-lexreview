@@ -51,6 +51,7 @@ export interface AppRouteState {
   contributorSlug?: string
   collectionSlug?: string
   etymology?: string
+  region?: string
   embedTheme?: 'light' | 'dark' | 'auto'
   embedCompact?: boolean
   category: string
@@ -249,6 +250,7 @@ export function parseAppRoute(pathname: string, search: string): AppRouteState {
   const queryEntry = params.get('entry')?.trim() || null
 
   const rawEtym = params.get('etym')?.trim() || ''
+  const rawRegion = params.get('region')?.trim() || ''
 
   if (cleanPath === '/review') {
     return {
@@ -276,6 +278,7 @@ export function parseAppRoute(pathname: string, search: string): AppRouteState {
       explorerSubView: viewParam === 'categories' && !pathEntryId ? 'categories' : 'entries',
       entryId: resolvedEntry && resolvedEntry.length <= 64 ? resolvedEntry : null,
       ...(rawEtym && rawEtym !== 'all' && rawEtym.length <= 40 ? { etymology: rawEtym } : {}),
+      ...(rawRegion && rawRegion !== 'all' && rawRegion.length <= 80 ? { region: rawRegion } : {}),
       category: rawCat.length <= 120 ? rawCat : 'all',
       exampleFilter,
       query,
@@ -526,6 +529,9 @@ export function buildAppRouteUrl(state: AppRouteState): string {
       }
       if (state.etymology && state.etymology !== 'all') {
         params.set('etym', state.etymology)
+      }
+      if (state.region && state.region !== 'all') {
+        params.set('region', state.region)
       }
       if (state.exampleFilter !== 'all') {
         params.set('ex', state.exampleFilter)

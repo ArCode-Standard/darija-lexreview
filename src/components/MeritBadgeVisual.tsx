@@ -274,12 +274,14 @@ interface MeritBadgeChipProps {
   badge: MeritBadge
   size?: 'sm' | 'md'
   showSealName?: boolean
+  onClick?: (badge: MeritBadge) => void
 }
 
 export function MeritBadgeChip({
   badge,
   size = 'sm',
   showSealName = false,
+  onClick,
 }: MeritBadgeChipProps) {
   const toneClasses = getBadgeClasses(badge.tone)
   const sizeClasses =
@@ -287,11 +289,8 @@ export function MeritBadgeChip({
       ? 'gap-1.5 rounded-xl px-2.5 py-1 text-xs'
       : 'gap-1.5 rounded-lg px-2 py-0.5 text-[11px]'
 
-  return (
-    <span
-      title={`${badge.sealName} (${badge.label}) — ${badge.description}`}
-      className={`inline-flex items-center border font-semibold transition-colors ${sizeClasses} ${toneClasses}`}
-    >
+  const innerContent = (
+    <>
       <MeritBadgeEmblemIcon
         icon={badge.icon}
         className={size === 'md' ? 'h-4 w-4 shrink-0' : 'h-3.5 w-3.5 shrink-0'}
@@ -299,6 +298,32 @@ export function MeritBadgeChip({
       <span>
         {showSealName ? `${badge.sealName} · ${badge.label}` : badge.label}
       </span>
+    </>
+  )
+
+  if (onClick) {
+    return (
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation()
+          onClick(badge)
+        }}
+        title={`انقر لعرض معايير والهدف من وسام: ${badge.sealName} (${badge.label})`}
+        aria-label={`عرض تفاصيل ومعايير وسام ${badge.sealName} (${badge.label})`}
+        className={`inline-flex items-center border font-semibold transition-colors cursor-pointer hover:border-zinc-950 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700 dark:hover:border-[#D9FF43]/75 dark:focus-visible:outline-[#D9FF43] ${sizeClasses} ${toneClasses}`}
+      >
+        {innerContent}
+      </button>
+    )
+  }
+
+  return (
+    <span
+      title={`${badge.sealName} (${badge.label}) — ${badge.description}`}
+      className={`inline-flex items-center border font-semibold transition-colors ${sizeClasses} ${toneClasses}`}
+    >
+      {innerContent}
     </span>
   )
 }
@@ -306,23 +331,23 @@ export function MeritBadgeChip({
 interface MeritBadgeMedallionCardProps {
   badge: MeritBadge
   scarcityLabel?: string
+  onClick?: (badge: MeritBadge) => void
 }
 
 export function MeritBadgeMedallionCard({
   badge,
   scarcityLabel,
+  onClick,
 }: MeritBadgeMedallionCardProps) {
   const tierTextClass = getTierPillClasses(badge.tier)
   const isSovereign = badge.tier === 'sovereign'
 
-  return (
-    <div
-      className={`flex items-start gap-3.5 rounded-2xl border p-3.5 transition-colors ${
-        isSovereign
-          ? 'border-amber-300/80 bg-amber-50/35 dark:border-[#D9FF43]/35 dark:bg-[#0D0F07]'
-          : 'border-zinc-200/90 bg-zinc-50/70 dark:border-white/10 dark:bg-[#07070A]'
-      }`}
-    >
+  const baseSurfaceClasses = isSovereign
+    ? 'border-amber-300/80 bg-amber-50/35 dark:border-[#D9FF43]/35 dark:bg-[#0D0F07]'
+    : 'border-zinc-200/90 bg-zinc-50/70 dark:border-white/10 dark:bg-[#07070A]'
+
+  const cardBody = (
+    <>
       <div className="mt-0.5 shrink-0">
         <MeritSealMedallion
           icon={badge.icon}
@@ -359,7 +384,37 @@ export function MeritBadgeMedallionCard({
         <p className="pt-0.5 text-[10.5px] leading-4 font-medium text-emerald-800/90 dark:text-zinc-300">
           القيمة العلمية: {badge.valueStatement}
         </p>
+
+        {onClick && (
+          <p className="pt-1 text-[10.5px] font-semibold text-emerald-700 group-hover/medallion:underline dark:text-[#D9FF43]">
+            عرض معايير الاستحقاق والهدف ←
+          </p>
+        )}
       </div>
+    </>
+  )
+
+  if (onClick) {
+    return (
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation()
+          onClick(badge)
+        }}
+        aria-label={`عرض معايير والهدف من وسام ${badge.sealName} (${badge.label})`}
+        className={`group/medallion flex w-full items-start gap-3.5 rounded-2xl border p-3.5 text-start transition-colors cursor-pointer hover:border-zinc-950 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700 dark:hover:border-[#D9FF43]/70 dark:focus-visible:outline-[#D9FF43] ${baseSurfaceClasses}`}
+      >
+        {cardBody}
+      </button>
+    )
+  }
+
+  return (
+    <div
+      className={`flex items-start gap-3.5 rounded-2xl border p-3.5 transition-colors ${baseSurfaceClasses}`}
+    >
+      {cardBody}
     </div>
   )
 }

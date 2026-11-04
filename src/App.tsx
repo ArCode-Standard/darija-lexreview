@@ -1,7 +1,8 @@
-import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   AlertTriangle,
   ArrowLeft,
+  ArrowUp,
   BookOpen,
   CheckCircle2,
   Database,
@@ -14,22 +15,13 @@ import {
 } from 'lucide-react'
 import { supabase } from './lib/supabase'
 import type {
-  DataMode,
-  ExampleFilter,
   LexicalEntry,
   LocalDraft,
-  RawOfficialCorpus,
   ReviewerProfile,
   SubmissionRecord,
   WorkbenchTab,
 } from './types/lexicon'
-import {
-  DEMO_ENTRIES,
-  DEMO_RAW_CORPUS,
-  loadCorpusWithOfflineFallback,
-} from './services/dataset'
 import { isNewEntrySubmission } from './services/exporter'
-import { isPriorityEnrichmentEntry, matchesDarijaQuery } from './utils/phoneticSearch'
 import { extractCorpusVersion } from './utils/corpusPinning'
 import {
   type AppPage,
@@ -50,6 +42,7 @@ import { useLocalDrafts } from './hooks/useLocalDrafts'
 import { useCommunityAttestations } from './hooks/useCommunityAttestations'
 import { useCommunityGovernanceAndMessages } from './hooks/useCommunityGovernanceAndMessages'
 import { useMemberBookmarks } from './hooks/useMemberBookmarks'
+import { useLexiconCorpusAndFilters } from './hooks/useLexiconCorpusAndFilters'
 import {
   type ComputedSprintProgress,
   useDocumentationSprints,
@@ -160,6 +153,11 @@ const EmbeddedWordWidgetView = lazy(() =>
     default: module.EmbeddedWordWidgetView,
   })),
 )
+const EditorPromotionModal = lazy(() =>
+  import('./components/EditorPromotionModal').then((module) => ({
+    default: module.EditorPromotionModal,
+  })),
+)
 
 interface PageHeadingMeta {
   eyebrow: string
@@ -240,15 +238,42 @@ export default function App() {
     [],
   )
 
-  const [entries, setEntries] = useState<LexicalEntry[]>(DEMO_ENTRIES)
-  const [rawCorpus, setRawCorpus] = useState<RawOfficialCorpus>(DEMO_RAW_CORPUS)
-  const [categories, setCategories] = useState<string[]>(
-    Array.from(new Set(DEMO_ENTRIES.map((e) => e.category))),
-  )
-  const [totalExamplesCount, setTotalExamplesCount] = useState<number>(4)
-  const [dataMode, setDataMode] = useState<DataMode>('loading')
-  const [cachedCorpusAt, setCachedCorpusAt] = useState<string | null>(null)
-  const [corpusError, setCorpusError] = useState<string | null>(null)
+  const {
+    entries,
+    rawCorpus,
+    categories,
+    totalExamplesCount,
+    liveOverlayCount,
+    dataMode,
+    cachedCorpusAt,
+    corpusError,
+    loadCorpus,
+    enableDemoPreview,
+    refreshLiveApprovedOverlay,
+    query,
+    setQuery,
+    selectedCategory,
+    setSelectedCategory,
+    exampleFilter,
+    setExampleFilter,
+    selectedEntryType,
+    setSelectedEntryType,
+    selectedRegister,
+    setSelectedRegister,
+    selectedRegion,
+    setSelectedRegion,
+    selectedEtymology,
+    setSelectedEtymology,
+    setActiveId,
+    filteredEntries: baseFilteredEntries,
+    activeEntry: baseActiveEntry,
+    availableRegions,
+    handleResetFilters: resetBaseFilters,
+  } = useLexiconCorpusAndFilters(initialRoute)
+
+  const [onlyBookmarked, setOnlyBookmarked] = useState(false)
+  const lexiconSidebarPaneRef = useRef<HTMLDivElement>(null)
+  const lexiconDetailPaneRef = useRef<HTMLDivElement>(null)
 
   const [activePage, setActivePage] = useState<AppPage>(initialRoute.page)
   const [explorerSubView, setExplorerSubView] = useState<'entries' | 'categories'>(
@@ -272,18 +297,8 @@ export default function App() {
   const [workshopFocusExample, setWorkshopFocusExample] = useState(false)
   const [focusMode, setFocusMode] = useState(false)
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false)
+  const [promotionModalOpen, setPromotionModalOpen] = useState(false)
   const [adminInitialTab, setAdminInitialTab] = useState<AdminTab | undefined>(undefined)
-
-  const [query, setQuery] = useState(initialRoute.query)
-  const [selectedCategory, setSelectedCategory] = useState(initialRoute.category)
-  const [exampleFilter, setExampleFilter] = useState<ExampleFilter>(initialRoute.exampleFilter)
-  const [selectedEntryType, setSelectedEntryType] = useState('all')
-  const [selectedRegister, setSelectedRegister] = useState('all')
-  const [selectedRegion, setSelectedRegion] = useState('all')
-  const [selectedEtymology, setSelectedEtymology] = useState<string>(
-    initialRoute.etymology ?? 'all',
-  )
-  const [activeId, setActiveId] = useState<string>(initialRoute.entryId ?? DEMO_ENTRIES[0].id)
 
   const [resumedNewDraft, setResumedNewDraft] = useState<LocalDraft | null>(null)
   const [revisionTarget, setRevisionTarget] = useState<SubmissionRecord | null>(null)
@@ -490,12 +505,8 @@ export default function App() {
     return () => window.removeEventListener('storage', onStorage)
   }, [])
 
-  // Global Command Palette shortcut (Ctrl+K / Cmd+K) — Strictly for Registered Members
+  // Global Command Palette shortcut (Ctrl+K / Cmd+K) — Open to Visitors & Members
   useEffect(() => {
-    if (!userEmail) {
-      setCommandPaletteOpen(false)
-      return
-    }
     const onKeyDown = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
         e.preventDefault()
@@ -504,7 +515,7 @@ export default function App() {
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [userEmail])
+  }, [])
 
   const syncUserSession = useCallback(async () => {
     if (!supabase) {
@@ -586,85 +597,35 @@ export default function App() {
     return () => subscription.unsubscribe()
   }, [syncUserSession])
 
-  const loadCorpus = useCallback(() => {
-    setDataMode('loading')
-    setCorpusError(null)
-    loadCorpusWithOfflineFallback()
-      .then((res) => {
-        setEntries(res.corpus.entries)
-        setRawCorpus(res.corpus.rawCorpus)
-        setCategories(res.corpus.categories)
-        setTotalExamplesCount(res.corpus.totalExamplesCount)
-        setCachedCorpusAt(res.cachedAt)
-        setActiveId((prev) =>
-          res.corpus.entries.some((e) => e.id === prev)
-            ? prev
-            : (res.corpus.entries[0]?.id ?? ''),
-        )
-        setDataMode(res.mode)
-      })
-      .catch((error: unknown) => {
-        setEntries([])
-        setCategories([])
-        setTotalExamplesCount(0)
-        setCachedCorpusAt(null)
-        setCorpusError(
-          error instanceof Error
-            ? error.message
-            : 'تعذر تحميل المتن الرسمي والنسخة المحلية المحفوظة.',
-        )
-        setDataMode('error')
-      })
-  }, [])
-
-  useEffect(() => {
-    loadCorpus()
-  }, [loadCorpus])
-
   const filteredEntries = useMemo(() => {
-    return entries.filter((entry) => {
-      if (selectedCategory !== 'all' && entry.category !== selectedCategory) {
-        return false
-      }
-      if (exampleFilter === 'with_examples' && entry.examples.length === 0) {
-        return false
-      }
-      if (exampleFilter === 'needs_examples' && entry.examples.length > 0) {
-        return false
-      }
-      if (exampleFilter === 'priority_enrichment' && !isPriorityEnrichmentEntry(entry)) return false
-      if (selectedEntryType !== 'all' && (entry.entryType ?? 'unknown') !== selectedEntryType) return false
-      if (selectedRegister !== 'all' && (entry.register ?? 'unknown') !== selectedRegister) return false
-      if (selectedRegion !== 'all' && !(entry.region ?? []).includes(selectedRegion)) return false
-      if (selectedEtymology !== 'all' && (entry.etymology ?? 'unspecified') !== selectedEtymology) {
-        return false
-      }
-      return matchesDarijaQuery(entry, query)
-    })
-  }, [
-    entries,
-    query,
-    selectedCategory,
-    exampleFilter,
-    selectedEntryType,
-    selectedRegister,
-    selectedRegion,
-    selectedEtymology,
-  ])
+    if (!onlyBookmarked) return baseFilteredEntries
+    const savedSet = new Set(bookmarkedIds)
+    return baseFilteredEntries.filter((entry) => savedSet.has(entry.id))
+  }, [baseFilteredEntries, onlyBookmarked, bookmarkedIds])
 
   const activeEntry = useMemo(() => {
-    return (
-      entries.find((e) => e.id === activeId) ??
-      filteredEntries[0] ??
-      entries[0] ??
-      DEMO_ENTRIES[0]
-    )
-  }, [entries, filteredEntries, activeId])
+    if (onlyBookmarked && filteredEntries.length > 0 && !filteredEntries.some((e) => e.id === baseActiveEntry.id)) {
+      return filteredEntries[0]
+    }
+    return baseActiveEntry
+  }, [onlyBookmarked, filteredEntries, baseActiveEntry])
 
   const activeIndexInFiltered = useMemo(
     () => filteredEntries.findIndex((e) => e.id === activeEntry.id),
     [filteredEntries, activeEntry.id],
   )
+
+  const scrollToLexiconDetailOnMobile = useCallback(() => {
+    if (typeof window === 'undefined' || window.innerWidth >= 1280) return
+    window.requestAnimationFrame(() => {
+      lexiconDetailPaneRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    })
+  }, [])
+
+  const scrollToLexiconSidebarOnMobile = useCallback(() => {
+    if (typeof window === 'undefined') return
+    lexiconSidebarPaneRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }, [])
 
   // Navigate cleanly between independent pages with history pushState + instant scroll reset
   const navigatePage = useCallback(
@@ -676,6 +637,7 @@ export default function App() {
         contributorSlug?: string | null
         collectionSlug?: string | null
         etymology?: string
+        region?: string
         preserveScroll?: boolean
       },
     ) => {
@@ -706,12 +668,17 @@ export default function App() {
           : null
       const resolvedEtymology =
         options?.etymology !== undefined ? options.etymology : selectedEtymology
+      const resolvedRegion =
+        options?.region !== undefined ? options.region : selectedRegion
 
       if (options?.subView) {
         setExplorerSubView(options.subView)
       }
       if (options?.etymology !== undefined) {
         setSelectedEtymology(options.etymology)
+      }
+      if (options?.region !== undefined) {
+        setSelectedRegion(options.region)
       }
       if (nextPage === 'lexicon') {
         setExplicitEntryId(resolvedEntryId)
@@ -745,6 +712,9 @@ export default function App() {
           ...(resolvedEtymology && resolvedEtymology !== 'all'
             ? { etymology: resolvedEtymology }
             : {}),
+          ...(resolvedRegion && resolvedRegion !== 'all'
+            ? { region: resolvedRegion }
+            : {}),
           category: selectedCategory,
           exampleFilter,
           query,
@@ -764,9 +734,13 @@ export default function App() {
       explicitContributorSlug,
       explicitCollectionSlug,
       selectedEtymology,
+      selectedRegion,
       selectedCategory,
       exampleFilter,
       query,
+      setSelectedEtymology,
+      setSelectedRegion,
+      setActiveId,
     ],
   )
 
@@ -806,6 +780,9 @@ export default function App() {
       ...(activePage === 'lexicon' && selectedEtymology !== 'all'
         ? { etymology: selectedEtymology }
         : {}),
+      ...(activePage === 'lexicon' && selectedRegion !== 'all'
+        ? { region: selectedRegion }
+        : {}),
       ...(activePage === 'embed'
         ? {
             embedTheme,
@@ -831,6 +808,7 @@ export default function App() {
     explicitContributorSlug,
     explicitCollectionSlug,
     selectedEtymology,
+    selectedRegion,
     embedTheme,
     embedCompact,
     selectedCategory,
@@ -850,7 +828,7 @@ export default function App() {
       setExampleFilter(parsed.exampleFilter)
       setQuery(parsed.query)
       setSelectedEtymology(parsed.etymology ?? 'all')
-      setSelectedRegion(parsed.category ? 'all' : 'all')
+      setSelectedRegion(parsed.region ?? 'all')
       setExplicitEntryId(parsed.entryId)
       setExplicitContributorSlug(parsed.contributorSlug ?? null)
       setExplicitCollectionSlug(parsed.collectionSlug ?? null)
@@ -863,7 +841,14 @@ export default function App() {
     }
     window.addEventListener('popstate', onPopState)
     return () => window.removeEventListener('popstate', onPopState)
-  }, [])
+  }, [
+    setSelectedCategory,
+    setExampleFilter,
+    setQuery,
+    setSelectedEtymology,
+    setSelectedRegion,
+    setActiveId,
+  ])
 
   // Sync dynamic document title, description, canonical, OpenGraph, and DefinedTerm / CollectionPage / ProfilePage JSON-LD
   useEffect(() => {
@@ -887,13 +872,8 @@ export default function App() {
   ])
 
   function handleResetFilters() {
-    setQuery('')
-    setSelectedCategory('all')
-    setExampleFilter('all')
-    setSelectedEntryType('all')
-    setSelectedRegister('all')
-    setSelectedRegion('all')
-    setSelectedEtymology('all')
+    resetBaseFilters()
+    setOnlyBookmarked(false)
   }
 
   function handleJoinSprint(sp: ComputedSprintProgress) {
@@ -1150,14 +1130,7 @@ export default function App() {
             </button>
             <button
               type="button"
-              onClick={() => {
-                setEntries(DEMO_ENTRIES)
-                setRawCorpus(DEMO_RAW_CORPUS)
-                setCategories(Array.from(new Set(DEMO_ENTRIES.map((entry) => entry.category))))
-                setTotalExamplesCount(4)
-                setActiveId(DEMO_ENTRIES[0]?.id ?? '')
-                setDataMode('demo')
-              }}
+              onClick={enableDemoPreview}
               className="min-h-10 rounded-full border border-zinc-300 px-5 py-2 text-sm font-semibold text-zinc-700 hover:bg-zinc-50 cursor-pointer dark:border-white/15 dark:text-zinc-200 dark:hover:bg-white/[0.04]"
             >
               معاينة عينة توضيحية فقط
@@ -1180,11 +1153,11 @@ export default function App() {
         <section className="mx-auto max-w-3xl">
           <div className="rounded-xl border border-amber-300 bg-amber-50 p-5 dark:border-amber-900/60 dark:bg-amber-950/20">
             <p className="text-xs font-bold text-amber-800 dark:text-amber-300">
-              تتطلب هذه الصفحة صلاحية محرر معتمد أو مشرف عام.
+              وضع المعاينة التوضيحية المؤقتة (تعذّر الوصول إلى المتن الرسمي)
             </p>
             <h1 className="mt-2 text-xl font-bold">عينة واجهة Darija LexReview</h1>
             <p className="mt-2 text-sm leading-7 text-amber-950 dark:text-amber-100">
-              هذه المداخل أمثلة اصطناعية لشرح شكل البيانات فقط. لا تمثل corpus معتمداً ولا يجوز استخدامها في المراجعة أو النشر.
+              هذه المداخل أمثلة اصطناعية لشرح شكل البيانات فقط عند انقطاع الاتصال بالمستودع، ولا تمثّل متناً معتمداً ولا تُفعّل فيها أدوات الإرسال أو التحكيم.
             </p>
           </div>
           <div className="mt-5 overflow-hidden rounded-xl border border-zinc-200 bg-white dark:border-white/10 dark:bg-[#0C0C10]">
@@ -1313,15 +1286,13 @@ export default function App() {
         ) : (
           <button
             type="button"
-            onClick={() => setAuthDialogOpen(true)}
+            onClick={() => setPromotionModalOpen(true)}
             className="inline-flex min-h-[42px] items-center gap-2 rounded-full bg-zinc-950 px-5 py-2 text-xs font-bold text-white hover:bg-zinc-800 transition-colors cursor-pointer dark:bg-[#D9FF43] dark:text-[#050507] dark:hover:bg-[#e5ff73]"
           >
             <ShieldCheck className="h-4 w-4" />
             <span>تقديم طلب ترقية إلى محرر معتمد</span>
           </button>
         )}
-
-        
 
         <button
           type="button"
@@ -1362,7 +1333,7 @@ export default function App() {
             darkMode={darkMode}
             onToggleDarkMode={handleToggleDarkMode}
             onOpenAuth={() => navigatePage('auth')}
-            onOpenCommandPalette={userEmail ? () => setCommandPaletteOpen(true) : undefined}
+            onOpenCommandPalette={() => setCommandPaletteOpen(true)}
             onSelectWorkbenchTab={handleLegacyWorkbenchTabSelect}
             onNavigatePage={navigatePage}
           />
@@ -1462,9 +1433,7 @@ export default function App() {
           draftsCount={draftsList.length}
           unreadMessagesCount={unreadMessagesCount}
           onReloadCorpus={loadCorpus}
-          onOpenCommandPalette={() => {
-            if (userEmail) setCommandPaletteOpen(true)
-          }}
+          onOpenCommandPalette={() => setCommandPaletteOpen(true)}
           onNavigatePage={navigatePage}
         >
           <Suspense
@@ -1533,6 +1502,7 @@ export default function App() {
                             {totalExamplesCount.toLocaleString('en-US')}
                           </span>{' '}
                           شاهد
+                          {liveOverlayCount > 0 ? ` · +${liveOverlayCount} معتمدة حديثاً` : ''}
                         </span>
                       </div>
                     )}
@@ -1702,6 +1672,25 @@ export default function App() {
                         </div>
                       )}
 
+                      {selectedRegion !== 'all' && (
+                        <div className="flex items-center gap-2 text-xs text-zinc-600 dark:text-zinc-400">
+                          <span>
+                            المنطقة النشطة:{' '}
+                            <strong className="text-zinc-950 dark:text-white">
+                              {selectedRegion}
+                            </strong>
+                          </span>
+                          <span aria-hidden="true">·</span>
+                          <button
+                            type="button"
+                            onClick={() => setSelectedRegion('all')}
+                            className="font-semibold text-emerald-700 hover:underline cursor-pointer dark:text-[#D9FF43]"
+                          >
+                            عرض كل المناطق
+                          </button>
+                        </div>
+                      )}
+
                       <div
                         role="group"
                         aria-label="نمط عرض المفردة"
@@ -1810,7 +1799,7 @@ export default function App() {
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 gap-6 xl:grid-cols-12 items-start">
-                    <div className="min-w-0 xl:col-span-4">
+                    <div ref={lexiconSidebarPaneRef} className="min-w-0 xl:col-span-4 scroll-mt-16">
                       <LexiconSidebar
                         categories={categories}
                         entries={entries}
@@ -1823,11 +1812,12 @@ export default function App() {
                         selectedRegister={selectedRegister}
                         selectedRegion={selectedRegion}
                         selectedEtymology={selectedEtymology}
-                        regions={Array.from(
-                          new Set(entries.flatMap((entry) => entry.region ?? [])),
-                        ).sort()}
+                        regions={availableRegions}
                         dataMode={dataMode}
                         drafts={drafts}
+                        bookmarkedEntryIds={bookmarkedIds}
+                        onlyBookmarked={onlyBookmarked}
+                        onToggleOnlyBookmarked={() => setOnlyBookmarked((prev) => !prev)}
                         onQueryChange={setQuery}
                         onCategoryChange={setSelectedCategory}
                         onExampleFilterChange={setExampleFilter}
@@ -1840,11 +1830,25 @@ export default function App() {
                           setExplicitEntryId(entry.id)
                           setStandaloneReferenceView(false)
                         }}
+                        onJumpToDetailCard={scrollToLexiconDetailOnMobile}
                         onResetFilters={handleResetFilters}
                       />
                     </div>
 
-                    <div className="min-w-0 xl:col-span-8">
+                    <div ref={lexiconDetailPaneRef} className="min-w-0 xl:col-span-8 space-y-3 scroll-mt-16">
+                      <div className="flex items-center justify-between gap-2 xl:hidden">
+                        <span className="text-xs font-semibold text-zinc-500 dark:text-zinc-400">
+                          البطاقة المعروضة: <strong className="text-zinc-900 dark:text-white">«{activeEntry.word}»</strong>
+                        </span>
+                        <button
+                          type="button"
+                          onClick={scrollToLexiconSidebarOnMobile}
+                          className="inline-flex min-h-[32px] items-center gap-1.5 rounded-full border border-zinc-300 bg-white px-3 py-1 text-xs font-semibold text-zinc-700 hover:bg-zinc-50 cursor-pointer dark:border-white/15 dark:bg-[#0C0C10] dark:text-zinc-200"
+                        >
+                          <ArrowUp className="h-3.5 w-3.5 text-emerald-700 dark:text-[#D9FF43]" />
+                          <span>فهرس البحث والتصفية</span>
+                        </button>
+                      </div>
                       {lexiconDetailMode === 'reference' ? (
                         <DictionaryReferenceCard
                           entry={activeEntry}
@@ -2013,7 +2017,7 @@ export default function App() {
                     setStandaloneReferenceView(false)
                     setLexiconDetailMode('reference')
                     setExplorerSubView('entries')
-                    navigatePage('lexicon', { subView: 'entries', entryId: null })
+                    navigatePage('lexicon', { subView: 'entries', entryId: null, region })
                   }}
                   onStartRapidReview={() => navigatePage('review')}
                 />
@@ -2042,7 +2046,7 @@ export default function App() {
                   setStandaloneReferenceView(false)
                   setLexiconDetailMode('reference')
                   setExplorerSubView('entries')
-                  navigatePage('lexicon', { subView: 'entries', entryId: null })
+                  navigatePage('lexicon', { subView: 'entries', entryId: null, region })
                 }}
                 onInspectWordInLexicon={(word) => {
                   const found = entries.find((e) => e.word === word)
@@ -2157,6 +2161,7 @@ export default function App() {
                   onOpenContributorsDirectory={(slug) =>
                     navigatePage('contributors', { contributorSlug: slug ?? null })
                   }
+                  onOpenPromotionModal={() => setPromotionModalOpen(true)}
                 />
               ) : (
                 <AuthDialog
@@ -2193,6 +2198,7 @@ export default function App() {
                   onOpenAuth={() => setAuthDialogOpen(true)}
                   onGoToExporter={handleGoToExporter}
                   onDecisionSaved={() => {
+                    void refreshLiveApprovedOverlay()
                     void refreshMessages()
                     void refreshPublicDirectory()
                     setSubmissionsRefreshCounter((c) => c + 1)
@@ -2288,22 +2294,32 @@ export default function App() {
           onDraftsSyncedSuccess={() => setSubmissionsRefreshCounter((c) => c + 1)}
           onJumpToAdminGovernance={handleJumpToAdminGovernance}
         />
+        <EditorPromotionModal
+          open={promotionModalOpen}
+          onClose={() => setPromotionModalOpen(false)}
+          profile={reviewerProfile}
+          userEmail={userEmail}
+          acceptedCount={reviewerProfile?.accepted_count ?? 0}
+          attestationsCount={totalAttestationsCount}
+          onSubmitted={() => {
+            void syncUserSession()
+            void refreshPublicDirectory()
+          }}
+        />
       </Suspense>
 
-      {/* Global Command Palette (Ctrl+K / Cmd+K) — Strictly for Authenticated Members */}
-      {Boolean(userEmail) && (
-        <CommandPalette
-          open={commandPaletteOpen}
-          onClose={() => setCommandPaletteOpen(false)}
-          entries={entries}
-          isAuthenticated
-          canAccessEditorialTools={canAccessEditorialTools}
-          draftsCount={draftsList.length}
-          onNavigatePage={navigatePage}
-          onSelectEntry={(entry) => handleSelectEntryAndOpenPage(entry, true)}
-          onQuickAddWord={handleQuickAddWord}
-        />
-      )}
+      {/* Global Command Palette (Ctrl+K / Cmd+K) — Open to Visitors & Members with Role-Scoped Destinations */}
+      <CommandPalette
+        open={commandPaletteOpen}
+        onClose={() => setCommandPaletteOpen(false)}
+        entries={entries}
+        isAuthenticated={Boolean(userEmail)}
+        canAccessEditorialTools={canAccessEditorialTools}
+        draftsCount={draftsList.length}
+        onNavigatePage={navigatePage}
+        onSelectEntry={(entry) => handleSelectEntryAndOpenPage(entry, true)}
+        onQuickAddWord={handleQuickAddWord}
+      />
 
       {/* Mandatory Official Warning Acknowledgment Modal — Authenticated Members Only */}
       {Boolean(userEmail) && (

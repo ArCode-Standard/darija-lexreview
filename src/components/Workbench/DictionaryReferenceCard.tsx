@@ -244,12 +244,20 @@ export function DictionaryReferenceCard({
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          {isAuthenticated && onToggleBookmark && (
+          {onToggleBookmark && (
             <button
               type="button"
               onClick={onToggleBookmark}
               aria-pressed={isBookmarked}
-              title={isBookmarked ? 'إزالة المفردة من المفضلة' : 'حفظ المفردة في مفضلتي'}
+              title={
+                isAuthenticated
+                  ? isBookmarked
+                    ? 'إزالة المفردة من المفضلة'
+                    : 'حفظ المفردة في مفضلتي'
+                  : isBookmarked
+                    ? 'إزالة المفردة من الحفظ المؤقت بالمتصفح'
+                    : 'حفظ مؤقت بالمتصفح (يُزامن تلقائياً عند تسجيل الدخول)'
+              }
               className={`inline-flex min-h-[34px] items-center gap-1.5 rounded-full border px-3.5 py-1 text-xs font-semibold transition-colors cursor-pointer ${
                 isBookmarked
                   ? 'border-emerald-600 bg-emerald-50 text-emerald-900 dark:border-[#D9FF43] dark:bg-[#D9FF43]/15 dark:text-[#D9FF43]'
@@ -257,7 +265,15 @@ export function DictionaryReferenceCard({
               }`}
             >
               <Bookmark className={`h-3.5 w-3.5 ${isBookmarked ? 'fill-current' : ''}`} />
-              <span>{isBookmarked ? 'محفوظة' : 'حفظ'}</span>
+              <span>
+                {isAuthenticated
+                  ? isBookmarked
+                    ? 'محفوظة'
+                    : 'حفظ'
+                  : isBookmarked
+                    ? 'محفوظة بالمتصفح'
+                    : 'حفظ مؤقت بالمتصفح'}
+              </span>
             </button>
           )}
 

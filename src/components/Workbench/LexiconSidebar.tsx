@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { RotateCcw, Search, Shuffle, SlidersHorizontal } from 'lucide-react'
+import { ArrowDown, Bookmark, RotateCcw, Search, Shuffle, SlidersHorizontal } from 'lucide-react'
 import type { DataMode, ExampleFilter, LexicalEntry, LocalDraft } from '../../types/lexicon'
 import { formatAccessionCode, formatStatusLabel } from '../../services/dataset'
 import { ETYMOLOGY_OPTIONS, formatEtymologyShortLabel } from '../../utils/etymology'
@@ -19,6 +19,9 @@ interface LexiconSidebarProps {
   regions: string[]
   dataMode: DataMode
   drafts: Record<string, LocalDraft>
+  bookmarkedEntryIds?: string[]
+  onlyBookmarked?: boolean
+  onToggleOnlyBookmarked?: () => void
   onQueryChange: (q: string) => void
   onCategoryChange: (cat: string) => void
   onExampleFilterChange: (f: ExampleFilter) => void
@@ -27,6 +30,7 @@ interface LexiconSidebarProps {
   onRegionChange: (value: string) => void
   onEtymologyChange?: (value: string) => void
   onSelectEntry: (entry: LexicalEntry) => void
+  onJumpToDetailCard?: () => void
   onResetFilters: () => void
 }
 
@@ -47,6 +51,9 @@ export function LexiconSidebar({
   regions,
   dataMode,
   drafts,
+  bookmarkedEntryIds = [],
+  onlyBookmarked = false,
+  onToggleOnlyBookmarked,
   onQueryChange,
   onCategoryChange,
   onExampleFilterChange,
@@ -55,6 +62,7 @@ export function LexiconSidebar({
   onRegionChange,
   onEtymologyChange,
   onSelectEntry,
+  onJumpToDetailCard,
   onResetFilters,
 }: LexiconSidebarProps) {
   const [visibleCount, setVisibleCount] = useState(PAGE_STEP)
@@ -75,6 +83,7 @@ export function LexiconSidebar({
     selectedRegister,
     selectedRegion,
     selectedEtymology,
+    onlyBookmarked,
   ])
 
   useEffect(() => {
@@ -86,6 +95,7 @@ export function LexiconSidebar({
     query.trim() !== '' ||
     selectedCategory !== 'all' ||
     exampleFilter !== 'all' ||
+    onlyBookmarked ||
     hasAdvancedActive
 
   function handlePickRandom() {
@@ -93,6 +103,7 @@ export function LexiconSidebar({
     if (pool.length === 0) return
     const randomIndex = Math.floor(Math.random() * pool.length)
     onSelectEntry(pool[randomIndex])
+    onJumpToDetailCard?.()
   }
 
   return (
@@ -199,6 +210,27 @@ export function LexiconSidebar({
           ))}
         </div>
 
+        {onToggleOnlyBookmarked && (bookmarkedEntryIds.length > 0 || onlyBookmarked) && (
+          <button
+            type="button"
+            onClick={onToggleOnlyBookmarked}
+            aria-pressed={onlyBookmarked}
+            className={`flex w-full min-h-[34px] items-center justify-between gap-2 rounded-xl border px-3 py-1.5 text-xs font-semibold transition-colors cursor-pointer ${
+              onlyBookmarked
+                ? 'border-emerald-600 bg-emerald-50 text-emerald-900 dark:border-[#D9FF43] dark:bg-[#D9FF43]/15 dark:text-[#D9FF43]'
+                : 'border-zinc-200 bg-zinc-50 text-zinc-700 hover:border-zinc-400 dark:border-white/12 dark:bg-[#07070A] dark:text-zinc-300'
+            }`}
+          >
+            <span className="inline-flex items-center gap-1.5">
+              <Bookmark className={`h-3.5 w-3.5 ${onlyBookmarked ? 'fill-current' : ''}`} />
+              <span>تصفية مفرداتي المحفوظة</span>
+            </span>
+            <span className="font-mono text-[11px] tabular-nums">
+              {bookmarkedEntryIds.length}
+            </span>
+          </button>
+        )}
+
         <div className="flex items-center justify-between pt-0.5">
           <button
             type="button"
@@ -280,6 +312,21 @@ export function LexiconSidebar({
         )}
       </div>
 
+      {onJumpToDetailCard && activeEntry && (
+        <div className="mt-3.5 xl:hidden">
+          <button
+            type="button"
+            onClick={onJumpToDetailCard}
+            className="flex w-full items-center justify-between gap-2 rounded-xl border border-emerald-600/35 bg-emerald-50/80 px-3.5 py-2.5 text-xs font-bold text-emerald-900 hover:bg-emerald-100/80 transition-colors cursor-pointer dark:border-[#D9FF43]/35 dark:bg-[#D9FF43]/10 dark:text-[#D9FF43]"
+          >
+            <span className="truncate">
+              انتقل إلى البطاقة المعروضة: «{activeEntry.word}»
+            </span>
+            <ArrowDown className="h-3.5 w-3.5 shrink-0" />
+          </button>
+        </div>
+      )}
+
       <div className="mt-4 max-h-[540px] overflow-y-auto pe-1 space-y-1">
         {dataMode === 'loading' ? (
           Array.from({ length: 6 }).map((_, idx) => (
@@ -314,7 +361,10 @@ export function LexiconSidebar({
                 <button
                   key={entry.id}
                   type="button"
-                  onClick={() => onSelectEntry(entry)}
+                  onClick={() => {
+                    onSelectEntry(entry)
+                    onJumpToDetailCard?.()
+                  }}
                   aria-current={isActive ? 'true' : undefined}
                   className={`w-full text-start rounded-xl border px-3.5 py-3 transition-colors duration-150 cursor-pointer ${
                     isActive
