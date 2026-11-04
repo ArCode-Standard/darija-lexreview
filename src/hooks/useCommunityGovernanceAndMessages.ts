@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { supabase } from '../lib/supabase'
+import { writeScannedContent } from '../lib/contentGateway'
 import type {
   AccountStatus,
   MemberMessageCategory,
@@ -421,28 +422,15 @@ export function useCommunityGovernanceAndMessages({
         suspended_until: suspendedUntil,
       }
 
-      const { error } = await supabase
-        .from('reviewer_profiles')
-        .update(updatePayload)
-        .eq('id', params.targetMember.id)
+      const { error } = await writeScannedContent('reviewer_profiles.admin_update', {
+        id: params.targetMember.id,
+        ...updatePayload,
+      })
 
       if (error) {
-        // Fallback if only `role` column exists before running the latest SQL migration
-        if (params.action === 'promote' || params.action === 'demote') {
-          const fallbackRes = await supabase
-            .from('reviewer_profiles')
-            .update({ role: nextRole })
-            .eq('id', params.targetMember.id)
-          if (!fallbackRes.error) {
-            await refreshAdminGovernance()
-            await refreshPublicDirectory()
-            return { ok: true }
-          }
-        }
         return {
           ok: false,
-          error:
-            'تعذر تطبيق الإجراء على سجل المنصة الرسمي. يرجى التواصل مع مسؤول النظام.',
+          error: 'تعذر تطبيق الإجراء الإداري بعد فحص سبب الإجراء والتحقق من الصلاحيات.',
         }
       }
 
@@ -491,11 +479,9 @@ export function useCommunityGovernanceAndMessages({
         return { ok: false, error: 'صلاحية الإرسال متاحة للمحررين والمشرفين المعتمدين فقط.' }
       }
 
-      const { error } = await supabase.from('member_messages').insert({
+      const { error } = await writeScannedContent('member_messages.create', {
         recipient_id: params.isBroadcast ? null : params.recipientId,
         is_broadcast: params.isBroadcast,
-        sender_id: currentProfile?.id ?? null,
-        sender_label: senderLabel,
         category: params.category,
         title: params.title.trim(),
         body: params.body.trim(),
@@ -531,10 +517,9 @@ export function useCommunityGovernanceAndMessages({
         return { ok: false, error: 'يتطلب رفع البلاغات صلاحية محرر معتمد.' }
       }
 
-      const { error } = await supabase.from('member_moderation_reports').insert({
+      const { error } = await writeScannedContent('member_moderation_reports.create', {
         target_user_id: params.targetUserId,
         target_display_name: params.targetDisplayName.trim() || null,
-        reporter_id: currentProfile?.id,
         recommended_action: params.recommendedAction,
         reason: params.reason.trim(),
       })
@@ -555,18 +540,13 @@ export function useCommunityGovernanceAndMessages({
       resolution: 'resolved' | 'dismissed'
       adminNote?: string
     }) => {
-      const now = new Date().toISOString()
-
       if (!supabase || !isAdmin) return
-      await supabase
-        .from('member_moderation_reports')
-        .update({
-          status: params.resolution,
-          reviewed_by: currentProfile?.id ?? null,
-          admin_note: params.adminNote?.trim() || null,
-          updated_at: now,
-        })
-        .eq('id', params.report.id)
+      const { error } = await writeScannedContent('member_moderation_reports.resolve', {
+        id: params.report.id,
+        status: params.resolution,
+        admin_note: params.adminNote?.trim() || null,
+      })
+      if (error) return
       void refreshAdminGovernance()
     },
     [currentProfile, isAdmin, refreshAdminGovernance],
