@@ -978,3 +978,530 @@ as $function$
 $function$;
 revoke all on function public.record_content_scan_event(uuid,text,text,text,text,text,jsonb) from public, anon, authenticated;
 grant execute on function public.record_content_scan_event(uuid,text,text,text,text,text,jsonb) to service_role;
+
+
+
+-- Governed dataset/evaluation/model lifecycle. No active release policy is seeded:
+-- a trusted maintainer must install a reviewed threshold policy before evaluations can pass.
+alter table private.dataset_registry
+  add column if not exists domain text
+  check (domain is null or domain in ('linguistic','content_safety'));
+alter table private.evaluation_runs
+  add column if not exists release_policy_version text;
+alter table private.model_registry
+  add column if not exists created_by uuid references auth.users(id);
+
+create table if not exists private.learning_release_policies (
+  id uuid primary key default gen_random_uuid(),
+  domain text not null check (domain in ('linguistic','content_safety')),
+  version text not null,
+  min_precision numeric not null check (min_precision between 0 and 1),
+  min_recall numeric not null check (min_recall between 0 and 1),
+  max_false_positive_rate numeric not null check (max_false_positive_rate between 0 and 1),
+  max_false_negative_rate numeric not null check (max_false_negative_rate between 0 and 1),
+  max_latency_ms numeric not null check (max_latency_ms > 0),
+  active boolean not null default false,
+  created_at timestamptz not null default now(),
+  unique(domain, version)
+);
+revoke all on private.learning_release_policies from public, anon, authenticated;
+grant select, insert, update, delete on private.learning_release_policies to service_role;
+
+create unique index if not exists model_registry_one_active_per_name_idx
+  on private.model_registry(model_name) where status = 'active';
+
+create or replace function private.create_frozen_learning_dataset(
+  p_domain text,
+  p_version text,
+  p_source_candidate_ids uuid[],
+  p_split_manifest jsonb,
+  p_created_by uuid
+) returns uuid
+language plpgsql
+security definer
+set search_path = ''
+as $function$
+declare
+  v_role text := coalesce(
+    nullif(pg_catalog.current_setting('request.jwt.claim.role', true), ''),
+    nullif(pg_catalog.current_setting('role', true), '')
+  );
+  v_id uuid;
+  v_fingerprint text;
+  v_sorted_ids uuid[];
+  v_split_count integer;
+begin
+  if v_role <> 'service_role' then
+    raise exception 'Service role required to freeze datasets' using errcode = '42501';
+  end if;
+  if p_domain not in ('linguistic','content_safety')
+     or p_version is null or pg_catalog.btrim(p_version) = ''
+     or p_created_by is null
+     or p_source_candidate_ids is null or pg_catalog.cardinality(p_source_candidate_ids) < 3
+     or p_split_manifest is null or pg_catalog.jsonb_typeof(p_split_manifest) <> 'object'
+     or pg_catalog.jsonb_object_length(p_split_manifest) <> 3
+     or p_split_manifest - array['train','validation','test'] <> '{}'::jsonb
+     or pg_catalog.jsonb_typeof(p_split_manifest->'train') <> 'array'
+     or pg_catalog.jsonb_typeof(p_split_manifest->'validation') <> 'array'
+     or pg_catalog.jsonb_typeof(p_split_manifest->'test') <> 'array'
+     or pg_catalog.jsonb_array_length(p_split_manifest->'train') = 0
+     or pg_catalog.jsonb_array_length(p_split_manifest->'validation') = 0
+     or pg_catalog.jsonb_array_length(p_split_manifest->'test') = 0 then
+    raise exception 'Dataset requires a domain, version, owner, and non-empty train/validation/test splits'
+      using errcode = '22023';
+  end if;
+
+  with split_members as (
+    select e.key as split_name, value::uuid as candidate_id
+    from pg_catalog.jsonb_each(p_split_manifest) e
+    cross join lateral pg_catalog.jsonb_array_elements_text(e.value)
+  )
+  select count(*)::integer into v_split_count from split_members;
+
+  if v_split_count <> pg_catalog.cardinality(p_source_candidate_ids)
+     or (select count(distinct x)::integer from pg_catalog.unnest(p_source_candidate_ids) x)
+        <> pg_catalog.cardinality(p_source_candidate_ids) then
+    raise exception 'Dataset split manifest must contain every source candidate exactly once'
+      using errcode = '22023';
+  end if;
+
+  with split_members as (
+    select e.key as split_name, value::uuid as candidate_id
+    from pg_catalog.jsonb_each(p_split_manifest) e
+    cross join lateral pg_catalog.jsonb_array_elements_text(e.value)
+  )
+  select pg_catalog.array_agg(candidate_id order by candidate_id)
+    into v_sorted_ids from split_members;
+
+  if v_sorted_ids is distinct from (
+    select pg_catalog.array_agg(x order by x) from pg_catalog.unnest(p_source_candidate_ids) x
+  ) then
+    raise exception 'Dataset source IDs and split manifest do not match'
+      using errcode = '22023';
+  end if;
+
+  if exists (
+    select 1
+    from private.feedback_candidates c
+    where c.id = any(p_source_candidate_ids)
+      and (c.status <> 'approved' or c.domain <> p_domain
+           or not c.consent_to_dataset_use or not c.pii_screened
+           or c.license is null or pg_catalog.btrim(c.license) = '')
+  ) or (
+    select count(*) from private.feedback_candidates c
+    where c.id = any(p_source_candidate_ids)
+  ) <> pg_catalog.cardinality(p_source_candidate_ids) then
+    raise exception 'All dataset candidates must exist, be approved, licensed, consented, and screened'
+      using errcode = '55000';
+  end if;
+
+  if exists (
+    with split_members as (
+      select e.key as split_name, value::uuid as candidate_id
+      from pg_catalog.jsonb_each(p_split_manifest) e
+      cross join lateral pg_catalog.jsonb_array_elements_text(e.value)
+    )
+    select c.group_id
+    from split_members sm join private.feedback_candidates c on c.id = sm.candidate_id
+    group by c.group_id having count(distinct sm.split_name) > 1
+    union all
+    select c.contributor_id::text
+    from split_members sm join private.feedback_candidates c on c.id = sm.candidate_id
+    group by c.contributor_id having count(distinct sm.split_name) > 1
+  ) then
+    raise exception 'Dataset split leakage detected across source groups or contributors'
+      using errcode = '22023';
+  end if;
+
+  select 'sha256:' || pg_catalog.encode(
+    extensions.digest(
+      pg_catalog.convert_to(
+        coalesce((
+          select pg_catalog.string_agg(c.id::text || ':' || pg_catalog.encode(c.text_digest,'hex'), '|' order by c.id)
+          from private.feedback_candidates c where c.id = any(p_source_candidate_ids)
+        ), '') || ':' || p_split_manifest::text,
+        'UTF8'
+      ),
+      'sha256'
+    ),
+    'hex'
+  ) into v_fingerprint;
+
+  insert into private.dataset_registry(
+    version, fingerprint, source_candidate_ids, split_manifest, frozen, created_by, domain
+  ) values (
+    pg_catalog.btrim(p_version), v_fingerprint, v_sorted_ids, p_split_manifest, true, p_created_by, p_domain
+  ) returning id into v_id;
+
+  return v_id;
+end;
+$function$;
+revoke all on function private.create_frozen_learning_dataset(text,text,uuid[],jsonb,uuid) from public, anon, authenticated;
+grant execute on function private.create_frozen_learning_dataset(text,text,uuid[],jsonb,uuid) to service_role;
+
+create or replace function public.create_frozen_learning_dataset(
+  p_domain text, p_version text, p_source_candidate_ids uuid[], p_split_manifest jsonb, p_created_by uuid
+) returns uuid
+language sql
+security invoker
+set search_path = ''
+as $function$
+  select private.create_frozen_learning_dataset(p_domain,p_version,p_source_candidate_ids,p_split_manifest,p_created_by);
+$function$;
+revoke all on function public.create_frozen_learning_dataset(text,text,uuid[],jsonb,uuid) from public, anon, authenticated;
+grant execute on function public.create_frozen_learning_dataset(text,text,uuid[],jsonb,uuid) to service_role;
+
+create or replace function private.record_learning_evaluation(
+  p_dataset_id uuid,
+  p_model_name text,
+  p_model_version text,
+  p_code_commit text,
+  p_artifact_digest text,
+  p_metrics jsonb
+) returns uuid
+language plpgsql
+security definer
+set search_path = ''
+as $function$
+declare
+  v_role text := coalesce(
+    nullif(pg_catalog.current_setting('request.jwt.claim.role', true), ''),
+    nullif(pg_catalog.current_setting('role', true), '')
+  );
+  v_dataset private.dataset_registry;
+  v_policy private.learning_release_policies;
+  v_precision numeric;
+  v_recall numeric;
+  v_fpr numeric;
+  v_fnr numeric;
+  v_latency numeric;
+  v_passed boolean;
+  v_id uuid;
+begin
+  if v_role <> 'service_role' then
+    raise exception 'Service role required to record evaluations' using errcode = '42501';
+  end if;
+  if p_model_name is null or pg_catalog.btrim(p_model_name) = ''
+     or p_model_version is null or pg_catalog.btrim(p_model_version) = ''
+     or p_code_commit !~ '^[a-f0-9]{40}$'
+     or p_artifact_digest !~ '^sha256:[a-f0-9]{64}$'
+     or p_metrics is null or pg_catalog.jsonb_typeof(p_metrics) <> 'object'
+     or pg_catalog.jsonb_object_length(p_metrics) <> 5
+     or p_metrics - array['precision','recall','false_positive_rate','false_negative_rate','latency_ms'] <> '{}'::jsonb then
+    raise exception 'Evaluation metadata is invalid' using errcode = '22023';
+  end if;
+
+  begin
+    v_precision := (p_metrics->>'precision')::numeric;
+    v_recall := (p_metrics->>'recall')::numeric;
+    v_fpr := (p_metrics->>'false_positive_rate')::numeric;
+    v_fnr := (p_metrics->>'false_negative_rate')::numeric;
+    v_latency := (p_metrics->>'latency_ms')::numeric;
+  exception when others then
+    raise exception 'Evaluation metrics must be numeric' using errcode = '22023';
+  end;
+
+  if v_precision not between 0 and 1 or v_recall not between 0 and 1
+     or v_fpr not between 0 and 1 or v_fnr not between 0 and 1
+     or v_latency < 0 then
+    raise exception 'Evaluation metrics are outside their valid ranges' using errcode = '22023';
+  end if;
+
+  select * into v_dataset from private.dataset_registry d
+  where d.id = p_dataset_id and d.frozen = true and d.domain is not null;
+  if not found then
+    raise exception 'A frozen, domain-labelled dataset is required' using errcode = '55000';
+  end if;
+
+  select * into v_policy from private.learning_release_policies p
+  where p.domain = v_dataset.domain and p.active = true
+  order by p.created_at desc limit 1;
+  if not found then
+    raise exception 'No reviewed active release policy exists for this dataset domain'
+      using errcode = '55000';
+  end if;
+
+  v_passed := v_precision >= v_policy.min_precision
+    and v_recall >= v_policy.min_recall
+    and v_fpr <= v_policy.max_false_positive_rate
+    and v_fnr <= v_policy.max_false_negative_rate
+    and v_latency <= v_policy.max_latency_ms;
+
+  insert into private.evaluation_runs(
+    dataset_id, model_name, model_version, code_commit, artifact_digest,
+    metrics, passed_release_gate, release_policy_version
+  ) values (
+    p_dataset_id, pg_catalog.btrim(p_model_name), pg_catalog.btrim(p_model_version),
+    p_code_commit, p_artifact_digest,
+    p_metrics || pg_catalog.jsonb_build_object('release_policy_version',v_policy.version),
+    v_passed, v_policy.version
+  ) returning id into v_id;
+
+  return v_id;
+end;
+$function$;
+revoke all on function private.record_learning_evaluation(uuid,text,text,text,text,jsonb) from public, anon, authenticated;
+grant execute on function private.record_learning_evaluation(uuid,text,text,text,text,jsonb) to service_role;
+
+create or replace function public.record_learning_evaluation(
+  p_dataset_id uuid, p_model_name text, p_model_version text, p_code_commit text,
+  p_artifact_digest text, p_metrics jsonb
+) returns uuid
+language sql
+security invoker
+set search_path = ''
+as $function$
+  select private.record_learning_evaluation(p_dataset_id,p_model_name,p_model_version,p_code_commit,p_artifact_digest,p_metrics);
+$function$;
+revoke all on function public.record_learning_evaluation(uuid,text,text,text,text,jsonb) from public, anon, authenticated;
+grant execute on function public.record_learning_evaluation(uuid,text,text,text,text,jsonb) to service_role;
+
+create or replace function private.register_model_candidate(
+  p_model_name text,
+  p_version text,
+  p_artifact_digest text,
+  p_dataset_id uuid,
+  p_evaluation_id uuid,
+  p_code_commit text,
+  p_created_by uuid
+) returns uuid
+language plpgsql
+security definer
+set search_path = ''
+as $function$
+declare
+  v_role text := coalesce(
+    nullif(pg_catalog.current_setting('request.jwt.claim.role', true), ''),
+    nullif(pg_catalog.current_setting('role', true), '')
+  );
+  v_id uuid;
+begin
+  if v_role <> 'service_role' then
+    raise exception 'Service role required to register model candidates' using errcode = '42501';
+  end if;
+  if p_model_name is null or pg_catalog.btrim(p_model_name) = ''
+     or p_version is null or pg_catalog.btrim(p_version) = ''
+     or p_artifact_digest !~ '^sha256:[a-f0-9]{64}$'
+     or p_code_commit !~ '^[a-f0-9]{40}$' or p_created_by is null then
+    raise exception 'Model candidate metadata is invalid' using errcode = '22023';
+  end if;
+  if not exists (
+    select 1 from private.dataset_registry d
+    join private.evaluation_runs e on e.dataset_id = d.id
+    where d.id = p_dataset_id and d.frozen = true
+      and e.id = p_evaluation_id and e.passed_release_gate = true
+      and e.artifact_digest = p_artifact_digest and e.code_commit = p_code_commit
+  ) then
+    raise exception 'Model candidate must match a passing evaluation on a frozen dataset'
+      using errcode = '55000';
+  end if;
+
+  insert into private.model_registry(
+    model_name, version, artifact_digest, dataset_id, evaluation_id, code_commit, created_by, status
+  ) values (
+    pg_catalog.btrim(p_model_name), pg_catalog.btrim(p_version), p_artifact_digest,
+    p_dataset_id, p_evaluation_id, p_code_commit, p_created_by, 'candidate'
+  ) returning id into v_id;
+  return v_id;
+end;
+$function$;
+revoke all on function private.register_model_candidate(text,text,text,uuid,uuid,text,uuid) from public, anon, authenticated;
+grant execute on function private.register_model_candidate(text,text,text,uuid,uuid,text,uuid) to service_role;
+
+create or replace function public.register_model_candidate(
+  p_model_name text, p_version text, p_artifact_digest text, p_dataset_id uuid,
+  p_evaluation_id uuid, p_code_commit text, p_created_by uuid
+) returns uuid
+language sql
+security invoker
+set search_path = ''
+as $function$
+  select private.register_model_candidate(p_model_name,p_version,p_artifact_digest,p_dataset_id,p_evaluation_id,p_code_commit,p_created_by);
+$function$;
+revoke all on function public.register_model_candidate(text,text,text,uuid,uuid,text,uuid) from public, anon, authenticated;
+grant execute on function public.register_model_candidate(text,text,text,uuid,uuid,text,uuid) to service_role;
+
+create or replace function private.review_model_release(
+  p_model_id uuid,
+  p_decision text,
+  p_reason text
+) returns text
+language plpgsql
+security definer
+set search_path = ''
+as $function$
+declare
+  v_actor uuid := (select auth.uid());
+  v_role text;
+  v_model private.model_registry;
+  v_domain text;
+  v_approvals integer;
+  v_required integer;
+begin
+  if v_actor is null then
+    raise exception 'Authentication required' using errcode = '42501';
+  end if;
+  select rp.role into v_role from public.reviewer_profiles rp
+  where rp.id = v_actor and rp.role in ('editor','admin')
+    and (rp.account_status in ('active','warned')
+      or (rp.account_status = 'suspended' and rp.suspended_until is not null and rp.suspended_until <= pg_catalog.now()));
+  if v_role is null then
+    raise exception 'Active editor role required' using errcode = '42501';
+  end if;
+  if p_decision not in ('approve','reject') or p_reason is null
+     or pg_catalog.char_length(pg_catalog.btrim(p_reason)) not between 1 and 2000 then
+    raise exception 'A valid release decision and rationale are required' using errcode = '22023';
+  end if;
+
+  select * into v_model from private.model_registry m
+  where m.id = p_model_id and m.status in ('candidate','approved') for update;
+  if not found then raise exception 'Model candidate is unavailable for review' using errcode = '55000'; end if;
+  if v_model.created_by = v_actor then
+    raise exception 'Model submitters cannot approve their own release' using errcode = '42501';
+  end if;
+  select d.domain into v_domain from private.dataset_registry d
+  where d.id = v_model.dataset_id and d.frozen = true;
+  if v_domain is null then raise exception 'Frozen dataset is required' using errcode = '55000'; end if;
+
+  insert into private.model_release_approvals(model_id,reviewer_id,decision,reason)
+  values (p_model_id,v_actor,p_decision,pg_catalog.btrim(p_reason));
+
+  if p_decision = 'reject' then return 'rejected'; end if;
+  if exists (select 1 from private.model_release_approvals a where a.model_id=p_model_id and a.decision='reject') then
+    return 'rejected';
+  end if;
+
+  select count(*)::integer into v_approvals from private.model_release_approvals a
+  where a.model_id=p_model_id and a.decision='approve';
+  v_required := case when v_domain = 'content_safety' then 2 else 1 end;
+  if v_approvals >= v_required then
+    update private.model_registry set status='approved' where id=p_model_id;
+    return 'approved';
+  end if;
+  return 'pending';
+end;
+$function$;
+revoke all on function private.review_model_release(uuid,text,text) from public, anon;
+grant execute on function private.review_model_release(uuid,text,text) to authenticated;
+
+create or replace function public.review_model_release(
+  p_model_id uuid, p_decision text, p_reason text
+) returns text
+language sql
+security invoker
+set search_path = ''
+as $function$
+  select private.review_model_release(p_model_id,p_decision,p_reason);
+$function$;
+revoke all on function public.review_model_release(uuid,text,text) from public, anon;
+grant execute on function public.review_model_release(uuid,text,text) to authenticated;
+
+create or replace function private.activate_model_release(p_model_id uuid)
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $function$
+declare
+  v_role text := coalesce(
+    nullif(pg_catalog.current_setting('request.jwt.claim.role', true), ''),
+    nullif(pg_catalog.current_setting('role', true), '')
+  );
+  v_model private.model_registry;
+  v_domain text;
+  v_approvals integer;
+  v_required integer;
+begin
+  if v_role <> 'service_role' then
+    raise exception 'Service role required to activate models' using errcode = '42501';
+  end if;
+  select * into v_model from private.model_registry m
+  where m.id=p_model_id and m.status='approved' for update;
+  if not found then raise exception 'Only approved model candidates can be activated' using errcode = '55000'; end if;
+  select d.domain into v_domain from private.dataset_registry d
+  where d.id=v_model.dataset_id and d.frozen=true;
+  v_required := case when v_domain='content_safety' then 2 else 1 end;
+  select count(*)::integer into v_approvals from private.model_release_approvals a
+  where a.model_id=p_model_id and a.decision='approve';
+  if v_domain is null or v_approvals < v_required
+     or exists(select 1 from private.model_release_approvals a where a.model_id=p_model_id and a.decision='reject')
+     or not exists(select 1 from private.evaluation_runs e where e.id=v_model.evaluation_id and e.passed_release_gate=true) then
+    raise exception 'Model release approval or evaluation gate is incomplete' using errcode = '55000';
+  end if;
+
+  update private.model_registry set status='approved'
+  where model_name=v_model.model_name and status='active';
+  update private.model_registry set status='active' where id=p_model_id;
+end;
+$function$;
+revoke all on function private.activate_model_release(uuid) from public, anon, authenticated;
+grant execute on function private.activate_model_release(uuid) to service_role;
+
+create or replace function public.activate_model_release(p_model_id uuid)
+returns void
+language sql
+security invoker
+set search_path = ''
+as $function$
+  select private.activate_model_release(p_model_id);
+$function$;
+revoke all on function public.activate_model_release(uuid) from public, anon, authenticated;
+grant execute on function public.activate_model_release(uuid) to service_role;
+
+create or replace function private.rollback_model_release(
+  p_model_name text,
+  p_target_model_id uuid,
+  p_reason text,
+  p_initiated_by uuid
+) returns void
+language plpgsql
+security definer
+set search_path = ''
+as $function$
+declare
+  v_role text := coalesce(
+    nullif(pg_catalog.current_setting('request.jwt.claim.role', true), ''),
+    nullif(pg_catalog.current_setting('role', true), '')
+  );
+  v_current private.model_registry;
+  v_target private.model_registry;
+begin
+  if v_role <> 'service_role' then
+    raise exception 'Service role required to roll back model releases' using errcode = '42501';
+  end if;
+  if p_model_name is null or pg_catalog.btrim(p_model_name) = ''
+     or p_reason is null or pg_catalog.char_length(pg_catalog.btrim(p_reason)) not between 1 and 2000
+     or p_initiated_by is null then
+    raise exception 'Rollback rationale and actor are required' using errcode = '22023';
+  end if;
+  select * into v_current from private.model_registry m
+  where m.model_name=p_model_name and m.status='active' for update;
+  select * into v_target from private.model_registry m
+  where m.id=p_target_model_id and m.model_name=p_model_name and m.status='approved' for update;
+  if v_current.id is null or v_target.id is null then
+    raise exception 'An active model and an approved rollback target are required' using errcode = '55000';
+  end if;
+  if not exists(select 1 from private.evaluation_runs e where e.id=v_target.evaluation_id and e.passed_release_gate=true) then
+    raise exception 'Rollback target no longer satisfies its evaluation gate' using errcode = '55000';
+  end if;
+
+  update private.model_registry set status='rolled_back' where id=v_current.id;
+  update private.model_registry set status='active' where id=v_target.id;
+  insert into private.model_rollbacks(model_name,from_model_id,to_model_id,reason,initiated_by)
+  values (p_model_name,v_current.id,v_target.id,pg_catalog.btrim(p_reason),p_initiated_by);
+end;
+$function$;
+revoke all on function private.rollback_model_release(text,uuid,text,uuid) from public, anon, authenticated;
+grant execute on function private.rollback_model_release(text,uuid,text,uuid) to service_role;
+
+create or replace function public.rollback_model_release(
+  p_model_name text, p_target_model_id uuid, p_reason text, p_initiated_by uuid
+) returns void
+language sql
+security invoker
+set search_path = ''
+as $function$
+  select private.rollback_model_release(p_model_name,p_target_model_id,p_reason,p_initiated_by);
+$function$;
+revoke all on function public.rollback_model_release(text,uuid,text,uuid) from public, anon, authenticated;
+grant execute on function public.rollback_model_release(text,uuid,text,uuid) to service_role;
