@@ -11,7 +11,7 @@
 | محرك الدارجة الموحد | [PR #23](https://github.com/ArCode-Standard/darija-lexreview/pull/23) | Draft — CI #280 ناجح | تطبيع، Arabizi، تشابه، تكرار، متغيرات، صرف، سياق، إشارات تحريرية |
 | Benchmark والتقرير | [PR #24](https://github.com/ArCode-Standard/darija-lexreview/pull/24) | Draft — CI #17 ناجح | مجموعة اختبار أولية، Precision/Recall/F1، قياس الأداء، تقرير عربي |
 | سلامة المحتوى والتعلم المحكوم | [PR #36](https://github.com/ArCode-Standard/darija-lexreview/pull/36) | Draft — CI #295 ناجح؛ CI #297 يعيد التحقق بعد تحديث الإصدار | محرك Content Safety 0.2.0، فحص payload، موافقات، dataset fingerprint، تقييم وإصدارات |
-| بوابة الخادم والتعلم الدائم | [Issue #37](https://github.com/ArCode-Standard/darija-lexreview/issues/37) | مفتوح — المرحلة التالية | Edge Function، رموز فحص أحادية الاستخدام، RPC، triggers، persistence، اختبارات منع تجاوز REST |
+| بوابة الخادم والتعلم الدائم | [PR #38](https://github.com/ArCode-Standard/darija-lexreview/pull/38) / [Issue #37](https://github.com/ArCode-Standard/darija-lexreview/issues/37) | Draft — تكامل مسارات الكتابة وRPCs ودورة حياة dataset/model أضيفت؛ CI وإعادة بناء DB ما زالا مطلوبين | بوابة خادمية، token/RPC، حواجز SQL، جميع أسطح الكتابة الأساسية، مراجعات مستقلة، تجميد datasets، evaluation gate، model activation/rollback |
 
 ## الفروع الخوارزمية السابقة
 
@@ -61,3 +61,15 @@
 - لم يتم نشر Edge Function أو تغيير secrets أو قاعدة الإنتاج.
 
 **شرط إكمال المرحلة:** توليد migration بأداة Supabase CLI، اختبارها محلياً وpgTAP، استكمال RPC/learning workflows، ترحيل كل مسارات الكتابة، ثم إثبات فشل direct REST في وضع enforce قبل طلب موافقة النشر.
+
+
+## تحديث تنفيذ Issue #37 — 2026-11-04
+
+- أضيف محول عميل fail-closed في `src/lib/contentGateway.ts`؛ لا يوجد fallback إلى REST عند فشل الفحص.
+- رُحّلت عمليات إنشاء المقترحات والمراجعات السريعة ومزامنة المسودات والقرارات التحريرية والتقييمات المجتمعية وملفات الأعضاء وطلبات الترقية والحوكمة والرسائل والبلاغات إلى بوابة الفحص وRPCs المخصصة.
+- مزامنة المسودات تستخدم رمزاً مستقلاً لكل سجل وتكشف عن نجاح جزئي بدلاً من إعادة الإرسال المباشر.
+- أُصلحت إسقاطات SQL لتشمل `dialect_region` في التقييمات المجتمعية وطلبات الترقية؛ أضيفت اختبارات pgTAP لذلك.
+- أضيفت RPCs خاصة لتجميد مجموعات البيانات ومنع تسرب المجموعة/المساهم بين splits، وتسجيل التقييم وفق سياسة إصدارها، وتسجيل المرشحين، والمراجعة المستقلة، والتفعيل، والتراجع.
+- لم تُضف أي سياسة إطلاق افتراضية؛ تقييم النموذج لا يجتاز البوابة دون سياسة مراجعة نشطة يثبتها مشغل موثوق.
+- لم تُنفذ Migration أو نشر Edge Functions أو تغيير أسرار أو بيانات الإنتاج.
+- CI بعد آخر تعديلات SQL والواجهة لم يُؤكد نجاحه بعد. لا تعتبر هذه المرحلة مكتملة أو صالحة للإنتاج حتى نجاح إعادة بناء قاعدة معزولة وpgTAP واختبارات واجهة فعلية.
