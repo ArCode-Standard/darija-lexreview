@@ -1,4 +1,5 @@
 import type { EvidenceItem, LexicalEntry } from '../types/lexicon'
+import { toDarijaPhoneticSkeleton } from './phoneticSearch'
 
 const ARABIC_DIACRITICS_RE = /[\u064B-\u065F\u0670\u0640]/g
 const ARABIC_SCRIPT_RE = /[\u0600-\u06FF]/
@@ -51,7 +52,7 @@ export const ARABIZI_CONVENTIONS = [
 ] as const
 
 /**
- * Normalizes Arabic text for reliable duplicate/collision detection.
+ * Normalizes Arabic text for exact/orthographic duplicate detection.
  */
 export function normalizeArabicHeadword(input: string): string {
   return input
@@ -61,6 +62,47 @@ export function normalizeArabicHeadword(input: string): string {
     .replace(/ة/g, 'ه')
     .replace(/ى/g, 'ي')
     .replace(/\s+/g, ' ')
+}
+
+/**
+ * Deeper Moroccan Darija orthographic normalization to catch common spelling
+ * divergences across contributors:
+ * - Taa marbuta / haa / final feminine -a (`دغيا` <-> `دغية` <-> `دغيه`)
+ * - Kaf / Gaf variants (`ك` <-> `گ` <-> `ݣ` <-> `ک`)
+ * - Prosthetic initial alif before consonant clusters (`شنو` <-> `أشنو`, `شحال` <-> `اشحال`)
+ * - Optional interior long-vowel letters (`واخا` <-> `وخا`, `بزاف` <-> `بيزاف`, `مزيان` <-> `مزين`)
+ */
+export function normalizeDarijaOrthographicKey(input: string): string {
+  let s = normalizeArabicHeadword(input)
+    .replace(/[گݣک]/g, 'ك')
+    .replace(/[پ]/g, 'ب')
+    .replace(/[ڤ]/g, 'ف')
+
+  if (!s) return ''
+
+  return s
+    .split(' ')
+    .map((word) => {
+      if (word.length < 3) return word
+      let w = word
+      // Normalize final -a / -ah / -at feminine Darija spelling (`دغيا` / `دغية` / `دغيه`)
+      w = w.replace(/[ها]$/, 'ه')
+      // Strip prosthetic initial alif on 4+ char words (`اشنو` -> `شنو`, `اشحال` -> `شحال`)
+      if (w.length >= 4 && w.startsWith('ا') && !w.startsWith('ال')) {
+        w = w.slice(1)
+      }
+      // Collapse interior weak vowels (`ا`, `و`, `ي`) while keeping first & last char intact
+      if (w.length >= 4) {
+        const first = w[0]
+        const last = w[w.length - 1]
+        const middle = w.slice(1, -1).replace(/[اوي]/g, '')
+        w = `${first}${middle}${last}`
+      }
+      // Collapse geminated letters
+      w = w.replace(/(.)\1+/g, '$1')
+      return w
+    })
+    .join(' ')
 }
 
 export function normalizeArabizi(input: string): string {
@@ -135,6 +177,91 @@ export function isValidArabizi(value: string): boolean {
   return trimmed.length > 0 && LATIN_ARABIZI_RE.test(trimmed) && !ARABIC_SCRIPT_RE.test(trimmed)
 }
 
+export interface FuzzyCorpusMatch {
+  entry: LexicalEntry
+  matchKind: 'exact' | 'darija_spelling' | 'phonetic'
+}
+
+/**
+ * Smart Darija duplicate & near-spelling detector for the New Entry Proposal form.
+ * Catches exact matches plus Darija spelling divergences (تاء مربوطة/هاء/ألف، كاف/گاف،
+ * حذف أو إثبات الألف والواو والياء، وهمزة الوصل مثل شنو/أشنو) and phonetic Arabizi collisions.
+ */
+export function findFuzzyCorpusMatches(
+  entries: LexicalEntry[],
+  wordAr: string,
+  arabizi: string,
+): FuzzyCorpusMatch[] {
+  const normAr = normalizeArabicHeadword(wordAr)
+  const orthoAr = normalizeDarijaOrthographicKey(wordAr)
+  const normLat = normalizeArabizi(arabizi)
+  const skelInput = toDarijaPhoneticSkeleton(wordAr || arabizi)
+
+  if (!normAr && !normLat) return []
+
+  const results: FuzzyCorpusMatch[] = []
+  const seen = new Set<string>()
+
+  for (const entry of entries) {
+    const entryNormAr = normalizeArabicHeadword(entry.word)
+    const entryOrthoAr = normalizeDarijaOrthographicKey(entry.word)
+    const entryLatParts = normalizeArabizi(entry.latin)
+      .split('/')
+      .map((s) => s.trim())
+      .filter(Boolean)
+
+    const isExactAr = normAr.length >= 2 && entryNormAr === normAr
+    const isExactLat = normLat.length >= 3 && entryLatParts.includes(normLat)
+
+    if (isExactAr || isExactLat) {
+      seen.add(entry.id)
+      results.push({ entry, matchKind: 'exact' })
+      continue
+    }
+
+    const isDarijaSpellingVariant =
+      orthoAr.length >= 2 &&
+      entryOrthoAr.length >= 2 &&
+      orthoAr === entryOrthoAr
+
+    if (isDarijaSpellingVariant && !seen.has(entry.id)) {
+      seen.add(entry.id)
+      results.push({ entry, matchKind: 'darija_spelling' })
+      continue
+    }
+
+    if (skelInput.length >= 3) {
+      const entrySkels = [
+        toDarijaPhoneticSkeleton(entry.word),
+        ...entryLatParts.map((p) => toDarijaPhoneticSkeleton(p)),
+      ].filter((s) => s.length >= 3)
+
+      // Unify trailing h/t/a variance on phonetic skeletons (e.g. dghya -> d4y vs dghyah -> d4yh)
+      const stripWeakTail = (s: string) => (s.length >= 3 ? s.replace(/^a/, '').replace(/[ht]$/, '') : s)
+      const coreInput = stripWeakTail(skelInput)
+
+      const isPhoneticCollision =
+        coreInput.length >= 2 &&
+        entrySkels.some((es) => {
+          const coreEntry = stripWeakTail(es)
+          return es === skelInput || (coreEntry.length >= 2 && coreEntry === coreInput && Math.abs(es.length - skelInput.length) <= 1)
+        })
+
+      if (isPhoneticCollision && !seen.has(entry.id)) {
+        seen.add(entry.id)
+        results.push({ entry, matchKind: 'phonetic' })
+      }
+    }
+  }
+
+  const rank: Record<FuzzyCorpusMatch['matchKind'], number> = {
+    exact: 0,
+    darija_spelling: 1,
+    phonetic: 2,
+  }
+  return results.sort((a, b) => rank[a.matchKind] - rank[b.matchKind])
+}
+
 /**
  * Finds exact or orthographically normalized matches in the official lexicon.
  */
@@ -143,23 +270,5 @@ export function findSimilarCorpusEntries(
   wordAr: string,
   arabizi: string,
 ): LexicalEntry[] {
-  const normAr = normalizeArabicHeadword(wordAr)
-  const normLat = normalizeArabizi(arabizi)
-
-  if (!normAr && !normLat) return []
-
-  return entries.filter((entry) => {
-    const entryNormAr = normalizeArabicHeadword(entry.word)
-    const entryNormLat = normalizeArabizi(entry.latin)
-
-    const arMatch = normAr.length >= 2 && entryNormAr === normAr
-    const latMatch =
-      normLat.length >= 3 &&
-      entryNormLat
-        .split('/')
-        .map((s) => s.trim())
-        .includes(normLat)
-
-    return arMatch || latMatch
-  })
+  return findFuzzyCorpusMatches(entries, wordAr, arabizi).map((m) => m.entry)
 }

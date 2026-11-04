@@ -38,11 +38,33 @@ import {
   workbenchTabToPage,
 } from './utils/urlState'
 import { syncPageSeo } from './utils/seo'
+import {
+  THEME_STORAGE_KEY,
+  getStoredThemePreference,
+  getSystemThemePreference,
+  persistManualThemePreference,
+  resolveInitialTheme,
+} from './utils/themePreference'
+import type { OpenSubmissionFromMessageParams } from './components/Workbench/MemberMessagesPage'
 import { useLocalDrafts } from './hooks/useLocalDrafts'
 import { useCommunityAttestations } from './hooks/useCommunityAttestations'
 import { useCommunityGovernanceAndMessages } from './hooks/useCommunityGovernanceAndMessages'
+import { useMemberBookmarks } from './hooks/useMemberBookmarks'
+import {
+  type ComputedSprintProgress,
+  useDocumentationSprints,
+} from './hooks/useDocumentationSprints'
+import { formatEtymologyLabel } from './utils/etymology'
+import {
+  buildThematicCollections,
+  findThematicCollectionBySlug,
+} from './utils/thematicCollections'
 import { Navbar } from './components/Navbar'
 import { HeroSection } from './components/HeroSection'
+import { DailySpotlightAndRegionalTasks } from './components/DailySpotlightAndRegionalTasks'
+import { DocumentationSprintBanner } from './components/DocumentationSprintBanner'
+import { HomeThematicCollectionsGateway } from './components/Workbench/ThematicCollectionsPage'
+import type { AdminTab } from './components/Workbench/AdminMembersPanel'
 import { WorkspaceShell } from './components/WorkspaceShell'
 import { CommandPalette } from './components/CommandPalette'
 import { LocalDraftSyncBanner } from './components/LocalDraftSyncBanner'
@@ -128,6 +150,16 @@ const MethodologySection = lazy(() =>
 const AuthDialog = lazy(() =>
   import('./components/AuthDialog').then((module) => ({ default: module.AuthDialog })),
 )
+const ThematicCollectionsPage = lazy(() =>
+  import('./components/Workbench/ThematicCollectionsPage').then((module) => ({
+    default: module.ThematicCollectionsPage,
+  })),
+)
+const EmbeddedWordWidgetView = lazy(() =>
+  import('./components/EmbeddedWordWidgetView').then((module) => ({
+    default: module.EmbeddedWordWidgetView,
+  })),
+)
 
 interface PageHeadingMeta {
   eyebrow: string
@@ -135,7 +167,7 @@ interface PageHeadingMeta {
   subtitle: string
 }
 
-const WORKSPACE_PAGE_HEADINGS: Record<Exclude<AppPage, 'home' | 'auth'>, PageHeadingMeta> = {
+const WORKSPACE_PAGE_HEADINGS: Record<Exclude<AppPage, 'home' | 'auth' | 'embed'>, PageHeadingMeta> = {
   review: {
     eyebrow: '01 / RAPID ATTESTATION',
     title: 'المراجعة السريعة للمفردات والشواهد',
@@ -144,7 +176,12 @@ const WORKSPACE_PAGE_HEADINGS: Record<Exclude<AppPage, 'home' | 'auth'>, PageHea
   lexicon: {
     eyebrow: '02 / LEXICON EXPLORER',
     title: 'تصفح المعجم المغربي والفئات الدلالية',
-    subtitle: 'استعرض البطاقات القاموسية المعتمدة، اقتبس المفردات أكاديمياً، أو انتقل لورشة الإثراء والتدقيق.',
+    subtitle: 'استعرض البطاقات القاموسية المعتمدة، التأصيل اللغوي، أو انتقل لورشة الإثراء والتدقيق.',
+  },
+  collections: {
+    eyebrow: '02B / THEMATIC COLLECTIONS',
+    title: 'المجموعات الموضوعاتية والمعاجم المصغّرة',
+    subtitle: 'بوابات استكشافية منسّقة للزوار والباحثين: الأمثال الشعبية، المطبخ وأتاي، المعمار، والروافد التاريخية.',
   },
   insights: {
     eyebrow: '03 / CORPUS COVERAGE & GAPS',
@@ -218,13 +255,24 @@ export default function App() {
     initialRoute.explorerSubView,
   )
   const [explicitEntryId, setExplicitEntryId] = useState<string | null>(initialRoute.entryId)
+  const [explicitContributorSlug, setExplicitContributorSlug] = useState<string | null>(
+    initialRoute.contributorSlug ?? null,
+  )
+  const [explicitCollectionSlug, setExplicitCollectionSlug] = useState<string | null>(
+    initialRoute.collectionSlug ?? null,
+  )
+  const [embedTheme, setEmbedTheme] = useState<'light' | 'dark' | 'auto'>(
+    initialRoute.embedTheme ?? 'auto',
+  )
+  const [embedCompact, setEmbedCompact] = useState<boolean>(Boolean(initialRoute.embedCompact))
   const [standaloneReferenceView, setStandaloneReferenceView] = useState<boolean>(
-    Boolean(initialRoute.entryId),
+    Boolean(initialRoute.entryId) && initialRoute.page === 'lexicon',
   )
   const [lexiconDetailMode, setLexiconDetailMode] = useState<'reference' | 'workshop'>('reference')
   const [workshopFocusExample, setWorkshopFocusExample] = useState(false)
   const [focusMode, setFocusMode] = useState(false)
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false)
+  const [adminInitialTab, setAdminInitialTab] = useState<AdminTab | undefined>(undefined)
 
   const [query, setQuery] = useState(initialRoute.query)
   const [selectedCategory, setSelectedCategory] = useState(initialRoute.category)
@@ -232,6 +280,9 @@ export default function App() {
   const [selectedEntryType, setSelectedEntryType] = useState('all')
   const [selectedRegister, setSelectedRegister] = useState('all')
   const [selectedRegion, setSelectedRegion] = useState('all')
+  const [selectedEtymology, setSelectedEtymology] = useState<string>(
+    initialRoute.etymology ?? 'all',
+  )
   const [activeId, setActiveId] = useState<string>(initialRoute.entryId ?? DEMO_ENTRIES[0].id)
 
   const [resumedNewDraft, setResumedNewDraft] = useState<LocalDraft | null>(null)
@@ -244,15 +295,19 @@ export default function App() {
   const [authProvider, setAuthProvider] = useState<string | null>(null)
   const [reviewerProfile, setReviewerProfile] = useState<ReviewerProfile | null>(null)
   const [submissionsRefreshCounter, setSubmissionsRefreshCounter] = useState(0)
+  const [highlightedSubmissionId, setHighlightedSubmissionId] = useState<string | null>(null)
 
-  const [darkMode, setDarkMode] = useState<boolean>(() => {
-    try {
-      const saved = localStorage.getItem('arcode_lexreview_theme')
-      return saved ? saved === 'dark' : true
-    } catch {
-      return true
-    }
-  })
+  const [darkMode, setDarkMode] = useState<boolean>(
+    () => resolveInitialTheme() === 'dark',
+  )
+
+  const handleToggleDarkMode = useCallback(() => {
+    setDarkMode((prev) => {
+      const next = !prev
+      persistManualThemePreference(next ? 'dark' : 'light')
+      return next
+    })
+  }, [])
 
   const corpusVersion = useMemo(() => extractCorpusVersion(rawCorpus), [rawCorpus])
   const isStaffRole =
@@ -301,11 +356,71 @@ export default function App() {
     submitModerationReport,
     resolveModerationReport,
     refreshPublicDirectory,
+    refreshMessages,
   } = useCommunityGovernanceAndMessages({
     currentProfile: reviewerProfile,
     userEmail,
     totalAttestationsCount,
   })
+
+  const {
+    bookmarkedIds,
+    isBookmarked,
+    toggleBookmark,
+    removeBookmark,
+  } = useMemberBookmarks({
+    userId: reviewerProfile?.id,
+    userEmail,
+  })
+
+  const {
+    sprints,
+    activeSprintProgress,
+    totalMySprintContributions,
+    recordSprintParticipation,
+    createSprint,
+    updateSprintStatus,
+  } = useDocumentationSprints({
+    entries,
+    summariesByEntryId,
+    userId: reviewerProfile?.id,
+    userEmail,
+  })
+
+  const handleRecordAttestationWithSprint = useCallback(
+    (params: Parameters<typeof recordAttestation>[0]) => {
+      const matchedEntry = entries.find((e) => e.id === params.entryId)
+      if (matchedEntry) {
+        void recordSprintParticipation(matchedEntry)
+      }
+      return recordAttestation(params)
+    },
+    [recordAttestation, entries, recordSprintParticipation],
+  )
+
+  const thematicCollections = useMemo(() => buildThematicCollections(entries), [entries])
+  const activeCollectionForSeo = useMemo(() => {
+    if (activePage !== 'collections' || !explicitCollectionSlug) return null
+    return findThematicCollectionBySlug(thematicCollections, explicitCollectionSlug)
+  }, [activePage, explicitCollectionSlug, thematicCollections])
+
+  const myPublicContributorSlug = useMemo(() => {
+    if (!reviewerProfile) return null
+    const match = publicContributors.find(
+      (c) =>
+        c.public_slug === `self-${reviewerProfile.id.slice(0, 8)}` ||
+        (reviewerProfile.github_handle &&
+          c.github_handle &&
+          c.github_handle.toLowerCase() === reviewerProfile.github_handle.toLowerCase()) ||
+        (reviewerProfile.display_name && c.display_name === reviewerProfile.display_name),
+    )
+    return match?.public_slug ?? `self-${reviewerProfile.id.slice(0, 8)}`
+  }, [reviewerProfile, publicContributors])
+
+  const activeContributorForSeo = useMemo(() => {
+    if (activePage !== 'contributors' || !explicitContributorSlug) return null
+    return publicContributors.find((c) => c.public_slug === explicitContributorSlug) ?? null
+  }, [activePage, explicitContributorSlug, publicContributors])
 
   // Remove obsolete browser-only simulation caches. This never touches Supabase or official drafts.
   useEffect(() => {
@@ -338,18 +453,37 @@ export default function App() {
     if (metaTheme) {
       metaTheme.setAttribute('content', darkMode ? '#050507' : '#FAFAFC')
     }
-    try {
-      localStorage.setItem('arcode_lexreview_theme', darkMode ? 'dark' : 'light')
-    } catch {
-      // Ignore storage error
-    }
   }, [darkMode])
+
+  // Follow device prefers-color-scheme automatically until the visitor manually toggles the header switch
+  useEffect(() => {
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
+    const onSystemThemeChange = () => {
+      if (getStoredThemePreference() === null) {
+        setDarkMode(getSystemThemePreference() === 'dark')
+      }
+    }
+    if (typeof mediaQuery.addEventListener === 'function') {
+      mediaQuery.addEventListener('change', onSystemThemeChange)
+      return () => mediaQuery.removeEventListener('change', onSystemThemeChange)
+    }
+    if (typeof mediaQuery.addListener === 'function') {
+      mediaQuery.addListener(onSystemThemeChange)
+      return () => mediaQuery.removeListener(onSystemThemeChange)
+    }
+    return undefined
+  }, [])
 
   // Sync theme if changed from institutional pages (/about/, /privacy/, etc.) in another tab
   useEffect(() => {
     const onStorage = (event: StorageEvent) => {
-      if (event.key === 'arcode_lexreview_theme' && event.newValue) {
-        setDarkMode(event.newValue !== 'light')
+      if (event.key === THEME_STORAGE_KEY) {
+        if (event.newValue === 'light' || event.newValue === 'dark') {
+          setDarkMode(event.newValue === 'dark')
+        } else {
+          setDarkMode(getSystemThemePreference() === 'dark')
+        }
       }
     }
     window.addEventListener('storage', onStorage)
@@ -387,7 +521,7 @@ export default function App() {
       let prof: ReviewerProfile | null = null
       const fullRes = await supabase
         .from('reviewer_profiles')
-        .select('id, display_name, dialect_region, specialty, github_handle, avatar_source, avatar_path, avatar_seed, role')
+        .select('id, display_name, dialect_region, specialty, github_handle, avatar_source, avatar_path, avatar_seed, public_listed, account_status, status_reason, suspended_until, role, created_at')
         .eq('id', user.id)
         .maybeSingle()
 
@@ -502,9 +636,21 @@ export default function App() {
       if (selectedEntryType !== 'all' && (entry.entryType ?? 'unknown') !== selectedEntryType) return false
       if (selectedRegister !== 'all' && (entry.register ?? 'unknown') !== selectedRegister) return false
       if (selectedRegion !== 'all' && !(entry.region ?? []).includes(selectedRegion)) return false
+      if (selectedEtymology !== 'all' && (entry.etymology ?? 'unspecified') !== selectedEtymology) {
+        return false
+      }
       return matchesDarijaQuery(entry, query)
     })
-  }, [entries, query, selectedCategory, exampleFilter, selectedEntryType, selectedRegister, selectedRegion])
+  }, [
+    entries,
+    query,
+    selectedCategory,
+    exampleFilter,
+    selectedEntryType,
+    selectedRegister,
+    selectedRegion,
+    selectedEtymology,
+  ])
 
   const activeEntry = useMemo(() => {
     return (
@@ -520,13 +666,16 @@ export default function App() {
     [filteredEntries, activeEntry.id],
   )
 
-// Navigate cleanly between independent pages with history pushState + instant scroll reset
+  // Navigate cleanly between independent pages with history pushState + instant scroll reset
   const navigatePage = useCallback(
     (
       nextPage: AppPage,
       options?: {
         subView?: 'entries' | 'categories'
         entryId?: string | null
+        contributorSlug?: string | null
+        collectionSlug?: string | null
+        etymology?: string
         preserveScroll?: boolean
       },
     ) => {
@@ -540,10 +689,29 @@ export default function App() {
             : options?.entryId !== undefined
               ? options.entryId
               : explicitEntryId
+          : nextPage === 'embed'
+            ? options?.entryId ?? explicitEntryId
+            : null
+      const resolvedContributorSlug =
+        nextPage === 'contributors'
+          ? options?.contributorSlug !== undefined
+            ? options.contributorSlug
+            : explicitContributorSlug
           : null
+      const resolvedCollectionSlug =
+        nextPage === 'collections'
+          ? options?.collectionSlug !== undefined
+            ? options.collectionSlug
+            : explicitCollectionSlug
+          : null
+      const resolvedEtymology =
+        options?.etymology !== undefined ? options.etymology : selectedEtymology
 
       if (options?.subView) {
         setExplorerSubView(options.subView)
+      }
+      if (options?.etymology !== undefined) {
+        setSelectedEtymology(options.etymology)
       }
       if (nextPage === 'lexicon') {
         setExplicitEntryId(resolvedEntryId)
@@ -554,6 +722,16 @@ export default function App() {
           setActiveId(resolvedEntryId)
         }
       }
+      if (nextPage === 'contributors') {
+        setExplicitContributorSlug(resolvedContributorSlug)
+      } else {
+        setExplicitContributorSlug(null)
+      }
+      if (nextPage === 'collections') {
+        setExplicitCollectionSlug(resolvedCollectionSlug)
+      } else {
+        setExplicitCollectionSlug(null)
+      }
 
       setActivePage(nextPage)
 
@@ -562,6 +740,11 @@ export default function App() {
           page: nextPage,
           explorerSubView: resolvedSubView,
           entryId: resolvedEntryId,
+          ...(resolvedContributorSlug ? { contributorSlug: resolvedContributorSlug } : {}),
+          ...(resolvedCollectionSlug ? { collectionSlug: resolvedCollectionSlug } : {}),
+          ...(resolvedEtymology && resolvedEtymology !== 'all'
+            ? { etymology: resolvedEtymology }
+            : {}),
           category: selectedCategory,
           exampleFilter,
           query,
@@ -575,7 +758,16 @@ export default function App() {
         }
       }
     },
-    [explorerSubView, explicitEntryId, selectedCategory, exampleFilter, query],
+    [
+      explorerSubView,
+      explicitEntryId,
+      explicitContributorSlug,
+      explicitCollectionSlug,
+      selectedEtymology,
+      selectedCategory,
+      exampleFilter,
+      query,
+    ],
   )
 
   const handleLegacyWorkbenchTabSelect = useCallback(
@@ -599,7 +791,27 @@ export default function App() {
     const nextUrl = buildAppRouteUrl({
       page: activePage,
       explorerSubView,
-      entryId: activePage === 'lexicon' && explorerSubView === 'entries' ? explicitEntryId : null,
+      entryId:
+        activePage === 'embed'
+          ? explicitEntryId ?? activeEntry.id
+          : activePage === 'lexicon' && explorerSubView === 'entries'
+            ? explicitEntryId
+            : null,
+      ...(activePage === 'contributors' && explicitContributorSlug
+        ? { contributorSlug: explicitContributorSlug }
+        : {}),
+      ...(activePage === 'collections' && explicitCollectionSlug
+        ? { collectionSlug: explicitCollectionSlug }
+        : {}),
+      ...(activePage === 'lexicon' && selectedEtymology !== 'all'
+        ? { etymology: selectedEtymology }
+        : {}),
+      ...(activePage === 'embed'
+        ? {
+            embedTheme,
+            embedCompact,
+          }
+        : {}),
       category: selectedCategory,
       exampleFilter,
       query,
@@ -611,7 +823,20 @@ export default function App() {
         activePage === 'home' && window.location.hash !== '#workspace' ? window.location.hash : ''
       window.history.replaceState(null, '', `${nextUrl}${preservedHash}`)
     }
-  }, [activePage, explorerSubView, explicitEntryId, selectedCategory, exampleFilter, query])
+  }, [
+    activePage,
+    explorerSubView,
+    explicitEntryId,
+    activeEntry.id,
+    explicitContributorSlug,
+    explicitCollectionSlug,
+    selectedEtymology,
+    embedTheme,
+    embedCompact,
+    selectedCategory,
+    exampleFilter,
+    query,
+  ])
 
   // Restore independent page state on browser Back / Forward navigation
   useEffect(() => {
@@ -624,9 +849,14 @@ export default function App() {
       setSelectedCategory(parsed.category)
       setExampleFilter(parsed.exampleFilter)
       setQuery(parsed.query)
+      setSelectedEtymology(parsed.etymology ?? 'all')
       setSelectedRegion(parsed.category ? 'all' : 'all')
       setExplicitEntryId(parsed.entryId)
-      setStandaloneReferenceView(Boolean(parsed.entryId))
+      setExplicitContributorSlug(parsed.contributorSlug ?? null)
+      setExplicitCollectionSlug(parsed.collectionSlug ?? null)
+      setEmbedTheme(parsed.embedTheme ?? 'auto')
+      setEmbedCompact(Boolean(parsed.embedCompact))
+      setStandaloneReferenceView(Boolean(parsed.entryId) && parsed.page === 'lexicon')
       if (parsed.entryId) {
         setActiveId(parsed.entryId)
       }
@@ -635,15 +865,26 @@ export default function App() {
     return () => window.removeEventListener('popstate', onPopState)
   }, [])
 
-  // Sync dynamic document title, description, canonical, OpenGraph, and DefinedTerm JSON-LD per page & entry
+  // Sync dynamic document title, description, canonical, OpenGraph, and DefinedTerm / CollectionPage / ProfilePage JSON-LD
   useEffect(() => {
     syncPageSeo({
       page: activePage,
       explorerSubView,
       activeEntry,
       hasExplicitEntryInPath: Boolean(explicitEntryId),
+      entriesCount: entries.length,
+      activeContributor: activeContributorForSeo,
+      activeCollection: activeCollectionForSeo,
     })
-  }, [activePage, explorerSubView, activeEntry, explicitEntryId])
+  }, [
+    activePage,
+    explorerSubView,
+    activeEntry,
+    explicitEntryId,
+    entries.length,
+    activeContributorForSeo,
+    activeCollectionForSeo,
+  ])
 
   function handleResetFilters() {
     setQuery('')
@@ -652,6 +893,52 @@ export default function App() {
     setSelectedEntryType('all')
     setSelectedRegister('all')
     setSelectedRegion('all')
+    setSelectedEtymology('all')
+  }
+
+  function handleJoinSprint(sp: ComputedSprintProgress) {
+    handleResetFilters()
+    const { target_type, target_value } = sp.sprint
+    if (target_type === 'missing_examples') {
+      setExampleFilter('needs_examples')
+      setExplicitEntryId(null)
+      setStandaloneReferenceView(false)
+      setExplorerSubView('entries')
+      setLexiconDetailMode('workshop')
+      setWorkshopFocusExample(true)
+      navigatePage('lexicon', { subView: 'entries', entryId: null })
+      return
+    }
+    if (target_type === 'region' && target_value) {
+      updateSessionPrefs({ dialectRegion: target_value })
+      navigatePage('review')
+      return
+    }
+    if (target_type === 'category' && target_value) {
+      setSelectedCategory(target_value)
+      setExplicitEntryId(null)
+      setStandaloneReferenceView(false)
+      setExplorerSubView('entries')
+      navigatePage('lexicon', { subView: 'entries', entryId: null })
+      return
+    }
+    if (target_type === 'entry_type' && target_value) {
+      setSelectedEntryType(target_value)
+      setExplicitEntryId(null)
+      setStandaloneReferenceView(false)
+      setExplorerSubView('entries')
+      navigatePage('lexicon', { subView: 'entries', entryId: null })
+      return
+    }
+    if (target_type === 'etymology' && target_value) {
+      setSelectedEtymology(target_value)
+      setExplicitEntryId(null)
+      setStandaloneReferenceView(false)
+      setExplorerSubView('entries')
+      navigatePage('lexicon', { subView: 'entries', entryId: null, etymology: target_value })
+      return
+    }
+    navigatePage('review')
   }
 
   function handleSelectEntryAndOpenPage(entry: LexicalEntry, pushHistory = true) {
@@ -711,6 +998,17 @@ export default function App() {
     handleSelectEntryAndOpenPage(entry, true)
   }
 
+  function handleEnrichEntryInWorkshop(entry: LexicalEntry) {
+    setFocusMode(false)
+    setActiveId(entry.id)
+    setExplicitEntryId(entry.id)
+    setStandaloneReferenceView(false)
+    setExplorerSubView('entries')
+    setLexiconDetailMode('workshop')
+    setWorkshopFocusExample(true)
+    navigatePage('lexicon', { subView: 'entries', entryId: entry.id })
+  }
+
   function handleResumeDraft(entryId: string) {
     setFocusMode(false)
     setRevisionTarget(null)
@@ -746,6 +1044,49 @@ export default function App() {
       setWorkshopFocusExample(false)
       navigatePage('lexicon', { subView: 'entries', entryId: submission.entry_id })
     }
+  }
+
+  async function handleOpenSubmissionFromMessage({
+    submissionId,
+    entryId,
+    openEditorDirectly,
+  }: OpenSubmissionFromMessageParams) {
+    setFocusMode(false)
+    if (submissionId) {
+      setHighlightedSubmissionId(submissionId)
+    }
+
+    if (openEditorDirectly && submissionId && supabase) {
+      const { data, error } = await supabase
+        .from('review_submissions')
+        .select('*')
+        .eq('id', submissionId)
+        .maybeSingle()
+
+      if (!error && data) {
+        const record = data as SubmissionRecord
+        if (record.status === 'needs_changes' || record.status === 'rejected') {
+          handleStartRevision(record)
+          return
+        }
+      }
+    }
+
+    if (submissionId) {
+      setSubmissionsRefreshCounter((c) => c + 1)
+      navigatePage('submissions')
+      return
+    }
+
+    if (entryId) {
+      const targetEntry = entries.find((e) => e.id === entryId)
+      if (targetEntry) {
+        handleSelectEntryAndOpenPage(targetEntry, true)
+        return
+      }
+    }
+
+    navigatePage('submissions')
   }
 
   function handleJumpToAdminGovernance() {
@@ -872,6 +1213,33 @@ export default function App() {
     )
   }
 
+  if (activePage === 'embed') {
+    const resolvedEmbedTheme: 'light' | 'dark' =
+      embedTheme === 'light'
+        ? 'light'
+        : embedTheme === 'dark'
+          ? 'dark'
+          : darkMode
+            ? 'dark'
+            : 'light'
+    return (
+      <Suspense
+        fallback={
+          <main className="p-4 text-center text-xs text-zinc-500" dir="rtl">
+            جارٍ تحميل البطاقة المعجمية المضمّنة…
+          </main>
+        }
+      >
+        <EmbeddedWordWidgetView
+          entry={activeEntry}
+          corpusVersion={corpusVersion}
+          themeMode={resolvedEmbedTheme}
+          compact={embedCompact}
+        />
+      </Suspense>
+    )
+  }
+
   const pageHeading =
     activePage !== 'home' && activePage !== 'auth'
       ? WORKSPACE_PAGE_HEADINGS[activePage]
@@ -992,7 +1360,7 @@ export default function App() {
             canAccessEditorialTools={canAccessEditorialTools}
             unreadMessagesCount={unreadMessagesCount}
             darkMode={darkMode}
-            onToggleDarkMode={() => setDarkMode((prev) => !prev)}
+            onToggleDarkMode={handleToggleDarkMode}
             onOpenAuth={() => navigatePage('auth')}
             onOpenCommandPalette={userEmail ? () => setCommandPaletteOpen(true) : undefined}
             onSelectWorkbenchTab={handleLegacyWorkbenchTabSelect}
@@ -1023,13 +1391,45 @@ export default function App() {
                 }
                 onSelectEntry={(entry) => handleSelectEntryAndOpenPage(entry, true)}
                 onQuickAddWord={handleQuickAddWord}
-                onOpenContributors={() => navigatePage('contributors')}
+                onOpenContributors={() => navigatePage('contributors', { contributorSlug: null })}
                 onSelectWorkbenchTab={handleLegacyWorkbenchTabSelect}
+              />
+
+              <DocumentationSprintBanner
+                sprintProgress={activeSprintProgress}
+                isAuthenticated={Boolean(userEmail)}
+                isStaffRole={isStaffRole}
+                onJoinSprint={handleJoinSprint}
+                onOpenManageSprints={() => {
+                  setAdminInitialTab('sprints')
+                  navigatePage('members')
+                }}
+              />
+
+              <DailySpotlightAndRegionalTasks
+                entries={entries}
+                corpusVersion={corpusVersion}
+                darkMode={darkMode}
+                isAuthenticated={Boolean(userEmail)}
+                memberDialectRegion={reviewerProfile?.dialect_region || sessionPrefs.dialectRegion}
+                userVerdictsByEntryId={userVerdictsByEntryId}
+                isBookmarked={isBookmarked}
+                onToggleBookmark={(entryId) => void toggleBookmark(entryId)}
+                onSelectEntry={(entry) => handleSelectEntryAndOpenPage(entry, true)}
+                onEnrichEntry={handleEnrichEntryInWorkshop}
+                onOpenProfileSettings={() => navigatePage('profile')}
+              />
+
+              <HomeThematicCollectionsGateway
+                entries={entries}
+                onOpenCollection={(slug) =>
+                  navigatePage('collections', { collectionSlug: slug ?? null })
+                }
               />
 
               <MethodologySection
                 isAuthenticated={Boolean(userEmail)}
-                onOpenContributors={() => navigatePage('contributors')}
+                onOpenContributors={() => navigatePage('contributors', { contributorSlug: null })}
                 onSelectWorkbenchTab={handleLegacyWorkbenchTabSelect}
               />
             </main>
@@ -1053,7 +1453,7 @@ export default function App() {
           canAccessEditorialTools={canAccessEditorialTools}
           isStaffRole={isStaffRole}
           darkMode={darkMode}
-          onToggleDarkMode={() => setDarkMode((prev) => !prev)}
+          onToggleDarkMode={handleToggleDarkMode}
           dataMode={dataMode}
           entriesCount={entries.length}
           corpusVersion={corpusVersion}
@@ -1169,35 +1569,50 @@ export default function App() {
 
             {/* 1. Independent Rapid Review Page (/review) */}
             {activePage === 'review' && (
-              <RapidReviewPanel
-                entries={entries}
-                categories={categories}
-                corpusVersion={corpusVersion}
-                canAccessEditorialTools={canAccessEditorialTools}
-                isFocusMode={isRapidFocusActive}
-                onToggleFocusMode={() => setFocusMode((prev) => !prev)}
-                calibrationStats={calibrationStats}
-                onRecordCalibrationOutcome={recordCalibrationOutcome}
-                userEmail={userEmail}
-                userVerdictsByEntryId={userVerdictsByEntryId}
-                userVerdictsByExampleId={userVerdictsByExampleId}
-                summariesByEntryId={summariesByEntryId}
-                summariesByExampleId={summariesByExampleId}
-                skippedIds={skippedIds}
-                skippedExampleIds={skippedExampleIds}
-                canUndo={canUndo}
-                completedTodayCount={completedTodayCount}
-                sessionPrefs={sessionPrefs}
-                onUpdateSessionPrefs={updateSessionPrefs}
-                onRecordAttestation={recordAttestation}
-                onSkipEntry={skipEntry}
-                onUndoLastStep={undoLastStep}
-                onResetSessionSkips={resetSessionSkips}
-                onSaveDraft={saveDraft}
-                onOpenDetailedEntry={(entry) => handleSelectEntryAndOpenPage(entry, true)}
-                onRequireLogin={() => setAuthDialogOpen(true)}
-                onSubmissionSuccess={() => setSubmissionsRefreshCounter((c) => c + 1)}
-              />
+              <div className="space-y-5">
+                {!isRapidFocusActive && (
+                  <DocumentationSprintBanner
+                    compact
+                    sprintProgress={activeSprintProgress}
+                    isAuthenticated={Boolean(userEmail)}
+                    isStaffRole={isStaffRole}
+                    onJoinSprint={handleJoinSprint}
+                    onOpenManageSprints={() => {
+                      setAdminInitialTab('sprints')
+                      navigatePage('members')
+                    }}
+                  />
+                )}
+                <RapidReviewPanel
+                  entries={entries}
+                  categories={categories}
+                  corpusVersion={corpusVersion}
+                  canAccessEditorialTools={canAccessEditorialTools}
+                  isFocusMode={isRapidFocusActive}
+                  onToggleFocusMode={() => setFocusMode((prev) => !prev)}
+                  calibrationStats={calibrationStats}
+                  onRecordCalibrationOutcome={recordCalibrationOutcome}
+                  userEmail={userEmail}
+                  userVerdictsByEntryId={userVerdictsByEntryId}
+                  userVerdictsByExampleId={userVerdictsByExampleId}
+                  summariesByEntryId={summariesByEntryId}
+                  summariesByExampleId={summariesByExampleId}
+                  skippedIds={skippedIds}
+                  skippedExampleIds={skippedExampleIds}
+                  canUndo={canUndo}
+                  completedTodayCount={completedTodayCount}
+                  sessionPrefs={sessionPrefs}
+                  onUpdateSessionPrefs={updateSessionPrefs}
+                  onRecordAttestation={handleRecordAttestationWithSprint}
+                  onSkipEntry={skipEntry}
+                  onUndoLastStep={undoLastStep}
+                  onResetSessionSkips={resetSessionSkips}
+                  onSaveDraft={saveDraft}
+                  onOpenDetailedEntry={(entry) => handleSelectEntryAndOpenPage(entry, true)}
+                  onRequireLogin={() => setAuthDialogOpen(true)}
+                  onSubmissionSuccess={() => setSubmissionsRefreshCounter((c) => c + 1)}
+                />
+              </div>
             )}
 
             {/* 2. Independent Lexicon & Categories Page (/lexicon & /lexicon/:entryId) */}
@@ -1268,6 +1683,25 @@ export default function App() {
                         </div>
                       )}
 
+                      {selectedEtymology !== 'all' && (
+                        <div className="flex items-center gap-2 text-xs text-zinc-600 dark:text-zinc-400">
+                          <span>
+                            التأصيل النشط:{' '}
+                            <strong className="text-zinc-950 dark:text-white">
+                              {formatEtymologyLabel(selectedEtymology)}
+                            </strong>
+                          </span>
+                          <span aria-hidden="true">·</span>
+                          <button
+                            type="button"
+                            onClick={() => setSelectedEtymology('all')}
+                            className="font-semibold text-emerald-700 hover:underline cursor-pointer dark:text-[#D9FF43]"
+                          >
+                            عرض كل الجذور
+                          </button>
+                        </div>
+                      )}
+
                       <div
                         role="group"
                         aria-label="نمط عرض المفردة"
@@ -1319,6 +1753,10 @@ export default function App() {
                       entry={activeEntry}
                       allEntries={entries}
                       corpusVersion={corpusVersion}
+                      darkMode={darkMode}
+                      isAuthenticated={Boolean(userEmail)}
+                      isBookmarked={isBookmarked(activeEntry.id)}
+                      onToggleBookmark={() => void toggleBookmark(activeEntry.id)}
                       attestationSummary={summariesByEntryId[activeEntry.id]}
                       currentIndex={activeIndexInFiltered}
                       totalFiltered={filteredEntries.length}
@@ -1346,6 +1784,19 @@ export default function App() {
                       }}
                       onSelectEntry={(entry) => handleSelectEntryAndOpenPage(entry, true)}
                       onSelectCategory={handleSelectCategoryFromOverview}
+                      onSelectEtymology={(origin) => {
+                        setSelectedEtymology(origin)
+                        setStandaloneReferenceView(false)
+                        setExplicitEntryId(null)
+                        navigatePage('lexicon', {
+                          subView: 'entries',
+                          entryId: null,
+                          etymology: origin,
+                        })
+                      }}
+                      onOpenContributorProfile={(slug) =>
+                        navigatePage('contributors', { contributorSlug: slug })
+                      }
                       onBackToLexiconIndex={() => {
                         setStandaloneReferenceView(false)
                         setExplicitEntryId(null)
@@ -1371,6 +1822,7 @@ export default function App() {
                         selectedEntryType={selectedEntryType}
                         selectedRegister={selectedRegister}
                         selectedRegion={selectedRegion}
+                        selectedEtymology={selectedEtymology}
                         regions={Array.from(
                           new Set(entries.flatMap((entry) => entry.region ?? [])),
                         ).sort()}
@@ -1382,6 +1834,7 @@ export default function App() {
                         onEntryTypeChange={setSelectedEntryType}
                         onRegisterChange={setSelectedRegister}
                         onRegionChange={setSelectedRegion}
+                        onEtymologyChange={setSelectedEtymology}
                         onSelectEntry={(entry) => {
                           setActiveId(entry.id)
                           setExplicitEntryId(entry.id)
@@ -1397,6 +1850,10 @@ export default function App() {
                           entry={activeEntry}
                           allEntries={entries}
                           corpusVersion={corpusVersion}
+                          darkMode={darkMode}
+                          isAuthenticated={Boolean(userEmail)}
+                          isBookmarked={isBookmarked(activeEntry.id)}
+                          onToggleBookmark={() => void toggleBookmark(activeEntry.id)}
                           attestationSummary={summariesByEntryId[activeEntry.id]}
                           currentIndex={activeIndexInFiltered}
                           totalFiltered={filteredEntries.length}
@@ -1427,6 +1884,10 @@ export default function App() {
                             setExplicitEntryId(entry.id)
                           }}
                           onSelectCategory={handleSelectCategoryFromOverview}
+                          onSelectEtymology={(origin) => setSelectedEtymology(origin)}
+                          onOpenContributorProfile={(slug) =>
+                            navigatePage('contributors', { contributorSlug: slug })
+                          }
                         />
                       ) : (
                         <EntryDetailSheet
@@ -1444,7 +1905,7 @@ export default function App() {
                           userVerdictsByExampleId={userVerdictsByExampleId}
                           summariesByExampleId={summariesByExampleId}
                           onRecordExampleAttestation={({ entryId, exampleId, verdict, note }) =>
-                            recordAttestation({
+                            handleRecordAttestationWithSprint({
                               entryId,
                               exampleId,
                               verdict,
@@ -1473,7 +1934,10 @@ export default function App() {
                           onSaveDraft={saveDraft}
                           onRemoveDraft={removeDraft}
                           onRequireLogin={() => setAuthDialogOpen(true)}
-                          onSubmissionSuccess={() => setSubmissionsRefreshCounter((c) => c + 1)}
+                          onSubmissionSuccess={() => {
+                            void recordSprintParticipation(activeEntry)
+                            setSubmissionsRefreshCounter((c) => c + 1)
+                          }}
                           initialOpenEdit
                           focusExampleOnOpen={workshopFocusExample}
                           onSwitchToReference={() => {
@@ -1488,23 +1952,89 @@ export default function App() {
               </div>
             )}
 
-            {/* 2b. Independent Corpus Coverage & Enrichment Gaps Page (/insights) */}
-            {activePage === 'insights' && (
-              <CorpusInsightsPage
+            {/* 2a. Independent Thematic Mini-Dictionaries Page (/collections & /collections/:slug) */}
+            {activePage === 'collections' && (
+              <ThematicCollectionsPage
                 entries={entries}
-                totalExamplesCount={totalExamplesCount}
-                corpusVersion={corpusVersion}
-                onEnrichEntry={(entry) => {
-                  setActiveId(entry.id)
-                  setExplicitEntryId(entry.id)
+                selectedSlug={explicitCollectionSlug}
+                onSelectCollectionSlug={(slug) =>
+                  navigatePage('collections', { collectionSlug: slug, preserveScroll: false })
+                }
+                onOpenEntry={(entry) => handleSelectEntryAndOpenPage(entry, true)}
+                onFilterByEtymologyInLexicon={(origin) => {
+                  handleResetFilters()
+                  setSelectedEtymology(origin)
+                  setExplicitEntryId(null)
                   setStandaloneReferenceView(false)
                   setExplorerSubView('entries')
-                  setLexiconDetailMode('workshop')
-                  setWorkshopFocusExample(entry.examples.length === 0)
-                  navigatePage('lexicon', { subView: 'entries', entryId: entry.id })
+                  setLexiconDetailMode('reference')
+                  navigatePage('lexicon', {
+                    subView: 'entries',
+                    entryId: null,
+                    etymology: origin,
+                  })
                 }}
-                onSelectCategoryInLexicon={handleSelectCategoryFromOverview}
-                onSelectRegionInLexicon={(region) => {
+              />
+            )}
+
+            {/* 2b. Independent Corpus Coverage & Enrichment Gaps Page (/insights) */}
+            {activePage === 'insights' && (
+              <div className="space-y-6">
+                <DocumentationSprintBanner
+                  compact
+                  sprintProgress={activeSprintProgress}
+                  isAuthenticated={Boolean(userEmail)}
+                  isStaffRole={isStaffRole}
+                  onJoinSprint={handleJoinSprint}
+                  onOpenManageSprints={() => {
+                    setAdminInitialTab('sprints')
+                    navigatePage('members')
+                  }}
+                />
+                <CorpusInsightsPage
+                  entries={entries}
+                  totalExamplesCount={totalExamplesCount}
+                  corpusVersion={corpusVersion}
+                  onEnrichEntry={(entry) => {
+                    setActiveId(entry.id)
+                    setExplicitEntryId(entry.id)
+                    setStandaloneReferenceView(false)
+                    setExplorerSubView('entries')
+                    setLexiconDetailMode('workshop')
+                    setWorkshopFocusExample(entry.examples.length === 0)
+                    navigatePage('lexicon', { subView: 'entries', entryId: entry.id })
+                  }}
+                  onSelectCategoryInLexicon={handleSelectCategoryFromOverview}
+                  onSelectRegionInLexicon={(region) => {
+                    setSelectedRegion(region)
+                    setSelectedCategory('all')
+                    setQuery('')
+                    setExplicitEntryId(null)
+                    setStandaloneReferenceView(false)
+                    setLexiconDetailMode('reference')
+                    setExplorerSubView('entries')
+                    navigatePage('lexicon', { subView: 'entries', entryId: null })
+                  }}
+                  onStartRapidReview={() => navigatePage('review')}
+                />
+              </div>
+            )}
+
+            {/* 2c. Independent Public Contributors Honor Roll Page (/contributors & /contributors/:slug) */}
+            {activePage === 'contributors' && (
+              <PublicContributorsPage
+                contributors={publicContributors}
+                loading={loadingDirectory}
+                isAuthenticated={Boolean(userEmail)}
+                darkMode={darkMode}
+                entriesCount={entries.length}
+                corpusVersion={corpusVersion}
+                initialSelectedSlug={explicitContributorSlug}
+                activeSprintBadgeLabel={activeSprintProgress?.sprint.badge_label ?? null}
+                onSelectedSlugChange={(slug) => setExplicitContributorSlug(slug)}
+                onOpenProfileOrAuth={() => navigatePage(userEmail ? 'profile' : 'auth')}
+                onStartContributing={() => navigatePage('review')}
+                onExploreRegionInLexicon={(region) => {
                   setSelectedRegion(region)
                   setSelectedCategory('all')
                   setQuery('')
@@ -1514,20 +2044,19 @@ export default function App() {
                   setExplorerSubView('entries')
                   navigatePage('lexicon', { subView: 'entries', entryId: null })
                 }}
-                onStartRapidReview={() => navigatePage('review')}
-              />
-            )}
-
-            {/* 2c. Independent Public Contributors Honor Roll Page (/contributors) */}
-            {activePage === 'contributors' && (
-              <PublicContributorsPage
-                contributors={publicContributors}
-                loading={loadingDirectory}
-                isAuthenticated={Boolean(userEmail)}
-                entriesCount={entries.length}
-                corpusVersion={corpusVersion}
-                onOpenProfileOrAuth={() => navigatePage(userEmail ? 'profile' : 'auth')}
-                onStartContributing={() => navigatePage('review')}
+                onInspectWordInLexicon={(word) => {
+                  const found = entries.find((e) => e.word === word)
+                  if (found) {
+                    handleSelectEntryAndOpenPage(found, true)
+                  } else {
+                    setQuery(word)
+                    setSelectedCategory('all')
+                    setExplicitEntryId(null)
+                    setStandaloneReferenceView(false)
+                    setExplorerSubView('entries')
+                    navigatePage('lexicon', { subView: 'entries', entryId: null })
+                  }
+                }}
               />
             )}
 
@@ -1548,6 +2077,7 @@ export default function App() {
                 }
                 onClearRevisionTarget={() => setRevisionTarget(null)}
                 onInspectExistingEntry={handleInspectExistingFromNewForm}
+                onEnrichExistingEntry={handleEnrichEntryInWorkshop}
                 onSaveDraft={saveDraft}
                 onRequireLogin={() => setAuthDialogOpen(true)}
                 onSubmissionSuccess={() => setSubmissionsRefreshCounter((c) => c + 1)}
@@ -1565,6 +2095,12 @@ export default function App() {
                   totalAttestationsCount={totalAttestationsCount}
                   userEmail={userEmail}
                   refreshTrigger={submissionsRefreshCounter}
+                  highlightedSubmissionId={highlightedSubmissionId}
+                  onClearHighlightedSubmission={() => setHighlightedSubmissionId(null)}
+                  onInspectEntryInLexicon={(entryId) => {
+                    const found = entries.find((e) => e.id === entryId)
+                    if (found) handleSelectEntryAndOpenPage(found, true)
+                  }}
                   onResumeDraft={handleResumeDraft}
                   onStartRevision={handleStartRevision}
                   onDeleteDraft={removeDraft}
@@ -1574,7 +2110,7 @@ export default function App() {
               ) : (
                 renderMemberOnlyRestrictedCard(
                   'صفحة المساهمات وسجل المقترحات',
-                  'لإرسال مقترحاتك المعجمية ومتابعة حالة اعتمادها من قِبل المحررين، يرجى تسجيل الدخول أو إنشاء حساب مساهم مجاني (عبر GitHub أو Google أو البريد الإلكتروني).',
+                  'لإرسال مقترحاتك المعجمية ومتابعة حالة اعتمادها من قِبل المحررين، يرجى تسجيل الدخول أو إنشاء حساب مساهم مجاني (عبر GitHub أو البريد الإلكتروني).',
                 )
               ))}
 
@@ -1590,6 +2126,9 @@ export default function App() {
                   onAcknowledgeWarning={(id) => void acknowledgeWarning(id)}
                   onOpenAdminMembers={() => navigatePage('members')}
                   onStartRapidReview={() => navigatePage('review')}
+                  onOpenSubmissionFromMessage={(params) =>
+                    void handleOpenSubmissionFromMessage(params)
+                  }
                 />
               ) : (
                 renderMemberOnlyRestrictedCard(
@@ -1604,11 +2143,20 @@ export default function App() {
                 <ContributorProfilePanel
                   profile={reviewerProfile}
                   userEmail={userEmail}
+                  entries={entries}
+                  bookmarkedEntryIds={bookmarkedIds}
+                  publicContributorSlug={myPublicContributorSlug}
+                  sprintParticipationsCount={totalMySprintContributions}
+                  sprintBadgeLabel={activeSprintProgress?.sprint.badge_label ?? null}
+                  onOpenBookmarkedEntry={(entry) => handleSelectEntryAndOpenPage(entry, true)}
+                  onRemoveBookmark={(id) => void removeBookmark(id)}
                   onProfileSaved={() => {
                     void syncUserSession()
                     void refreshPublicDirectory()
                   }}
-                  onOpenContributorsDirectory={() => navigatePage('contributors')}
+                  onOpenContributorsDirectory={(slug) =>
+                    navigatePage('contributors', { contributorSlug: slug ?? null })
+                  }
                 />
               ) : (
                 <AuthDialog
@@ -1644,6 +2192,11 @@ export default function App() {
                   onClearForceGovernanceSection={() => setForceGovernanceSection(false)}
                   onOpenAuth={() => setAuthDialogOpen(true)}
                   onGoToExporter={handleGoToExporter}
+                  onDecisionSaved={() => {
+                    void refreshMessages()
+                    void refreshPublicDirectory()
+                    setSubmissionsRefreshCounter((c) => c + 1)
+                  }}
                 />
               ) : (
                 renderEditorialRestrictedCard('صفحة تحكيم المحررين وحوكمة الأدوار')
@@ -1661,6 +2214,12 @@ export default function App() {
                   loadingMembers={loadingMembers}
                   liveModEvents={liveModEvents}
                   liveModReports={liveModReports}
+                  sprints={sprints}
+                  categories={categories}
+                  initialTab={adminInitialTab}
+                  onClearInitialTab={() => setAdminInitialTab(undefined)}
+                  onCreateSprint={createSprint}
+                  onUpdateSprintStatus={updateSprintStatus}
                   onApplyGovernanceAction={applyMemberGovernanceAction}
                   onSendMessage={sendDirectOrBroadcastMessage}
                   onSubmitReport={submitModerationReport}

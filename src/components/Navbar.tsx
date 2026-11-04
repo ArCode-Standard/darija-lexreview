@@ -143,6 +143,16 @@ export function Navbar({
                 تصفح المعجم
               </a>
               <a
+                href="/collections"
+                onClick={(e) => {
+                  e.preventDefault()
+                  handleNav('collections')
+                }}
+                className="whitespace-nowrap shrink-0 py-1 hover:text-zinc-950 hover:underline hover:underline-offset-8 transition-colors duration-150 dark:hover:text-white"
+              >
+                المجموعات الموضوعاتية
+              </a>
+              <a
                 href="/review"
                 onClick={(e) => {
                   e.preventDefault()
@@ -367,6 +377,17 @@ export function Navbar({
                 >
                   <BookOpen className="h-4 w-4 shrink-0 text-emerald-700 dark:text-[#D9FF43]" />
                   <span>تصفح المعجم</span>
+                </a>
+                <a
+                  href="/collections"
+                  onClick={(e) => {
+                    e.preventDefault()
+                    handleNav('collections')
+                  }}
+                  className="flex items-center gap-2.5 rounded-xl px-3.5 py-2.5 text-xs font-semibold text-zinc-700 hover:bg-zinc-100 hover:text-zinc-950 dark:text-zinc-300 dark:hover:bg-white/[0.06] dark:hover:text-white"
+                >
+                  <BookOpen className="h-4 w-4 shrink-0 text-emerald-700 dark:text-[#D9FF43]" />
+                  <span>المجموعات الموضوعاتية (معاجم مصغّرة)</span>
                 </a>
                 <a
                   href="/review"

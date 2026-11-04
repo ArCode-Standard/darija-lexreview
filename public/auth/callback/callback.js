@@ -2,7 +2,14 @@
   var themeKey = 'arcode_lexreview_theme';
   try {
     var savedTheme = window.localStorage.getItem(themeKey);
-    document.documentElement.setAttribute('data-theme', savedTheme === 'light' ? 'light' : 'dark');
+    var systemTheme =
+      window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches
+        ? 'light'
+        : 'dark';
+    var resolvedTheme = savedTheme
+      ? savedTheme === 'light' ? 'light' : 'dark'
+      : systemTheme;
+    document.documentElement.setAttribute('data-theme', resolvedTheme);
   } catch (_) {
     document.documentElement.setAttribute('data-theme', 'dark');
   }

@@ -16,6 +16,14 @@ export type RegisterType =
   | 'religious'
   | 'unknown'
 
+export type EtymologyOrigin =
+  | 'arabic_shifted'
+  | 'amazigh'
+  | 'andalusi'
+  | 'romance_loan'
+  | 'coined_local'
+  | 'unspecified'
+
 export type SourceType =
   | 'original'
   | 'contributor'
@@ -70,6 +78,8 @@ export interface LexicalEntry {
   category: string
   entryType?: EntryType
   register?: RegisterType
+  etymology?: EtymologyOrigin
+  etymologyNote?: string
   region?: string[]
   status: string
   reviewNotes: string
@@ -94,6 +104,8 @@ export interface ProposedFields {
   french_translation?: string
   entry_type?: EntryType
   register?: RegisterType
+  etymology?: EtymologyOrigin
+  etymology_note?: string
   regions?: string[]
   usage_note?: string
   example_darija?: string
@@ -174,6 +186,7 @@ export interface ReviewerProfile {
   status_updated_at?: string | null
   accepted_count?: number
   attestations_count?: number
+  sprint_participations_count?: number
   created_at?: string
 }
 
@@ -189,6 +202,10 @@ export interface PublicContributorRecord {
   role: UserRole
   accepted_count: number
   attestations_count: number
+  sprint_participations_count?: number
+  documented_words_count?: number
+  documented_examples_count?: number
+  recent_words?: string[]
   joined_year: number
 }
 
@@ -214,6 +231,9 @@ export interface MemberMessageRecord {
   read_at: string | null
   acknowledged_at: string | null
   pinned_until: string | null
+  related_submission_id?: string | null
+  related_entry_id?: string | null
+  decision_status?: 'accepted' | 'needs_changes' | 'rejected' | 'merged' | null
   created_at: string
 }
 
@@ -393,3 +413,60 @@ export type ExampleFilter =
   | 'with_examples'
   | 'needs_examples'
   | 'priority_enrichment'
+
+export interface MemberBookmarkRecord {
+  id: string
+  user_id: string
+  entry_id: string
+  note?: string | null
+  created_at: string
+}
+
+export type SprintTargetType =
+  | 'region'
+  | 'category'
+  | 'entry_type'
+  | 'etymology'
+  | 'missing_examples'
+
+export interface DocumentationSprint {
+  id: string
+  slug: string
+  title: string
+  description: string
+  target_type: SprintTargetType
+  target_value: string | null
+  goal_count: number
+  baseline_count: number
+  badge_label: string
+  starts_at: string
+  ends_at: string | null
+  status: 'active' | 'completed' | 'archived'
+  created_by?: string | null
+  created_at: string
+  updated_at?: string
+}
+
+export interface SprintParticipationRecord {
+  sprint_id: string
+  user_id: string
+  contributions_count: number
+  last_contributed_at: string
+}
+
+export interface EntryPublicHistoryItem {
+  revision_id: string
+  status: 'accepted' | 'merged'
+  submission_kind: string
+  has_new_example: boolean
+  has_etymology: boolean
+  has_meaning_update: boolean
+  exported_in_version: string | null
+  contributor_name: string
+  contributor_slug: string | null
+  editor_name: string | null
+  created_at: string
+  decided_at: string
+}
+
+

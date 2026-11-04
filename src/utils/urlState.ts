@@ -4,6 +4,7 @@ export type AppPage =
   | 'home'
   | 'review'
   | 'lexicon'
+  | 'collections'
   | 'insights'
   | 'contributors'
   | 'contribute'
@@ -14,6 +15,7 @@ export type AppPage =
   | 'members'
   | 'export'
   | 'auth'
+  | 'embed'
 
 const VALID_TABS = new Set<WorkbenchTab>([
   'rapid_review',
@@ -46,6 +48,11 @@ export interface AppRouteState {
   page: AppPage
   explorerSubView: 'entries' | 'categories'
   entryId: string | null
+  contributorSlug?: string
+  collectionSlug?: string
+  etymology?: string
+  embedTheme?: 'light' | 'dark' | 'auto'
+  embedCompact?: boolean
   category: string
   exampleFilter: ExampleFilter
   query: string
@@ -78,7 +85,9 @@ export function pageToWorkbenchTab(page: AppPage): WorkbenchTab {
     case 'review':
       return 'rapid_review'
     case 'lexicon':
+    case 'collections':
     case 'insights':
+    case 'embed':
       return 'explorer'
     case 'contribute':
       return 'new_entry'
@@ -184,6 +193,48 @@ export function buildCleanEntryUrl(entryId: string, currentHref?: string): strin
   return url.toString()
 }
 
+export function buildContributorProfileUrl(slug: string, currentHref?: string): string {
+  const baseHref =
+    currentHref ?? (typeof window !== 'undefined' ? window.location.href : 'https://lexreview.local/')
+  const url = new URL(baseHref)
+  url.pathname = `/contributors/${encodeURIComponent(slug.trim())}`
+  url.search = ''
+  url.hash = ''
+  return url.toString()
+}
+
+export function buildCollectionUrl(slug?: string | null, currentHref?: string): string {
+  const baseHref =
+    currentHref ?? (typeof window !== 'undefined' ? window.location.href : 'https://lexreview.local/')
+  const url = new URL(baseHref)
+  url.pathname = slug?.trim()
+    ? `/collections/${encodeURIComponent(slug.trim())}`
+    : '/collections'
+  url.search = ''
+  url.hash = ''
+  return url.toString()
+}
+
+export function buildEmbedEntryUrl(
+  entryId: string,
+  options?: { theme?: 'light' | 'dark' | 'auto'; compact?: boolean; currentHref?: string },
+): string {
+  const baseHref =
+    options?.currentHref ??
+    (typeof window !== 'undefined' ? window.location.href : 'https://lexreview.local/')
+  const url = new URL(baseHref)
+  url.pathname = `/embed/${encodeURIComponent(entryId.trim())}`
+  url.search = ''
+  if (options?.theme && options.theme !== 'auto') {
+    url.searchParams.set('theme', options.theme)
+  }
+  if (options?.compact) {
+    url.searchParams.set('compact', '1')
+  }
+  url.hash = ''
+  return url.toString()
+}
+
 export function parseAppRoute(pathname: string, search: string): AppRouteState {
   const cleanPath = (pathname || '/').replace(/\/+$/, '') || '/'
   const params = new URLSearchParams(search.startsWith('?') ? search.slice(1) : search)
@@ -196,6 +247,8 @@ export function parseAppRoute(pathname: string, search: string): AppRouteState {
   const query = (params.get('q') ?? '').slice(0, 120)
   const viewParam = params.get('view')
   const queryEntry = params.get('entry')?.trim() || null
+
+  const rawEtym = params.get('etym')?.trim() || ''
 
   if (cleanPath === '/review') {
     return {
@@ -222,9 +275,54 @@ export function parseAppRoute(pathname: string, search: string): AppRouteState {
       page: 'lexicon',
       explorerSubView: viewParam === 'categories' && !pathEntryId ? 'categories' : 'entries',
       entryId: resolvedEntry && resolvedEntry.length <= 64 ? resolvedEntry : null,
+      ...(rawEtym && rawEtym !== 'all' && rawEtym.length <= 40 ? { etymology: rawEtym } : {}),
       category: rawCat.length <= 120 ? rawCat : 'all',
       exampleFilter,
       query,
+    }
+  }
+
+  if (cleanPath === '/collections' || cleanPath.startsWith('/collections/')) {
+    let rawSlug = ''
+    if (cleanPath.startsWith('/collections/')) {
+      try {
+        rawSlug = decodeURIComponent(cleanPath.slice('/collections/'.length)).trim()
+      } catch {
+        rawSlug = cleanPath.slice('/collections/'.length).trim()
+      }
+    }
+    const safeSlug = rawSlug && rawSlug.length <= 96 && !rawSlug.includes('/') ? rawSlug : undefined
+    return {
+      page: 'collections',
+      explorerSubView: 'entries',
+      entryId: null,
+      ...(safeSlug ? { collectionSlug: safeSlug } : {}),
+      category: 'all',
+      exampleFilter: 'all',
+      query: '',
+    }
+  }
+
+  if (cleanPath.startsWith('/embed/')) {
+    let embedEntryId: string | null = null
+    try {
+      embedEntryId = decodeURIComponent(cleanPath.slice('/embed/'.length)).trim() || null
+    } catch {
+      embedEntryId = cleanPath.slice('/embed/'.length).trim() || null
+    }
+    const rawTheme = params.get('theme')
+    const embedTheme: 'light' | 'dark' | 'auto' =
+      rawTheme === 'light' || rawTheme === 'dark' ? rawTheme : 'auto'
+    const embedCompact = params.get('compact') === '1'
+    return {
+      page: 'embed',
+      explorerSubView: 'entries',
+      entryId: embedEntryId && embedEntryId.length <= 64 ? embedEntryId : '1',
+      embedTheme,
+      embedCompact,
+      category: 'all',
+      exampleFilter: 'all',
+      query: '',
     }
   }
 
@@ -294,11 +392,21 @@ export function parseAppRoute(pathname: string, search: string): AppRouteState {
     }
   }
 
-  if (cleanPath === '/contributors') {
+  if (cleanPath === '/contributors' || cleanPath.startsWith('/contributors/')) {
+    let rawSlug = ''
+    if (cleanPath.startsWith('/contributors/')) {
+      try {
+        rawSlug = decodeURIComponent(cleanPath.slice('/contributors/'.length)).trim()
+      } catch {
+        rawSlug = cleanPath.slice('/contributors/'.length).trim()
+      }
+    }
+    const safeSlug = rawSlug && rawSlug.length <= 96 && !rawSlug.includes('/') ? rawSlug : undefined
     return {
       page: 'contributors',
       explorerSubView: 'entries',
       entryId: null,
+      ...(safeSlug ? { contributorSlug: safeSlug } : {}),
       category: 'all',
       exampleFilter: 'all',
       query: '',
@@ -370,7 +478,9 @@ export function buildAppRouteUrl(state: AppRouteState): string {
     case 'insights':
       return '/insights'
     case 'contributors':
-      return '/contributors'
+      return state.contributorSlug
+        ? `/contributors/${encodeURIComponent(state.contributorSlug)}`
+        : '/contributors'
     case 'contribute':
       return '/contribute'
     case 'submissions':
@@ -385,6 +495,22 @@ export function buildAppRouteUrl(state: AppRouteState): string {
       return '/members'
     case 'export':
       return '/export'
+    case 'collections':
+      return state.collectionSlug
+        ? `/collections/${encodeURIComponent(state.collectionSlug)}`
+        : '/collections'
+    case 'embed': {
+      const embedId = state.entryId || '1'
+      const params = new URLSearchParams()
+      if (state.embedTheme && state.embedTheme !== 'auto') {
+        params.set('theme', state.embedTheme)
+      }
+      if (state.embedCompact) {
+        params.set('compact', '1')
+      }
+      const qs = params.toString()
+      return qs ? `/embed/${encodeURIComponent(embedId)}?${qs}` : `/embed/${encodeURIComponent(embedId)}`
+    }
     case 'auth':
       return '/auth'
     case 'lexicon': {
@@ -397,6 +523,9 @@ export function buildAppRouteUrl(state: AppRouteState): string {
       }
       if (state.category && state.category !== 'all') {
         params.set('cat', state.category)
+      }
+      if (state.etymology && state.etymology !== 'all') {
+        params.set('etym', state.etymology)
       }
       if (state.exampleFilter !== 'all') {
         params.set('ex', state.exampleFilter)

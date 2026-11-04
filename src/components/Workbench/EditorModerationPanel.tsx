@@ -21,6 +21,7 @@ import type {
 } from '../../types/lexicon'
 import { formatAccessionCode, formatStatusLabel } from '../../services/dataset'
 import { isNewEntrySubmission } from '../../services/exporter'
+import { formatEtymologyLabel } from '../../utils/etymology'
 import { findSimilarCorpusEntries, sanitizeExternalUrl } from '../../utils/validation'
 import { checkSubmissionCorpusDrift } from '../../utils/corpusPinning'
 import { humanizeSystemError } from '../../utils/humanizeError'
@@ -39,6 +40,7 @@ interface EditorModerationPanelProps {
   onClearForceGovernanceSection?: () => void
   onOpenAuth: () => void
   onGoToExporter: () => void
+  onDecisionSaved?: () => void
 }
 
 const DIFF_FIELDS: Array<{
@@ -53,6 +55,8 @@ const DIFF_FIELDS: Array<{
   { key: 'msa_translation', label: 'المقابل بالعربية الفصحى', entryProp: 'meaning' },
   { key: 'meaning', label: 'الشرح الدلالي البديل', entryProp: 'meaning' },
   { key: 'french_translation', label: 'المقابل الفرنسي', entryProp: 'french', dir: 'ltr' },
+  { key: 'etymology', label: 'التأصيل والجذر التاريخي', entryProp: 'etymology' },
+  { key: 'etymology_note', label: 'ملاحظة التأصيل اللغوي', entryProp: 'etymologyNote' },
   { key: 'usage_note', label: 'ملاحظة التداول / المصدر' },
   { key: 'example_darija', label: 'الشاهد السياقي (دارجة)' },
   { key: 'example_arabizi', label: 'الكتابة اللاتينية للشاهد (Arabizi)', dir: 'ltr' },
@@ -70,6 +74,7 @@ export function EditorModerationPanel({
   onClearForceGovernanceSection,
   onOpenAuth,
   onGoToExporter,
+  onDecisionSaved,
 }: EditorModerationPanelProps) {
   const isAuthorizedLiveEditor =
     Boolean(userEmail) && (profile?.role === 'editor' || profile?.role === 'admin')
@@ -382,6 +387,7 @@ export function EditorModerationPanel({
       return next
     })
     setAuditRefreshCounter((c) => c + 1)
+    onDecisionSaved?.()
     setActionMessage({
       type: 'success',
       text: isRevokingAccepted
@@ -483,6 +489,7 @@ export function EditorModerationPanel({
     }
     setSelectedBatchIds(new Set())
     setBulkModalOpen(false)
+    onDecisionSaved?.()
     setActionMessage({
       type: 'success',
       text: `تم توقيع واعتماد ${updatedMap.size} مقترحات جماعياً في السجل الحي.`,
@@ -1008,17 +1015,29 @@ export function EditorModerationPanel({
                       <tbody className="divide-y divide-zinc-200 dark:divide-white/10">
                         {DIFF_FIELDS.map((field) => {
                           const propVal = activeSubmission.proposed_data[field.key]
-                          const propStr = typeof propVal === 'string' ? propVal : ''
-                          const currentStr =
+                          const rawPropStr = typeof propVal === 'string' ? propVal : ''
+                          const propStr =
+                            field.key === 'etymology' && rawPropStr.trim()
+                              ? formatEtymologyLabel(rawPropStr)
+                              : rawPropStr
+                          const rawCurrent =
                             field.entryProp && targetCanonicalEntry
-                              ? String(targetCanonicalEntry[field.entryProp] ?? '—')
-                              : '—'
+                              ? targetCanonicalEntry[field.entryProp]
+                              : undefined
+                          const currentStr =
+                            field.key === 'etymology'
+                              ? rawCurrent
+                                ? formatEtymologyLabel(String(rawCurrent))
+                                : '—'
+                              : field.entryProp && targetCanonicalEntry
+                                ? String(rawCurrent ?? '—')
+                                : '—'
 
-                          if (!propStr && !field.entryProp) {
+                          if (!rawPropStr && !field.entryProp) {
                             return null
                           }
 
-                          const isModified = propStr.trim() !== ''
+                          const isModified = rawPropStr.trim() !== ''
 
                           return (
                             <tr

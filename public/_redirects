@@ -4,10 +4,15 @@
 /lexicon         /index.html   200
 /lexicon/        /index.html   200
 /lexicon/*       /index.html   200
+/collections     /index.html   200
+/collections/    /index.html   200
+/collections/*   /index.html   200
+/embed/*         /index.html   200
 /insights        /index.html   200
 /insights/       /index.html   200
 /contributors    /index.html   200
 /contributors/   /index.html   200
+/contributors/*  /index.html   200
 /contribute      /index.html   200
 /contribute/     /index.html   200
 /submissions     /index.html   200

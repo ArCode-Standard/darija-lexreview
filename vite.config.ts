@@ -94,6 +94,8 @@ export default defineConfig({
           /^\/attribution/,
           /^\/auth\/callback/,
           /^\/404\.html/,
+          /^\/sitemap\.xml/,
+          /^\/robots\.txt/,
         ],
         runtimeCaching: [
           {

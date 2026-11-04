@@ -18,6 +18,7 @@ import { supabase } from '../../lib/supabase'
 import type {
   DataPermission,
   EntryType,
+  EtymologyOrigin,
   EvidenceItem,
   LexicalEntry,
   LocalDraft,
@@ -26,6 +27,7 @@ import type {
   SourceType,
   SubmissionRecord,
 } from '../../types/lexicon'
+import { ETYMOLOGY_OPTIONS } from '../../utils/etymology'
 import type { RapidSessionPrefs } from '../../hooks/useCommunityAttestations'
 import {
   ENTRY_TYPE_OPTIONS,
@@ -34,7 +36,7 @@ import {
   REGISTER_OPTIONS,
   SOURCE_TYPE_OPTIONS,
   containsArabicScript,
-  findSimilarCorpusEntries,
+  findFuzzyCorpusMatches,
   isValidArabizi,
   validateEvidenceItems,
 } from '../../utils/validation'
@@ -60,6 +62,7 @@ interface NewEntryProposalPanelProps {
   revisionTarget?: SubmissionRecord | null
   onClearRevisionTarget?: () => void
   onInspectExistingEntry: (entry: LexicalEntry) => void
+  onEnrichExistingEntry?: (entry: LexicalEntry) => void
   onSaveDraft: (draft: LocalDraft) => void
   onRequireLogin: () => void
   onSubmissionSuccess: () => void
@@ -80,6 +83,7 @@ export function NewEntryProposalPanel({
   revisionTarget,
   onClearRevisionTarget,
   onInspectExistingEntry,
+  onEnrichExistingEntry,
   onSaveDraft,
   onRequireLogin,
   onSubmissionSuccess,
@@ -93,6 +97,8 @@ export function NewEntryProposalPanel({
   const [frenchTranslation, setFrenchTranslation] = useState('')
   const [entryType, setEntryType] = useState<EntryType>('word')
   const [register, setRegister] = useState<RegisterType>('neutral')
+  const [etymology, setEtymology] = useState<EtymologyOrigin>('unspecified')
+  const [etymologyNote, setEtymologyNote] = useState('')
   const [selectedRegions, setSelectedRegions] = useState<string[]>([
     sessionPrefs.dialectRegion || 'مشترك عام',
   ])
@@ -236,9 +242,13 @@ export function NewEntryProposalPanel({
     setFeedback(null)
   }, [revisionTarget])
 
-  const similarEntries = useMemo(
-    () => findSimilarCorpusEntries(entries, wordAr, arabizi),
+  const fuzzyMatches = useMemo(
+    () => findFuzzyCorpusMatches(entries, wordAr, arabizi),
     [entries, wordAr, arabizi],
+  )
+  const similarEntries = useMemo(
+    () => fuzzyMatches.map((m) => m.entry),
+    [fuzzyMatches],
   )
 
   function toggleRegion(regionName: string) {
@@ -275,6 +285,8 @@ export function NewEntryProposalPanel({
       french_translation: frenchTranslation.trim() || undefined,
       entry_type: entryType,
       register,
+      ...(etymology !== 'unspecified' ? { etymology } : {}),
+      etymology_note: etymologyNote.trim() || undefined,
       regions:
         selectedRegions.length > 0
           ? selectedRegions
@@ -386,6 +398,8 @@ export function NewEntryProposalPanel({
     setArabiziManuallyEdited(false)
     setMsaTranslation('')
     setFrenchTranslation('')
+    setEtymology('unspecified')
+    setEtymologyNote('')
     setUsageNote('')
     setExampleDarija('')
     setExampleArabizi('')
@@ -565,21 +579,29 @@ export function NewEntryProposalPanel({
         </div>
       )}
 
-      {/* Live Duplicate Collision Guard with Inline Disambiguation Input */}
-      {similarEntries.length > 0 && (
-        <div className="mt-6 rounded-xl border border-amber-300 bg-amber-50/80 p-4 dark:border-amber-500/30 dark:bg-amber-500/10">
+      {/* Smart Darija Orthographic & Phonetic Duplicate Detector */}
+      {fuzzyMatches.length > 0 && (
+        <div
+          role="region"
+          aria-label="تنبيه تشابه مع مفردة موجودة"
+          className="mt-6 rounded-xl border border-amber-300 bg-amber-50/80 p-4 dark:border-amber-500/30 dark:bg-amber-500/10"
+        >
           <div className="flex items-start gap-2.5">
             <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5 text-amber-700 dark:text-amber-400" />
             <div className="flex-1 space-y-3">
               <div>
-                <p className="text-xs font-semibold text-amber-950 dark:text-amber-200">
-                  وجدنا {similarEntries.length} مفردة مشابهة مسجلة في المعجم:
+                <p className="text-xs sm:text-sm font-bold text-amber-950 dark:text-amber-100">
+                  توجد مفردة مشابهة في المعجم — هل تود إضافة شاهد سياقي أو نطق منطقتك لها بدلاً من إنشاء مدخل مكرر؟
                 </p>
-                <div className="mt-2 divide-y divide-amber-200/80 dark:divide-amber-500/20">
-                  {similarEntries.slice(0, 3).map((match) => (
+                <p className="mt-1 text-xs text-amber-900/85 dark:text-amber-200/80">
+                  يرصد الكاشف الذكي اختلافات كتابة الدارجة (تاء مربوطة/هاء/ألف، كاف/گاف، أو حذف حروف المد) لتفادي تكرار نفس المفردة.
+                </p>
+
+                <div className="mt-3 divide-y divide-amber-200/80 dark:divide-amber-500/20">
+                  {fuzzyMatches.slice(0, 3).map(({ entry: match, matchKind }) => (
                     <div
                       key={match.id}
-                      className="py-2 flex flex-wrap items-center justify-between gap-2 text-xs"
+                      className="py-2.5 flex flex-wrap items-center justify-between gap-3 text-xs"
                     >
                       <div className="flex flex-wrap items-center gap-2 text-amber-950 dark:text-amber-100">
                         {canAccessEditorialTools && (
@@ -590,7 +612,7 @@ export function NewEntryProposalPanel({
                             <span aria-hidden="true">·</span>
                           </>
                         )}
-                        <strong className="font-display">{match.word}</strong>
+                        <strong className="font-display text-sm">{match.word}</strong>
                         {match.latin && (
                           <span dir="ltr" className="font-mono">
                             ({match.latin})
@@ -598,15 +620,39 @@ export function NewEntryProposalPanel({
                         )}
                         <span aria-hidden="true">·</span>
                         <span>{match.meaning}</span>
+                        <span aria-hidden="true">·</span>
+                        <span className="text-[11px] text-amber-800 dark:text-amber-300">
+                          {matchKind === 'exact'
+                            ? 'تطابق مباشر'
+                            : matchKind === 'darija_spelling'
+                              ? 'رسم إملائي قريب في الدارجة'
+                              : 'تقارب صوتي'}
+                        </span>
                       </div>
-                      <button
-                        type="button"
-                        onClick={() => onInspectExistingEntry(match)}
-                        className="inline-flex items-center gap-1 font-semibold text-emerald-700 hover:underline whitespace-nowrap cursor-pointer dark:text-[#D9FF43]"
-                      >
-                        <span>افتح هذه البطاقة بدلاً من التكرار</span>
-                        <ArrowLeft className="h-3.5 w-3.5" />
-                      </button>
+
+                      <div className="flex flex-wrap items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            onEnrichExistingEntry
+                              ? onEnrichExistingEntry(match)
+                              : onInspectExistingEntry(match)
+                          }
+                          className="inline-flex min-h-[32px] items-center gap-1.5 rounded-full bg-zinc-950 px-3.5 py-1 text-xs font-bold text-white hover:bg-zinc-800 whitespace-nowrap cursor-pointer dark:bg-[#D9FF43] dark:text-[#050507] dark:hover:bg-[#e5ff73]"
+                        >
+                          <Plus className="h-3.5 w-3.5" />
+                          <span>إضافة شاهد سياقي أو نطق منطقتي لها</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => onInspectExistingEntry(match)}
+                          className="inline-flex items-center gap-1 px-2 py-1 font-semibold text-amber-950 hover:underline whitespace-nowrap cursor-pointer dark:text-amber-200"
+                        >
+                          <span>عرض البطاقة</span>
+                          <ArrowLeft className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -614,7 +660,7 @@ export function NewEntryProposalPanel({
 
               <label className="block pt-2 border-t border-amber-200/80 dark:border-amber-500/20">
                 <span className="block text-xs font-medium text-amber-950 dark:text-amber-200">
-                  هل تقصد معنىً آخر مختلفاً لنفس الكلمة؟ اكتب الفرق باختصار للمتابعة:
+                  إذا كانت كلمتك تحمل معنىً مختلفاً تماماً وتستدعي مدخلاً مستقلاً، وضّح الفرق باختصار للمتابعة:
                 </span>
                 <input
                   type="text"
@@ -905,6 +951,38 @@ export function NewEntryProposalPanel({
                     value={usageNote}
                     onChange={(e) => setUsageNote(e.target.value)}
                     placeholder="ملاحظة اختيارية حول التصريف أو السياق..."
+                    className="mt-1.5 w-full min-h-[40px] rounded-xl border border-zinc-300 bg-white px-3.5 py-2 text-xs text-zinc-900 focus:border-zinc-900 focus:outline-none dark:border-white/15 dark:bg-[#0C0C10] dark:text-[#F5F5F7] dark:focus:border-[#D9FF43]"
+                  />
+                </label>
+              </div>
+
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <label className="block">
+                  <span className="block text-xs text-zinc-600 dark:text-zinc-400">
+                    الجذر والتأصيل التاريخي (اختياري)
+                  </span>
+                  <select
+                    value={etymology}
+                    onChange={(e) => setEtymology(e.target.value as EtymologyOrigin)}
+                    className="mt-1.5 w-full min-h-[40px] rounded-xl border border-zinc-300 bg-white px-3 py-2 text-xs text-zinc-900 focus:border-zinc-900 focus:outline-none dark:border-white/15 dark:bg-[#0C0C10] dark:text-[#F5F5F7] dark:focus:border-[#D9FF43]"
+                  >
+                    {ETYMOLOGY_OPTIONS.map((opt) => (
+                      <option key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <label className="block">
+                  <span className="block text-xs text-zinc-600 dark:text-zinc-400">
+                    إضاءة التأصيل أو الجذر الأصلي (اختياري)
+                  </span>
+                  <input
+                    type="text"
+                    value={etymologyNote}
+                    onChange={(e) => setEtymologyNote(e.target.value)}
+                    placeholder="مثال: منحوتة من التركيب الفصيح... أو من الأمازيغية..."
                     className="mt-1.5 w-full min-h-[40px] rounded-xl border border-zinc-300 bg-white px-3.5 py-2 text-xs text-zinc-900 focus:border-zinc-900 focus:outline-none dark:border-white/15 dark:bg-[#0C0C10] dark:text-[#F5F5F7] dark:focus:border-[#D9FF43]"
                   />
                 </label>

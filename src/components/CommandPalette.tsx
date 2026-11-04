@@ -92,6 +92,13 @@ export function CommandPalette({
         action: () => onNavigatePage('lexicon', { subView: 'categories' }),
       },
       {
+        id: 'collections' as const,
+        label: 'المجموعات الموضوعاتية والمعاجم المصغّرة',
+        hint: '/collections',
+        icon: Compass,
+        action: () => onNavigatePage('collections'),
+      },
+      {
         id: 'review' as const,
         label: 'المراجعة السريعة بالبطاقات',
         hint: '/review',

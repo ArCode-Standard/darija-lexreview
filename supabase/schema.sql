@@ -1106,6 +1106,9 @@ create table if not exists public.member_messages (
   read_at timestamptz,
   acknowledged_at timestamptz,
   pinned_until timestamptz,
+  related_submission_id uuid references public.review_submissions(id) on delete set null,
+  related_entry_id text check (related_entry_id is null or char_length(pg_catalog.btrim(related_entry_id)) <= 64),
+  decision_status text check (decision_status is null or decision_status in ('accepted', 'needs_changes', 'rejected', 'merged')),
   created_at timestamptz not null default now(),
   constraint member_messages_target_check
     check (
@@ -1113,6 +1116,116 @@ create table if not exists public.member_messages (
       or (is_broadcast = false and recipient_id is not null)
     )
 );
+
+create index if not exists member_messages_related_submission_idx
+  on public.member_messages(related_submission_id)
+  where related_submission_id is not null;
+
+create or replace function private.notify_contributor_on_submission_decision()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_editor_name text;
+  v_sender_label text;
+  v_headword text;
+  v_note text;
+  v_category text;
+  v_title text;
+  v_body text;
+begin
+  if new.status is not distinct from old.status then
+    return new;
+  end if;
+
+  if new.status not in ('accepted', 'needs_changes', 'rejected', 'merged') then
+    return new;
+  end if;
+
+  if new.reviewer_id is null then
+    return new;
+  end if;
+
+  if new.status <> 'merged' and new.editor_id is not null and new.reviewer_id = new.editor_id then
+    return new;
+  end if;
+
+  if new.editor_id is not null then
+    select nullif(pg_catalog.btrim(coalesce(rp.display_name, '')), '')
+      into v_editor_name
+      from public.reviewer_profiles rp
+     where rp.id = new.editor_id;
+  end if;
+
+  v_sender_label := case
+    when v_editor_name is not null then 'هيئة التحرير (' || pg_catalog.left(v_editor_name, 72) || ')'
+    else 'هيئة التحرير المعجمي'
+  end;
+
+  v_headword := pg_catalog.left(
+    coalesce(
+      nullif(pg_catalog.btrim(coalesce(new.proposed_data ->> 'word_ar', '')), ''),
+      nullif(pg_catalog.btrim(coalesce(new.proposed_data ->> 'arabizi', '')), ''),
+      new.entry_id
+    ),
+    48
+  );
+
+  v_note := nullif(pg_catalog.btrim(coalesce(new.editor_note, '')), '');
+
+  if new.status = 'accepted' then
+    v_category := 'appreciation';
+    v_title := 'تم اعتماد مساهمتك المعجمية: «' || v_headword || '»';
+    v_body := 'اعتمدت هيئة التحرير مقترحك الخاص بـ «' || v_headword || '» لإدراجه في التحديث الرسمي القادم للمعجم.'
+      || case
+           when v_note is not null then ' ملاحظة المحرر اللغوي: ' || pg_catalog.left(v_note, 1500)
+           else ' نشكرك على مساهمتك الموثقة في إثراء معجم الدارجة المغربية.'
+         end;
+  elsif new.status = 'needs_changes' then
+    v_category := 'editorial_note';
+    v_title := 'مطلوب تعديل بسيط على مقترحك: «' || v_headword || '»';
+    v_body := 'راجع المحرر اللغوي مقترحك الخاص بـ «' || v_headword || '» وطلب استكمال أو توضيح بعض التفاصيل قبل الاعتماد النهائي.'
+      || case
+           when v_note is not null then ' ملاحظة المحرر: ' || pg_catalog.left(v_note, 1500)
+           else ''
+         end
+      || ' يمكنك فتح المقترح مباشرة وتعديله ثم إعادة إرساله بضغطة واحدة.';
+  elsif new.status = 'rejected' then
+    v_category := 'editorial_note';
+    v_title := 'نتيجة تحكيم مقترحك: «' || v_headword || '»';
+    v_body := 'تعذر اعتماد المقترح الخاص بـ «' || v_headword || '» بصيغته الحالية بعد المراجعة التحريرية.'
+      || case
+           when v_note is not null then ' سبب القرار وملاحظة المحرر: ' || pg_catalog.left(v_note, 1500)
+           else ''
+         end
+      || ' يمكنك الاطلاع على تفاصيل المقترح وتقديم نسخة منقحة وموثقة بشاهد أوضح متى شئت.';
+  else
+    v_category := 'appreciation';
+    v_title := 'أُدرجت مساهمتك في الإصدار الرسمي ' || pg_catalog.left(coalesce(new.exported_in_version, ''), 24) || ': «' || v_headword || '»';
+    v_body := 'تم دمج مساهمتك المعتمدة الخاصة بـ «' || v_headword || '» رسمياً ضمن حزمة الإصدار الموقعة للمتن المفتوح. شكراً لأثرك العلمي المستدام.';
+  end if;
+
+  insert into public.member_messages (
+    recipient_id, is_broadcast, sender_id, sender_label,
+    category, title, body, requires_ack,
+    related_submission_id, related_entry_id, decision_status
+  ) values (
+    new.reviewer_id, false, new.editor_id, v_sender_label,
+    v_category, pg_catalog.left(v_title, 160), pg_catalog.left(v_body, 4000), false,
+    new.id, new.entry_id, new.status
+  );
+
+  return new;
+end;
+$$;
+revoke all on function private.notify_contributor_on_submission_decision() from public, anon, authenticated;
+
+drop trigger if exists trg_submission_decision_inbox_notify on public.review_submissions;
+create trigger trg_submission_decision_inbox_notify
+after update on public.review_submissions
+for each row execute function private.notify_contributor_on_submission_decision();
 
 alter table public.member_moderation_events enable row level security;
 alter table public.member_moderation_reports enable row level security;
@@ -1131,5 +1244,199 @@ grant update (
   role, account_status, status_reason, suspended_until
 ) on table public.reviewer_profiles to authenticated;
 
+-- -----------------------------------------------------------------------------
+-- 7. Member Saved Bookmarks & Realtime Inbox Publication (20261103180000)
+-- -----------------------------------------------------------------------------
+create table if not exists public.member_bookmarks (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null default auth.uid() references auth.users(id) on delete cascade,
+  entry_id text not null check (char_length(pg_catalog.btrim(entry_id)) between 1 and 64),
+  note text check (note is null or char_length(note) <= 500),
+  created_at timestamptz not null default now(),
+  unique (user_id, entry_id)
+);
+
+create index if not exists member_bookmarks_user_created_idx
+  on public.member_bookmarks(user_id, created_at desc);
+
+alter table public.member_bookmarks enable row level security;
+
+revoke all on table public.member_bookmarks from public, anon, authenticated;
+grant select, insert, update (note), delete on table public.member_bookmarks to authenticated;
+
+drop policy if exists "members read own bookmarks" on public.member_bookmarks;
+create policy "members read own bookmarks"
+on public.member_bookmarks for select to authenticated
+using (user_id = (select auth.uid()));
+
+drop policy if exists "members insert own bookmarks" on public.member_bookmarks;
+create policy "members insert own bookmarks"
+on public.member_bookmarks for insert to authenticated
+with check (user_id = (select auth.uid()));
+
+drop policy if exists "members update own bookmarks" on public.member_bookmarks;
+create policy "members update own bookmarks"
+on public.member_bookmarks for update to authenticated
+using (user_id = (select auth.uid()))
+with check (user_id = (select auth.uid()));
+
+drop policy if exists "members delete own bookmarks" on public.member_bookmarks;
+create policy "members delete own bookmarks"
+on public.member_bookmarks for delete to authenticated
+using (user_id = (select auth.uid()));
+
+do $$
+begin
+  if exists (
+    select 1 from pg_publication where pubname = 'supabase_realtime'
+  ) and not exists (
+    select 1
+    from pg_publication_tables
+    where pubname = 'supabase_realtime'
+      and schemaname = 'public'
+      and tablename = 'member_messages'
+  ) then
+    execute 'alter publication supabase_realtime add table public.member_messages';
+  end if;
+end;
+$$;
+
 -- Bootstrap initial admin once via SQL Editor:
 -- update public.reviewer_profiles set role = 'admin' where id = '<INITIAL_ADMIN_UUID>';
+
+
+-- -----------------------------------------------------------------------------
+-- 8. Guided Documentation Sprints & Word Revision History RPC (20261103210000)
+-- -----------------------------------------------------------------------------
+create table if not exists public.documentation_sprints (
+  id uuid primary key default gen_random_uuid(),
+  slug text not null unique check (char_length(pg_catalog.btrim(slug)) between 3 and 96),
+  title text not null check (char_length(pg_catalog.btrim(title)) between 4 and 180),
+  description text not null check (char_length(pg_catalog.btrim(description)) between 8 and 1000),
+  target_type text not null
+    check (target_type in ('region', 'category', 'entry_type', 'etymology', 'missing_examples')),
+  target_value text check (target_value is null or char_length(pg_catalog.btrim(target_value)) <= 120),
+  goal_count integer not null default 50 check (goal_count between 5 and 10000),
+  baseline_count integer not null default 0 check (baseline_count >= 0),
+  badge_label text not null check (char_length(pg_catalog.btrim(badge_label)) between 4 and 120),
+  starts_at timestamptz not null default now(),
+  ends_at timestamptz,
+  status text not null default 'active'
+    check (status in ('active', 'completed', 'archived')),
+  created_by uuid references auth.users(id) on delete set null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create index if not exists documentation_sprints_status_created_idx
+  on public.documentation_sprints(status, created_at desc);
+
+create table if not exists public.sprint_participations (
+  sprint_id uuid not null references public.documentation_sprints(id) on delete cascade,
+  user_id uuid not null default auth.uid() references auth.users(id) on delete cascade,
+  contributions_count integer not null default 1 check (contributions_count >= 1),
+  last_contributed_at timestamptz not null default now(),
+  primary key (sprint_id, user_id)
+);
+
+create index if not exists sprint_participations_user_idx
+  on public.sprint_participations(user_id, last_contributed_at desc);
+
+alter table public.documentation_sprints enable row level security;
+alter table public.sprint_participations enable row level security;
+
+revoke all on table public.documentation_sprints from public, anon, authenticated;
+grant select on table public.documentation_sprints to anon, authenticated;
+grant insert, update on table public.documentation_sprints to authenticated;
+
+drop policy if exists "anyone reads documentation sprints" on public.documentation_sprints;
+create policy "anyone reads documentation sprints"
+on public.documentation_sprints for select to anon, authenticated
+using (true);
+
+drop policy if exists "staff manages documentation sprints" on public.documentation_sprints;
+create policy "staff manages documentation sprints"
+on public.documentation_sprints for all to authenticated
+using (private.is_lexreview_editor())
+with check (private.is_lexreview_editor());
+
+revoke all on table public.sprint_participations from public, anon, authenticated;
+grant select on table public.sprint_participations to anon, authenticated;
+grant insert, update (contributions_count, last_contributed_at) on table public.sprint_participations to authenticated;
+
+drop policy if exists "anyone reads sprint participations" on public.sprint_participations;
+create policy "anyone reads sprint participations"
+on public.sprint_participations for select to anon, authenticated
+using (true);
+
+drop policy if exists "members upsert own sprint participation" on public.sprint_participations;
+create policy "members upsert own sprint participation"
+on public.sprint_participations for insert to authenticated
+with check (user_id = (select auth.uid()) or private.is_lexreview_editor());
+
+drop policy if exists "members update own sprint participation" on public.sprint_participations;
+create policy "members update own sprint participation"
+on public.sprint_participations for update to authenticated
+using (user_id = (select auth.uid()) or private.is_lexreview_editor())
+with check (user_id = (select auth.uid()) or private.is_lexreview_editor());
+
+create or replace function public.get_entry_public_history(p_entry_id text)
+returns table (
+  revision_id uuid,
+  status text,
+  submission_kind text,
+  has_new_example boolean,
+  has_etymology boolean,
+  has_meaning_update boolean,
+  exported_in_version text,
+  contributor_name text,
+  contributor_slug text,
+  editor_name text,
+  created_at timestamptz,
+  decided_at timestamptz
+)
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select
+    rs.id as revision_id,
+    rs.status,
+    coalesce(rs.proposed_data ->> 'submission_kind', 'edit_entry') as submission_kind,
+    (coalesce(pg_catalog.btrim(rs.proposed_data ->> 'example_darija'), '') <> '') as has_new_example,
+    (coalesce(pg_catalog.btrim(rs.proposed_data ->> 'etymology'), '') <> '') as has_etymology,
+    (
+      coalesce(pg_catalog.btrim(rs.proposed_data ->> 'msa_translation'), '') <> ''
+      or coalesce(pg_catalog.btrim(rs.proposed_data ->> 'meaning'), '') <> ''
+      or coalesce(pg_catalog.btrim(rs.proposed_data ->> 'french_translation'), '') <> ''
+    ) as has_meaning_update,
+    rs.exported_in_version,
+    case
+      when rp.public_listed = true and coalesce(pg_catalog.btrim(rp.display_name), '') <> ''
+        then rp.display_name
+      else 'مساهم موثق في المجتمع'
+    end as contributor_name,
+    case
+      when rp.public_listed = true then 'self-' || pg_catalog.left(rp.id::text, 8)
+      else null
+    end as contributor_slug,
+    case
+      when ep.public_listed = true and coalesce(pg_catalog.btrim(ep.display_name), '') <> ''
+        then ep.display_name
+      when rs.editor_id is not null
+        then 'محرر معتمد في الهيئة العلمية'
+      else null
+    end as editor_name,
+    rs.created_at,
+    rs.updated_at as decided_at
+  from public.review_submissions rs
+  left join public.reviewer_profiles rp on rp.id = rs.reviewer_id
+  left join public.reviewer_profiles ep on ep.id = rs.editor_id
+  where rs.entry_id = pg_catalog.btrim(p_entry_id)
+    and rs.status in ('accepted', 'merged')
+  order by rs.updated_at asc;
+$$;
+
+revoke all on function public.get_entry_public_history(text) from public;
+grant execute on function public.get_entry_public_history(text) to anon, authenticated;

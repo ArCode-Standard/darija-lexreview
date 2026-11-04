@@ -31,6 +31,9 @@ interface SubmissionsPanelProps {
   totalAttestationsCount: number
   userEmail: string | null
   refreshTrigger: number
+  highlightedSubmissionId?: string | null
+  onClearHighlightedSubmission?: () => void
+  onInspectEntryInLexicon?: (entryId: string) => void
   onResumeDraft: (entryId: string) => void
   onStartRevision: (submission: SubmissionRecord) => void
   onDeleteDraft: (entryId: string) => void
@@ -84,6 +87,9 @@ export function SubmissionsPanel({
   totalAttestationsCount,
   userEmail,
   refreshTrigger,
+  highlightedSubmissionId,
+  onClearHighlightedSubmission,
+  onInspectEntryInLexicon,
   onResumeDraft,
   onStartRevision,
   onDeleteDraft,
@@ -146,6 +152,14 @@ export function SubmissionsPanel({
   useEffect(() => {
     loadSubmissions()
   }, [userEmail, refreshTrigger])
+
+  useEffect(() => {
+    if (!highlightedSubmissionId || submissions.length === 0) return
+    const targetEl = document.getElementById(`submission-row-${highlightedSubmissionId}`)
+    if (targetEl && typeof targetEl.scrollIntoView === 'function') {
+      targetEl.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    }
+  }, [highlightedSubmissionId, submissions])
 
   const impactMetrics = useMemo(() => {
     const acceptedCount = submissions.filter((s) => s.status === 'accepted').length
@@ -244,13 +258,34 @@ export function SubmissionsPanel({
     const canRevise = sub.status === 'needs_changes' || sub.status === 'rejected'
     const canWithdraw = sub.status === 'pending'
     const isConfirmingWithdraw = confirmWithdrawId === sub.id
+    const isHighlighted = highlightedSubmissionId === sub.id
 
     return (
       <div
+        id={`submission-row-${sub.id}`}
         key={sub.id}
-        className="py-4 flex flex-col sm:flex-row sm:items-start justify-between gap-4"
+        className={`py-4 flex flex-col sm:flex-row sm:items-start justify-between gap-4 transition-colors ${
+          isHighlighted
+            ? 'my-2 rounded-2xl border border-emerald-400/70 bg-emerald-50/40 px-4 dark:border-[#D9FF43]/50 dark:bg-[#D9FF43]/[0.06]'
+            : ''
+        }`}
       >
         <div className="space-y-1.5 flex-1">
+          {isHighlighted && (
+            <div className="flex flex-wrap items-center justify-between gap-2 pb-1 text-[11px] font-semibold text-emerald-800 dark:text-[#D9FF43]">
+              <span>المقترح المفتوح من صندوق الرسائل</span>
+              {onClearHighlightedSubmission && (
+                <button
+                  type="button"
+                  onClick={onClearHighlightedSubmission}
+                  className="text-zinc-500 hover:text-zinc-900 hover:underline cursor-pointer dark:text-zinc-400 dark:hover:text-white"
+                >
+                  إخفاء التمييز
+                </button>
+              )}
+            </div>
+          )}
+
           <div className="flex flex-wrap items-center gap-2 text-xs">
             <span className="font-display text-sm font-bold text-zinc-950 dark:text-[#F5F5F7]">
               {titleLabel}
@@ -321,6 +356,17 @@ export function SubmissionsPanel({
             >
               <RotateCcw className="h-3.5 w-3.5" aria-hidden="true" />
               <span>تعديل وإعادة إرسال</span>
+            </button>
+          )}
+
+          {!isNew && target && onInspectEntryInLexicon && (
+            <button
+              type="button"
+              onClick={() => onInspectEntryInLexicon(target.id)}
+              className="inline-flex min-h-[36px] items-center gap-1.5 rounded-full border border-zinc-300 bg-white px-3.5 py-1.5 text-xs font-semibold text-zinc-800 hover:bg-zinc-50 whitespace-nowrap cursor-pointer dark:border-white/15 dark:bg-[#07070A] dark:text-zinc-200 dark:hover:border-white/35"
+            >
+              <span>معاينة في المعجم</span>
+              <ArrowLeft className="h-3.5 w-3.5" aria-hidden="true" />
             </button>
           )}
 

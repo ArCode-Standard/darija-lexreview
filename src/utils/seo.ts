@@ -1,5 +1,7 @@
-import type { LexicalEntry } from '../types/lexicon'
+import type { LexicalEntry, PublicContributorRecord } from '../types/lexicon'
 import { formatAccessionCode } from '../services/dataset'
+import { formatEtymologyLabel } from './etymology'
+import type { ComputedThematicCollection } from './thematicCollections'
 import type { AppPage } from './urlState'
 
 interface PageSeoMeta {
@@ -21,7 +23,12 @@ const PAGE_META: Record<AppPage, PageSeoMeta> = {
   lexicon: {
     title: 'تصفح المعجم والفئات الدلالية | Darija LexReview',
     description:
-      'استكشف مفردات الدارجة المغربية مع النطق اللاتيني والمعاني العربية والفرنسية والشواهد السياقية.',
+      'استكشف مفردات الدارجة المغربية مع النطق اللاتيني والتأصيل اللغوي والمعاني العربية والفرنسية والشواهد السياقية.',
+  },
+  collections: {
+    title: 'المجموعات الموضوعاتية والمعاجم المصغّرة | Darija LexReview',
+    description:
+      'تصفح معاجم موضوعاتية منسّقة للدارجة المغربية: الأمثال الشعبية، المطبخ المغربي وأتاي، عبارات الترحيب، المعمار، والروافد الأمازيغية والأندلسية.',
   },
   insights: {
     title: 'خارطة تغطية المعجم وفجوات الإثراء | Darija LexReview',
@@ -73,6 +80,11 @@ const PAGE_META: Record<AppPage, PageSeoMeta> = {
     description:
       'سجّل الدخول عبر GitHub أو Google أو البريد الإلكتروني لتوثيق مساهماتك ومزامنة مسوداتك في Darija LexReview.',
   },
+  embed: {
+    title: 'بطاقة مفردة مضمّنة | Darija LexReview',
+    description:
+      'بطاقة معجمية موثقة من المعجم المغربي المفتوح Darija LexReview قابلة للتضمين الأكاديمي والإعلامي.',
+  },
 }
 
 function setMetaContent(
@@ -91,31 +103,54 @@ function setMetaContent(
   el.setAttribute('content', content)
 }
 
-function syncDefinedTermJsonLd(entry: LexicalEntry | null, canonicalUrl: string) {
-  if (typeof document === 'undefined' || typeof window === 'undefined') return
-  const scriptId = 'dynamic-entry-definedterm-jsonld'
-  const existing = document.getElementById(scriptId)
-
-  if (!entry) {
-    if (existing) existing.remove()
-    return
-  }
-
+export function buildDefinedTermJsonLdPayload(
+  entry: LexicalEntry,
+  canonicalUrl: string,
+  siteOrigin: string,
+) {
   const accessionCode = formatAccessionCode(entry.id, entry.numericId)
-  const payload = {
+  const exampleSnippet = entry.examples[0]?.darijaAr
+    ? ` — مثال سياقي: «${entry.examples[0].darijaAr}»`
+    : ''
+  const etymologySnippet =
+    entry.etymology && entry.etymology !== 'unspecified'
+      ? ` — التأصيل: ${formatEtymologyLabel(entry.etymology)}`
+      : ''
+
+  return {
     '@context': 'https://schema.org',
     '@type': 'DefinedTerm',
     '@id': canonicalUrl,
+    url: canonicalUrl,
     name: entry.word,
-    alternateName: entry.latin ? [entry.latin] : undefined,
+    alternateName: entry.latin
+      ? entry.latin
+          .split('/')
+          .map((s) => s.trim())
+          .filter(Boolean)
+      : undefined,
     termCode: accessionCode,
-    description: `${entry.meaning}${entry.french ? ` — ${entry.french}` : ''}`,
+    description: `معنى «${entry.word}» في الدارجة المغربية: ${entry.meaning}${entry.french ? ` (${entry.french})` : ''}${etymologySnippet}${exampleSnippet}`,
     inLanguage: 'ary',
     inDefinedTermSet: {
       '@type': 'DefinedTermSet',
+      '@id': `${siteOrigin}/lexicon`,
       name: 'Moroccan Darija Lexicon — ArCode Standard',
-      url: `${window.location.origin}/lexicon`,
+      url: `${siteOrigin}/lexicon`,
+      inLanguage: ['ary', 'ar', 'fr'],
+      license: 'https://creativecommons.org/licenses/by-nc/4.0/',
     },
+  }
+}
+
+function syncDynamicJsonLd(payload: Record<string, unknown> | null) {
+  if (typeof document === 'undefined') return
+  const scriptId = 'dynamic-entry-definedterm-jsonld'
+  const existing = document.getElementById(scriptId)
+
+  if (!payload) {
+    if (existing) existing.remove()
+    return
   }
 
   let scriptEl = existing as HTMLScriptElement | null
@@ -133,14 +168,23 @@ export function syncPageSeo(params: {
   explorerSubView?: 'entries' | 'categories'
   activeEntry?: LexicalEntry | null
   hasExplicitEntryInPath?: boolean
+  entriesCount?: number
+  activeContributor?: PublicContributorRecord | null
+  activeCollection?: ComputedThematicCollection | null
 }) {
   if (typeof document === 'undefined' || typeof window === 'undefined') return
 
   let { title, description } = PAGE_META[params.page] ?? PAGE_META.home
+  const siteOrigin = window.location.origin
+  let canonicalUrl = `${siteOrigin}${window.location.pathname}`
+
   const isDedicatedWordPage =
     params.page === 'lexicon' &&
     params.explorerSubView !== 'categories' &&
     Boolean(params.hasExplicitEntryInPath && params.activeEntry)
+
+  let jsonLdPayload: Record<string, unknown> | null = null
+  let ogType = 'website'
 
   if (params.page === 'lexicon') {
     if (params.explorerSubView === 'categories') {
@@ -150,19 +194,78 @@ export function syncPageSeo(params: {
     } else if (isDedicatedWordPage && params.activeEntry) {
       const e = params.activeEntry
       const latinPart = e.latin ? ` (${e.latin})` : ''
-      title = `${e.word}${latinPart} — معنى وشواهد في الدارجة المغربية | Darija LexReview`
-      description = `معنى «${e.word}» في الدارجة المغربية: ${e.meaning}${e.french ? ` · بالفرنسية: ${e.french}` : ''}. استعرض الشواهد وساهم في تدقيق المفردة.`
+      const exPart = e.examples[0]?.darijaAr ? ` مثال: «${e.examples[0].darijaAr}».` : ''
+      title = `معنى «${e.word}»${latinPart} بالدارجة المغربية | Darija LexReview`
+      description =
+        `معنى كلمة «${e.word}» في الدارجة المغربية: ${e.meaning}${e.french ? ` · بالفرنسية: ${e.french}` : ''}.${exPart} استعرض التأصيل والشواهد.`.slice(
+          0,
+          165,
+        )
+      ogType = 'article'
+      jsonLdPayload = buildDefinedTermJsonLdPayload(e, canonicalUrl, siteOrigin)
+    } else {
+      jsonLdPayload = {
+        '@context': 'https://schema.org',
+        '@type': 'DefinedTermSet',
+        '@id': `${siteOrigin}/lexicon`,
+        name: 'المعجم المغربي المفتوح — Moroccan Darija Lexicon',
+        url: `${siteOrigin}/lexicon`,
+        inLanguage: ['ary', 'ar', 'fr'],
+        license: 'https://creativecommons.org/licenses/by-nc/4.0/',
+        ...(params.entriesCount ? { numberOfItems: params.entriesCount } : {}),
+      }
+    }
+  } else if (params.page === 'collections' && params.activeCollection) {
+    const col = params.activeCollection
+    title = `${col.title} | Darija LexReview`
+    description = `${col.subtitle} — استعرض ${col.entries.length} مفردة وتعبير موثق في المعجم المغربي المفتوح.`.slice(
+      0,
+      165,
+    )
+    jsonLdPayload = {
+      '@context': 'https://schema.org',
+      '@type': 'CollectionPage',
+      '@id': canonicalUrl,
+      url: canonicalUrl,
+      name: col.title,
+      description: col.editorialNote,
+      inLanguage: ['ary', 'ar', 'fr'],
+      numberOfItems: col.entries.length,
+    }
+  } else if (params.page === 'embed' && params.activeEntry) {
+    const e = params.activeEntry
+    title = `«${e.word}» — بطاقة معجمية مضمّنة | Darija LexReview`
+    description = `معنى «${e.word}»: ${e.meaning}`.slice(0, 155)
+    canonicalUrl = `${siteOrigin}/lexicon/${encodeURIComponent(e.id)}`
+    jsonLdPayload = buildDefinedTermJsonLdPayload(e, canonicalUrl, siteOrigin)
+  } else if (params.page === 'contributors' && params.activeContributor) {
+    const c = params.activeContributor
+    const wordsCount = c.documented_words_count ?? c.accepted_count
+    const regionLabel = c.dialect_region ? ` (${c.dialect_region})` : ''
+    title = `${c.display_name}${regionLabel} — ملف المساهم المعجمي | Darija LexReview`
+    description = `البطاقة التعريفية للمساهم الموثق ${c.display_name} في معجم الدارجة المغربية: ساهم في توثيق ${wordsCount} مفردة ومراجعة الشواهد السياقية.`
+    ogType = 'profile'
+    jsonLdPayload = {
+      '@context': 'https://schema.org',
+      '@type': 'ProfilePage',
+      '@id': canonicalUrl,
+      url: canonicalUrl,
+      mainEntity: {
+        '@type': 'Person',
+        name: c.display_name,
+        ...(c.specialty ? { knowsAbout: c.specialty } : {}),
+        ...(c.github_handle ? { sameAs: [`https://github.com/${c.github_handle}`] } : {}),
+      },
     }
   }
 
   document.title = title
   setMetaContent('meta[name="description"]', 'name', 'description', description)
+  setMetaContent('meta[property="og:type"]', 'property', 'og:type', ogType)
   setMetaContent('meta[property="og:title"]', 'property', 'og:title', title)
   setMetaContent('meta[property="og:description"]', 'property', 'og:description', description)
   setMetaContent('meta[name="twitter:title"]', 'name', 'twitter:title', title)
   setMetaContent('meta[name="twitter:description"]', 'name', 'twitter:description', description)
-
-  const canonicalUrl = `${window.location.origin}${window.location.pathname}`
   setMetaContent('meta[property="og:url"]', 'property', 'og:url', canonicalUrl)
 
   let canonicalLink = document.head.querySelector('link[rel="canonical"]') as HTMLLinkElement | null
@@ -173,5 +276,5 @@ export function syncPageSeo(params: {
   }
   canonicalLink.setAttribute('href', canonicalUrl)
 
-  syncDefinedTermJsonLd(isDedicatedWordPage ? (params.activeEntry ?? null) : null, canonicalUrl)
+  syncDynamicJsonLd(jsonLdPayload)
 }

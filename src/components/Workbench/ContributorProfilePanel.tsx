@@ -2,23 +2,35 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { UserIdentity } from '@supabase/supabase-js'
 import {
   Activity,
+  ArrowLeft,
   Award,
   BadgeCheck,
+  Bookmark,
   BookOpen,
+  Check,
+  Copy,
   Eye,
   Github,
   Link2,
   LogOut,
   Save,
+  Trash2,
   Unlink,
   UserRound,
 } from 'lucide-react'
 import { isSupabaseConfigured, supabase } from '../../lib/supabase'
 import { Avatar, type AvatarSource } from '../Avatar'
-import type { ReviewerProfile, SubmissionRecord } from '../../types/lexicon'
+import type { LexicalEntry, ReviewerProfile, SubmissionRecord } from '../../types/lexicon'
 import { humanizeSystemError } from '../../utils/humanizeError'
 import { getGitHubLogin } from '../../utils/githubIdentity'
-import { computeContributorBadges, getBadgeClasses } from '../../utils/meritBadges'
+import { MeritSealMedallion } from '../MeritBadgeVisual'
+import {
+  computeContributorBadges,
+  computeContributorHonorStanding,
+  computeNextBadgeMilestones,
+} from '../../utils/meritBadges'
+import { buildContributorProfileUrl } from '../../utils/urlState'
+import { MOROCCAN_REGIONS } from '../../utils/validation'
 import {
   getLocalPublicListedFallback,
   saveLocalPublicListedFallback,
@@ -27,8 +39,15 @@ import {
 interface ContributorProfilePanelProps {
   profile: ReviewerProfile | null
   userEmail: string | null
+  entries?: LexicalEntry[]
+  bookmarkedEntryIds?: string[]
+  publicContributorSlug?: string | null
+  sprintParticipationsCount?: number
+  sprintBadgeLabel?: string | null
+  onOpenBookmarkedEntry?: (entry: LexicalEntry) => void
+  onRemoveBookmark?: (entryId: string) => void
   onProfileSaved: () => void
-  onOpenContributorsDirectory?: () => void
+  onOpenContributorsDirectory?: (slug?: string | null) => void
 }
 
 const roleLabels = { reviewer: 'مراجع مساهم', editor: 'محرر معتمد', admin: 'مشرف عام' } as const
@@ -47,6 +66,13 @@ function GoogleIcon() {
 export function ContributorProfilePanel({
   profile,
   userEmail,
+  entries = [],
+  bookmarkedEntryIds = [],
+  publicContributorSlug = null,
+  sprintParticipationsCount = 0,
+  sprintBadgeLabel = null,
+  onOpenBookmarkedEntry,
+  onRemoveBookmark,
   onProfileSaved,
   onOpenContributorsDirectory,
 }: ContributorProfilePanelProps) {
@@ -61,6 +87,7 @@ export function ContributorProfilePanel({
   const [publicListed, setPublicListed] = useState<boolean>(
     profile?.public_listed ?? getLocalPublicListedFallback(profile?.id),
   )
+  const [copiedPublicUrl, setCopiedPublicUrl] = useState(false)
   const [submissions, setSubmissions] = useState<SubmissionRecord[]>([])
   const [attestationsCount, setAttestationsCount] = useState(0)
   const [identities, setIdentities] = useState<UserIdentity[]>([])
@@ -70,6 +97,36 @@ export function ContributorProfilePanel({
   const [message, setMessage] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [activityError, setActivityError] = useState<string | null>(null)
+
+  const bookmarkedEntries = useMemo(() => {
+    if (!bookmarkedEntryIds.length || !entries.length) return []
+    const byId = new Map(entries.map((e) => [e.id, e]))
+    return bookmarkedEntryIds
+      .map((id) => byId.get(id))
+      .filter((e): e is LexicalEntry => Boolean(e))
+  }, [bookmarkedEntryIds, entries])
+
+  const resolvedPublicSlug = useMemo(() => {
+    if (publicContributorSlug) return publicContributorSlug
+    if (profile?.id) return `self-${profile.id.slice(0, 8)}`
+    return null
+  }, [publicContributorSlug, profile?.id])
+
+  const directContributorUrl = useMemo(
+    () => (resolvedPublicSlug ? buildContributorProfileUrl(resolvedPublicSlug) : null),
+    [resolvedPublicSlug],
+  )
+
+  async function handleCopyMyContributorUrl() {
+    if (!directContributorUrl) return
+    try {
+      await navigator.clipboard.writeText(directContributorUrl)
+      setCopiedPublicUrl(true)
+      window.setTimeout(() => setCopiedPublicUrl(false), 2200)
+    } catch {
+      // Ignore clipboard unavailability
+    }
+  }
 
   useEffect(() => {
     setName(profile?.display_name ?? '')
@@ -379,12 +436,18 @@ export function ContributorProfilePanel({
               <label className="space-y-1.5 text-xs font-semibold text-zinc-700 dark:text-zinc-300">
                 <span>المنطقة اللهجية</span>
                 <input
+                  list="profile-moroccan-regions-list"
                   value={region}
                   onChange={(e) => setRegion(e.target.value)}
                   maxLength={80}
-                  placeholder="مثال: الرباط، فاس، الشمال..."
+                  placeholder="مثال: فاس ومكناس، الشمال وجبالة، سوس والجنوب..."
                   className={inputClass}
                 />
+                <datalist id="profile-moroccan-regions-list">
+                  {MOROCCAN_REGIONS.map((r) => (
+                    <option key={r} value={r} />
+                  ))}
+                </datalist>
               </label>
               <label className="space-y-1.5 text-xs font-semibold text-zinc-700 dark:text-zinc-300">
                 <span>التخصص أو مجال الاهتمام</span>
@@ -418,34 +481,61 @@ export function ContributorProfilePanel({
               </label>
             </div>
 
-            {/* Public Honor Roll Visibility Toggle */}
-            <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-zinc-200 bg-zinc-50/70 p-3.5 dark:border-white/10 dark:bg-[#07070A]">
-              <label className="flex items-start gap-2.5 text-xs cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={publicListed}
-                  onChange={(e) => setPublicListed(e.target.checked)}
-                  className="mt-0.5 h-4 w-4 rounded accent-emerald-600"
-                />
-                <span>
-                  <strong className="block font-bold text-zinc-950 dark:text-white">
-                    إظهار اسمي وأوسمتي في «لوحة المساهمين العامة»
-                  </strong>
-                  <span className="text-[11px] text-zinc-500 dark:text-zinc-400">
-                    لا يُعرض بريدك الإلكتروني أبداً؛ تظهر بياناتك التعريفية وأوسمتك وصورتك الشخصية التي اخترتها.
+            {/* Public Honor Roll Visibility Toggle + Direct Permalink */}
+            <div className="mt-4 space-y-3 rounded-xl border border-zinc-200 bg-zinc-50/70 p-3.5 dark:border-white/10 dark:bg-[#07070A]">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <label className="flex items-start gap-2.5 text-xs cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={publicListed}
+                    onChange={(e) => setPublicListed(e.target.checked)}
+                    className="mt-0.5 h-4 w-4 rounded accent-emerald-600"
+                  />
+                  <span>
+                    <strong className="block font-bold text-zinc-950 dark:text-white">
+                      إظهار اسمي وأوسمتي في «لوحة المساهمين العامة»
+                    </strong>
+                    <span className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                      لا يُعرض بريدك الإلكتروني أبداً؛ تظهر بياناتك التعريفية وأوسمتك وصورتك الشخصية التي اخترتها.
+                    </span>
                   </span>
-                </span>
-              </label>
+                </label>
 
-              {onOpenContributorsDirectory && (
-                <button
-                  type="button"
-                  onClick={onOpenContributorsDirectory}
-                  className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700 hover:underline cursor-pointer dark:text-[#D9FF43]"
-                >
-                  <Eye className="h-3.5 w-3.5" />
-                  <span>معاينة لوحة الشرف</span>
-                </button>
+                {onOpenContributorsDirectory && (
+                  <button
+                    type="button"
+                    onClick={() => onOpenContributorsDirectory(publicListed ? resolvedPublicSlug : null)}
+                    className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700 hover:underline cursor-pointer dark:text-[#D9FF43]"
+                  >
+                    <Eye className="h-3.5 w-3.5" />
+                    <span>معاينة بطاقتي في لوحة الشرف</span>
+                  </button>
+                )}
+              </div>
+
+              {publicListed && directContributorUrl && (
+                <div className="flex flex-wrap items-center justify-between gap-2 border-t border-zinc-200/80 pt-3 text-xs dark:border-white/10">
+                  <span className="truncate font-mono text-[11px] text-zinc-600 dark:text-zinc-400" dir="ltr">
+                    {directContributorUrl}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => void handleCopyMyContributorUrl()}
+                    className="inline-flex items-center gap-1.5 rounded-full border border-zinc-300 bg-white px-3 py-1 text-xs font-semibold text-zinc-800 hover:border-zinc-950 cursor-pointer dark:border-white/15 dark:bg-[#0C0C10] dark:text-zinc-200 dark:hover:border-[#D9FF43]/60"
+                  >
+                    {copiedPublicUrl ? (
+                      <>
+                        <Check className="h-3.5 w-3.5 text-emerald-700 dark:text-[#D9FF43]" />
+                        <span>تم نسخ رابط بطاقتك</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="h-3.5 w-3.5" />
+                        <span>نسخ رابط ملفك العام</span>
+                      </>
+                    )}
+                  </button>
+                </div>
               )}
             </div>
 
@@ -599,34 +689,106 @@ export function ContributorProfilePanel({
           )}
 
           <div className="rounded-2xl border border-zinc-200 bg-white p-6 dark:border-white/10 dark:bg-[#0C0C10]">
-            <div className="flex items-center gap-2 text-sm font-bold text-zinc-950 dark:text-white">
-              <Award className="h-4 w-4 text-emerald-700 dark:text-[#D9FF43]" />
-              <span>أوسمة الجدارة المعجمية</span>
-            </div>
             {(() => {
-              const earnedBadges = computeContributorBadges({
+              const joinedYear = profile.created_at
+                ? new Date(profile.created_at).getFullYear()
+                : 2026
+              const badgeInput = {
                 role: profile.role,
                 acceptedCount: counts.accepted,
+                documentedWordsCount: counts.accepted,
                 attestationsCount,
                 dialectRegion: region || profile.dialect_region,
+                specialty: specialty || profile.specialty,
                 githubHandle: github || profile.github_handle,
-              })
-              return earnedBadges.length === 0 ? (
-                <p className="mt-3 text-xs leading-6 text-zinc-500 dark:text-zinc-400">
-                  تُمنح الأوسمة تلقائياً فور اعتماد أول مساهمة لك أو إنجاز تصديقات ميدانية أو ربط هوية GitHub.
-                </p>
-              ) : (
-                <div className="mt-3 flex flex-wrap gap-2">
-                  {earnedBadges.map((b) => (
-                    <span
-                      key={b.id}
-                      title={b.description}
-                      className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs font-semibold ${getBadgeClasses(b.tone)}`}
-                    >
-                      <Award className="h-3.5 w-3.5" />
-                      <span>{b.label}</span>
+                sprintParticipationsCount,
+                sprintBadgeLabel: sprintBadgeLabel ?? undefined,
+                joinedYear,
+              }
+              const earnedBadges = computeContributorBadges(badgeInput)
+              const standing = computeContributorHonorStanding(earnedBadges)
+              const nextMilestones = computeNextBadgeMilestones(badgeInput)
+
+              return (
+                <div className="space-y-4">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="flex items-center gap-2 text-sm font-bold text-zinc-950 dark:text-white">
+                      <Award className="h-4 w-4 text-emerald-700 dark:text-[#D9FF43]" />
+                      <span>أختام وأوسمة المعجم الخاصة</span>
+                    </div>
+                    <span className="font-mono text-[11px] font-semibold text-emerald-700 dark:text-[#D9FF43]">
+                      {standing.standingTitle}
                     </span>
-                  ))}
+                  </div>
+
+                  {earnedBadges.length === 0 ? (
+                    <p className="text-xs leading-6 text-zinc-500 dark:text-zinc-400">
+                      تُمنح أختام المعجم تلقائياً وفق معايير علمية موثقة فور اعتماد مساهماتك أو إنجاز تصديقات ميدانية.
+                    </p>
+                  ) : (
+                    <div className="space-y-2.5">
+                      {earnedBadges.map((b) => (
+                        <div
+                          key={b.id}
+                          className="flex items-start gap-3 rounded-xl border border-zinc-200/80 bg-zinc-50/70 p-3 dark:border-white/10 dark:bg-[#07070A]"
+                        >
+                          <MeritSealMedallion
+                            icon={b.icon}
+                            tone={b.tone}
+                            tier={b.tier}
+                            size={38}
+                          />
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center justify-between gap-2">
+                              <p className="text-xs font-bold text-zinc-950 dark:text-white">
+                                {b.sealName}{' '}
+                                <span className="font-normal text-zinc-500 dark:text-zinc-400">
+                                  · {b.label}
+                                </span>
+                              </p>
+                              <span className="font-mono text-[10px] text-zinc-400">
+                                {b.code}
+                              </span>
+                            </div>
+                            <p className="mt-0.5 text-[11px] leading-5 text-zinc-600 dark:text-zinc-400">
+                              {b.valueStatement}
+                            </p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {nextMilestones.length > 0 && (
+                    <div className="border-t border-zinc-200 pt-4 dark:border-white/10">
+                      <p className="text-xs font-bold text-zinc-800 dark:text-zinc-200">
+                        أختام قيد الاستحقاق (خطوتك القادمة)
+                      </p>
+                      <div className="mt-2.5 space-y-3">
+                        {nextMilestones.map((m) => (
+                          <div key={m.badge.id} className="space-y-1.5">
+                            <div className="flex items-center justify-between gap-2 text-xs">
+                              <span className="font-semibold text-zinc-900 dark:text-zinc-200">
+                                {m.badge.sealName} · {m.badge.label}
+                              </span>
+                              <span className="font-mono text-[11px] tabular-nums text-emerald-700 dark:text-[#D9FF43]">
+                                {m.progressLabel}
+                              </span>
+                            </div>
+                            <div className="h-1.5 w-full overflow-hidden rounded-full bg-zinc-200 dark:bg-white/10">
+                              <div
+                                style={{ width: `${Math.max(6, m.percent)}%` }}
+                                className="h-full rounded-full bg-emerald-600 transition-all dark:bg-[#D9FF43]"
+                              />
+                            </div>
+                            <p className="text-[11px] leading-5 text-zinc-500 dark:text-zinc-400">
+                              {m.actionHint}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               )
             })()}
@@ -644,6 +806,84 @@ export function ContributorProfilePanel({
             </ul>
           </div>
         </aside>
+      </div>
+
+      {/* Saved Words & Proverbs (Member Bookmarks) */}
+      <div className="overflow-hidden rounded-2xl border border-zinc-200 bg-white dark:border-white/10 dark:bg-[#0C0C10]">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-zinc-200 px-6 py-4 dark:border-white/10">
+          <div>
+            <div className="flex items-center gap-2">
+              <Bookmark className="h-4 w-4 text-emerald-700 dark:text-[#D9FF43]" />
+              <h3 className="font-display font-bold text-zinc-950 dark:text-white">
+                مفرداتي المحفوظة ({bookmarkedEntries.length})
+              </h3>
+            </div>
+            <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+              المفردات والأمثال المغربية التي حفظتها في مفضلتك للرجوع السريع إليها.
+            </p>
+          </div>
+        </div>
+
+        {bookmarkedEntries.length === 0 ? (
+          <p className="p-6 text-sm text-zinc-500 dark:text-zinc-400">
+            لم تحفظ أي مفردة في مفضلتك بعد. يمكنك الضغط على زر «حفظ» داخل أي بطاقة قاموسية لإضافتها هنا.
+          </p>
+        ) : (
+          <div className="divide-y divide-zinc-200 dark:divide-white/10">
+            {bookmarkedEntries.map((entry) => (
+              <div
+                key={entry.id}
+                className="flex flex-wrap items-center justify-between gap-3 px-6 py-4"
+              >
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-baseline gap-2">
+                    <strong className="font-display text-base font-bold text-zinc-950 dark:text-white">
+                      {entry.word}
+                    </strong>
+                    {entry.latin && (
+                      <span dir="ltr" className="font-mono text-xs text-emerald-700 dark:text-[#D9FF43]">
+                        /{entry.latin}/
+                      </span>
+                    )}
+                    <span aria-hidden="true" className="text-xs text-zinc-400">
+                      ·
+                    </span>
+                    <span className="text-xs text-zinc-500 dark:text-zinc-400">
+                      {entry.category}
+                    </span>
+                  </div>
+                  <p className="mt-0.5 truncate text-xs text-zinc-600 dark:text-zinc-400">
+                    {entry.meaning}
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-2 shrink-0">
+                  {onOpenBookmarkedEntry && (
+                    <button
+                      type="button"
+                      onClick={() => onOpenBookmarkedEntry(entry)}
+                      className="inline-flex min-h-[34px] items-center gap-1 rounded-full border border-zinc-300 bg-zinc-50 px-3.5 py-1 text-xs font-semibold text-zinc-800 hover:border-zinc-950 cursor-pointer dark:border-white/15 dark:bg-[#07070A] dark:text-zinc-200 dark:hover:border-[#D9FF43]/60"
+                    >
+                      <span>فتح البطاقة</span>
+                      <ArrowLeft className="h-3 w-3" />
+                    </button>
+                  )}
+
+                  {onRemoveBookmark && (
+                    <button
+                      type="button"
+                      onClick={() => onRemoveBookmark(entry.id)}
+                      aria-label={`إزالة ${entry.word} من المفضلة`}
+                      className="inline-flex h-[34px] w-[34px] items-center justify-center rounded-full border border-zinc-200 text-zinc-500 hover:border-red-500 hover:text-red-600 cursor-pointer dark:border-white/12 dark:text-zinc-400 dark:hover:border-[#FF3B2F] dark:hover:text-[#FF3B2F]"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       <div className="overflow-hidden rounded-2xl border border-zinc-200 bg-white dark:border-white/10 dark:bg-[#0C0C10]">

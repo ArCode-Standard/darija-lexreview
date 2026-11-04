@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { RotateCcw, Search, Shuffle, SlidersHorizontal } from 'lucide-react'
 import type { DataMode, ExampleFilter, LexicalEntry, LocalDraft } from '../../types/lexicon'
 import { formatAccessionCode, formatStatusLabel } from '../../services/dataset'
+import { ETYMOLOGY_OPTIONS, formatEtymologyShortLabel } from '../../utils/etymology'
 
 interface LexiconSidebarProps {
   entries: LexicalEntry[]
@@ -14,6 +15,7 @@ interface LexiconSidebarProps {
   selectedEntryType: string
   selectedRegister: string
   selectedRegion: string
+  selectedEtymology?: string
   regions: string[]
   dataMode: DataMode
   drafts: Record<string, LocalDraft>
@@ -23,6 +25,7 @@ interface LexiconSidebarProps {
   onEntryTypeChange: (value: string) => void
   onRegisterChange: (value: string) => void
   onRegionChange: (value: string) => void
+  onEtymologyChange?: (value: string) => void
   onSelectEntry: (entry: LexicalEntry) => void
   onResetFilters: () => void
 }
@@ -40,6 +43,7 @@ export function LexiconSidebar({
   selectedEntryType,
   selectedRegister,
   selectedRegion,
+  selectedEtymology = 'all',
   regions,
   dataMode,
   drafts,
@@ -49,17 +53,29 @@ export function LexiconSidebar({
   onEntryTypeChange,
   onRegisterChange,
   onRegionChange,
+  onEtymologyChange,
   onSelectEntry,
   onResetFilters,
 }: LexiconSidebarProps) {
   const [visibleCount, setVisibleCount] = useState(PAGE_STEP)
   const hasAdvancedActive =
-    selectedEntryType !== 'all' || selectedRegister !== 'all' || selectedRegion !== 'all'
+    selectedEntryType !== 'all' ||
+    selectedRegister !== 'all' ||
+    selectedRegion !== 'all' ||
+    selectedEtymology !== 'all'
   const [advancedOpen, setAdvancedOpen] = useState(hasAdvancedActive)
 
   useEffect(() => {
     setVisibleCount(PAGE_STEP)
-  }, [query, selectedCategory, exampleFilter, selectedEntryType, selectedRegister, selectedRegion])
+  }, [
+    query,
+    selectedCategory,
+    exampleFilter,
+    selectedEntryType,
+    selectedRegister,
+    selectedRegion,
+    selectedEtymology,
+  ])
 
   useEffect(() => {
     if (hasAdvancedActive) setAdvancedOpen(true)
@@ -137,6 +153,22 @@ export function LexiconSidebar({
             </option>
           ))}
         </select>
+
+        {onEtymologyChange && (
+          <select
+            aria-label="تصفية حسب الجذر والتأصيل التاريخي"
+            value={selectedEtymology}
+            onChange={(e) => onEtymologyChange(e.target.value)}
+            className="w-full min-h-[38px] rounded-xl border border-zinc-300 bg-zinc-50 px-3 py-1.5 text-xs text-zinc-800 focus:border-zinc-950 focus:outline-none dark:border-white/15 dark:bg-[#07070A] dark:text-zinc-200 dark:focus:border-[#D9FF43]"
+          >
+            <option value="all">جميع الروافد والتأصيلات التاريخية</option>
+            {ETYMOLOGY_OPTIONS.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                التأصيل: {opt.label}
+              </option>
+            ))}
+          </select>
+        )}
 
         <div
           role="group"
@@ -298,6 +330,11 @@ export function LexiconSidebar({
                       {formatAccessionCode(entry.id, entry.numericId)}
                     </span>
                   </div>
+                  {entry.etymology && entry.etymology !== 'unspecified' && (
+                    <p className="mt-0.5 text-[10px] text-emerald-700 dark:text-[#D9FF43]/85">
+                      {formatEtymologyShortLabel(entry.etymology)}
+                    </p>
+                  )}
 
                   <p className="mt-1 truncate text-xs text-zinc-600 dark:text-zinc-300">
                     {entry.meaning}

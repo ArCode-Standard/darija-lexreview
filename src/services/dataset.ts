@@ -7,6 +7,7 @@ import type {
   RegisterType,
   SourceType,
 } from '../types/lexicon'
+import { resolveEntryEtymology } from '../utils/etymology'
 
 const LEXICON_URL =
   'https://raw.githubusercontent.com/ArCode-Standard/moroccan-darija-dataset/4b8c0618a11578915360468cb8dc17e230691b18/data/moroccan-darija.json'
@@ -35,6 +36,9 @@ export const DEMO_ENTRIES: LexicalEntry[] = [
     category: 'الكمية والدرجة',
     entryType: 'word',
     register: 'neutral',
+    etymology: 'arabic_shifted',
+    etymologyNote:
+      'منحوتة صوتياً من التركيب العربي الفصيح «بالجُزاف» (أي بلا كيل ولا حساب) للدلالة على الكثرة.',
     status: 'pending',
     reviewNotes: 'مدخل توضيحي لعرض بنية الفحص اللغوي عند تعذر الاتصال بالمستودع.',
     provenance: DEFAULT_PROVENANCE,
@@ -61,6 +65,9 @@ export const DEMO_ENTRIES: LexicalEntry[] = [
     category: 'التواصل',
     entryType: 'word',
     register: 'neutral',
+    etymology: 'amazigh',
+    etymologyNote:
+      'لفظة ذات أصل أمازيغي راسخ في التداول المغربي المشترك تفيد القبول والموافقة أو الاستدراك.',
     status: 'pending',
     reviewNotes: 'تتعدد دلالات الكلمة بين الموافقة والاستدراك تبعاً لتركيب الجملة.',
     provenance: DEFAULT_PROVENANCE,
@@ -87,6 +94,9 @@ export const DEMO_ENTRIES: LexicalEntry[] = [
     category: 'الزمن',
     entryType: 'word',
     register: 'neutral',
+    etymology: 'arabic_shifted',
+    etymologyNote:
+      'محوَّرة صوتياً عن المصدر المنصوب «دَأْباً» في العربية الفصحى وتطورت للدلالة على الحال والآن.',
     status: 'pending',
     reviewNotes: 'ظرف زمان شائع في مختلف الحواضر والجهات المغربية.',
     provenance: DEFAULT_PROVENANCE,
@@ -113,6 +123,9 @@ export const DEMO_ENTRIES: LexicalEntry[] = [
     category: 'الاستفهام',
     entryType: 'question',
     register: 'neutral',
+    etymology: 'arabic_shifted',
+    etymologyNote:
+      'منحوتة تركيبياً من «أيُّ شيءٍ هو؟» عبر مراحل التخفيف الصوتي المشتركة في اللهجات المغاربية.',
     status: 'pending',
     reviewNotes: 'ترد بصيغ صوتية متقاربة مثل شنو وأشنو.',
     provenance: DEFAULT_PROVENANCE,
@@ -128,6 +141,9 @@ export const DEMO_ENTRIES: LexicalEntry[] = [
     category: 'الصفات',
     entryType: 'word',
     register: 'neutral',
+    etymology: 'arabic_shifted',
+    etymologyNote:
+      'مشتقة على وزن صيغة مبالغة محلية من الجذر العربي «ز-ي-ن» بمعنى الحَسَن والجميل.',
     status: 'pending',
     reviewNotes: 'تستعمل صفةً وظرفاً للتعبير عن الجودة أو الموافقة.',
     provenance: DEFAULT_PROVENANCE,
@@ -331,19 +347,37 @@ export async function fetchOfficialCorpus(): Promise<LoadedCorpus> {
         ? (item.review as Record<string, unknown>)
         : {}
 
+    const wordStr = String(item.darija_ar ?? '')
+    const meaningStr = String(item.fusha_ar ?? '—')
+    const categoryStr = String(item.category ?? 'غير مصنف')
+    const entryTypeVal = item.entry_type ? (String(item.entry_type) as EntryType) : undefined
+    const reviewNotesStr = String(rev.notes ?? '')
+    const resolvedEtym = resolveEntryEtymology({
+      explicitOrigin: item.etymology,
+      explicitNote: item.etymology_note,
+      word: wordStr,
+      latin: latinVal,
+      meaning: meaningStr,
+      category: categoryStr,
+      entryType: entryTypeVal,
+      reviewNotes: reviewNotesStr,
+    })
+
     return {
       id: idStr,
       numericId: Number.isNaN(numId) ? null : numId,
-      word: String(item.darija_ar ?? ''),
+      word: wordStr,
       latin: latinVal,
-      meaning: String(item.fusha_ar ?? '—'),
+      meaning: meaningStr,
       french: String(item.fr ?? '—'),
-      category: String(item.category ?? 'غير مصنف'),
-      entryType: item.entry_type ? (String(item.entry_type) as EntryType) : undefined,
+      category: categoryStr,
+      entryType: entryTypeVal,
       register: item.register ? (String(item.register) as RegisterType) : undefined,
+      etymology: resolvedEtym.etymology,
+      etymologyNote: resolvedEtym.etymologyNote,
       region: Array.isArray(item.region) ? item.region.map(String) : undefined,
       status: String(rev.status ?? 'pending'),
-      reviewNotes: String(rev.notes ?? ''),
+      reviewNotes: reviewNotesStr,
       provenance: {
         sourceType: (String(prov.source_type ?? 'original') as SourceType) || 'original',
         sourceName: String(prov.source_name ?? 'ArCode Standard'),

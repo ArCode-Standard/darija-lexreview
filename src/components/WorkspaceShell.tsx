@@ -64,6 +64,7 @@ const PAGE_LABELS: Record<AppPage, string> = {
   home: 'الرئيسية',
   review: 'المراجعة السريعة',
   lexicon: 'تصفح المعجم',
+  collections: 'المجموعات الموضوعاتية',
   insights: 'خارطة التغطية وفجوات الإثراء',
   contributors: 'لوحة شرف المساهمين',
   contribute: 'إضافة مفردة جديدة',
@@ -74,6 +75,7 @@ const PAGE_LABELS: Record<AppPage, string> = {
   members: 'إدارة الأعضاء والرتب',
   export: 'تصدير المعجم',
   auth: 'دخول / إنشاء حساب',
+  embed: 'بطاقة مفردة مضمّنة',
 }
 
 export function WorkspaceShell({
@@ -193,6 +195,20 @@ export function WorkspaceShell({
                 <span className="flex items-center gap-2.5">
                   <Layers className="h-4 w-4 shrink-0" />
                   <span>الفئات الدلالية</span>
+                </span>
+              </a>
+
+              <a
+                href="/collections"
+                onClick={(e) => {
+                  e.preventDefault()
+                  go('collections')
+                }}
+                className={navLinkClass(activePage === 'collections')}
+              >
+                <span className="flex items-center gap-2.5">
+                  <Database className="h-4 w-4 shrink-0" />
+                  <span>المجموعات الموضوعاتية</span>
                 </span>
               </a>
 

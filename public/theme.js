@@ -1,7 +1,7 @@
 (function () {
   var STORAGE_KEY = 'arcode_lexreview_theme';
 
-  function getPreferredTheme() {
+  function getStoredTheme() {
     try {
       var saved = window.localStorage.getItem(STORAGE_KEY);
       if (saved === 'light' || saved === 'dark') {
@@ -10,7 +10,31 @@
     } catch (_) {
       // Ignore storage access errors in restricted contexts
     }
+    return null;
+  }
+
+  function getSystemTheme() {
+    try {
+      if (window.matchMedia) {
+        if (window.matchMedia('(prefers-color-scheme: light)').matches) {
+          return 'light';
+        }
+        if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+          return 'dark';
+        }
+      }
+    } catch (_) {
+      // Ignore matchMedia errors
+    }
     return 'dark';
+  }
+
+  function getPreferredTheme() {
+    var stored = getStoredTheme();
+    if (stored) {
+      return stored;
+    }
+    return getSystemTheme();
   }
 
   function syncToggleButtons(theme) {
@@ -68,9 +92,31 @@
     applyTheme(next);
   });
 
+  try {
+    if (window.matchMedia) {
+      var mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+      var onSystemChange = function () {
+        if (!getStoredTheme()) {
+          applyTheme(getSystemTheme());
+        }
+      };
+      if (typeof mediaQuery.addEventListener === 'function') {
+        mediaQuery.addEventListener('change', onSystemChange);
+      } else if (typeof mediaQuery.addListener === 'function') {
+        mediaQuery.addListener(onSystemChange);
+      }
+    }
+  } catch (_) {
+    // Ignore matchMedia subscription errors
+  }
+
   window.addEventListener('storage', function (event) {
     if (event.key === STORAGE_KEY) {
-      applyTheme(event.newValue === 'light' ? 'light' : 'dark');
+      if (event.newValue === 'light' || event.newValue === 'dark') {
+        applyTheme(event.newValue);
+      } else {
+        applyTheme(getSystemTheme());
+      }
     }
   });
 })();

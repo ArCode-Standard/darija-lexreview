@@ -1,8 +1,7 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   AlertTriangle,
   ArrowUpRight,
-  Award,
   Ban,
   CheckCircle2,
   Clock,
@@ -14,6 +13,7 @@ import {
   Send,
   Shield,
   ShieldCheck,
+  Target,
   UserCheck,
   Users,
   X,
@@ -27,9 +27,14 @@ import type {
   MemberModerationEvent,
   MemberModerationReport,
   ReviewerProfile,
+  SprintTargetType,
   UserRole,
 } from '../../types/lexicon'
-import { computeContributorBadges, getBadgeClasses } from '../../utils/meritBadges'
+import type { ComputedSprintProgress, CreateSprintInput } from '../../hooks/useDocumentationSprints'
+import { ETYMOLOGY_OPTIONS } from '../../utils/etymology'
+import { MeritBadgeChip } from '../MeritBadgeVisual'
+import { computeContributorBadges } from '../../utils/meritBadges'
+import { MOROCCAN_REGIONS } from '../../utils/validation'
 
 interface AdminMembersPanelProps {
   currentProfile: ReviewerProfile | null
@@ -68,6 +73,15 @@ interface AdminMembersPanelProps {
     adminNote?: string
   }) => Promise<void>
   onOpenPublicDirectory: () => void
+  sprints?: ComputedSprintProgress[]
+  categories?: string[]
+  initialTab?: AdminTab
+  onClearInitialTab?: () => void
+  onCreateSprint?: (input: CreateSprintInput) => Promise<{ ok: boolean; error?: string }>
+  onUpdateSprintStatus?: (
+    sprintId: string,
+    status: 'active' | 'completed' | 'archived',
+  ) => Promise<void>
 }
 
 const ROLE_LABELS: Record<UserRole, string> = {
@@ -144,7 +158,7 @@ const MESSAGE_TEMPLATES: Array<{
   },
 ]
 
-type AdminTab = 'members' | 'reports' | 'broadcast' | 'audit'
+export type AdminTab = 'members' | 'sprints' | 'reports' | 'broadcast' | 'audit'
 type MemberFilter = 'all' | 'reviewers' | 'staff' | 'warned' | 'restricted'
 
 export function AdminMembersPanel({
@@ -160,12 +174,25 @@ export function AdminMembersPanel({
   onSubmitReport,
   onResolveReport,
   onOpenPublicDirectory,
+  sprints = [],
+  categories = [],
+  initialTab,
+  onClearInitialTab,
+  onCreateSprint,
+  onUpdateSprintStatus,
 }: AdminMembersPanelProps) {
-  const [activeTab, setActiveTab] = useState<AdminTab>('members')
+  const [activeTab, setActiveTab] = useState<AdminTab>(initialTab ?? 'members')
   const [memberFilter, setMemberFilter] = useState<MemberFilter>('all')
   const [query, setQuery] = useState('')
   const [feedback, setFeedback] = useState<{ type: 'ok' | 'err'; text: string } | null>(null)
   const [busyId, setBusyId] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (initialTab) {
+      setActiveTab(initialTab)
+      onClearInitialTab?.()
+    }
+  }, [initialTab, onClearInitialTab])
 
   // Modal state for Warn / Suspend / Ban action with reason
   const [actionModal, setActionModal] = useState<{
@@ -192,6 +219,15 @@ export function AdminMembersPanel({
   const [broadcastTitle, setBroadcastTitle] = useState('')
   const [broadcastBody, setBroadcastBody] = useState('')
   const [broadcastPinDays, setBroadcastPinDays] = useState(7)
+
+  // Documentation Sprint Creator Form state
+  const [sprintTitle, setSprintTitle] = useState('')
+  const [sprintDesc, setSprintDesc] = useState('')
+  const [sprintTargetType, setSprintTargetType] = useState<SprintTargetType>('region')
+  const [sprintTargetValue, setSprintTargetValue] = useState<string>('درعة تافيلالت')
+  const [sprintGoalCount, setSprintGoalCount] = useState<number>(100)
+  const [sprintDurationDays, setSprintDurationDays] = useState<number>(14)
+  const [sprintBadgeLabel, setSprintBadgeLabel] = useState('وسام حملة التوثيق الجماعي')
 
   const effectiveIsAdmin = isAdmin
 
@@ -388,6 +424,290 @@ export function AdminMembersPanel({
     }
   }
 
+  async function handleLaunchSprint() {
+    if (!onCreateSprint) return
+    if (!sprintTitle.trim()) {
+      setFeedback({ type: 'err', text: 'يرجى إدخال عنوان واضح لحملة التوثيق الموجهة.' })
+      return
+    }
+    const res = await onCreateSprint({
+      title: sprintTitle.trim(),
+      description:
+        sprintDesc.trim() ||
+        'هدف جماعي لمجتمع المعجم المغربي لتوثيق الشواهد السياقية والتداول اللهجي.',
+      target_type: sprintTargetType,
+      target_value: sprintTargetType === 'missing_examples' ? null : sprintTargetValue.trim() || null,
+      goal_count: Math.max(10, sprintGoalCount),
+      badge_label: sprintBadgeLabel.trim() || 'وسام حملة التوثيق الجماعي',
+      duration_days: Math.max(1, sprintDurationDays),
+    })
+    if (res.ok) {
+      setSprintTitle('')
+      setSprintDesc('')
+      setFeedback({
+        type: 'ok',
+        text: 'تم إطلاق حملة التوثيق الموجهة وتثبيت شريط التقدم الجماعي بنجاح.',
+      })
+    } else {
+      setFeedback({ type: 'err', text: res.error ?? 'تعذر إطلاق حملة التوثيق حالياً.' })
+    }
+  }
+
+  const renderSprintManagerSection = () => (
+    <div className="space-y-4">
+      <div className="rounded-2xl border border-zinc-200 bg-white p-6 dark:border-white/10 dark:bg-[#0B0B10]">
+        <div className="flex items-center gap-2 text-emerald-700 dark:text-[#D9FF43]">
+          <Target className="h-4 w-4" />
+          <span className="font-mono text-[11px] tracking-[0.14em] uppercase">
+            DOCUMENTATION SPRINTS · حملات التوثيق الموجهة
+          </span>
+        </div>
+        <h3 className="mt-1.5 font-display text-lg font-bold text-zinc-950 dark:text-white">
+          إطلاق حملة توثيق جماعية محددة الهدف والمدة مع وسام للمشاركين
+        </h3>
+        <p className="mt-1 text-xs leading-6 text-zinc-600 dark:text-zinc-400">
+          تظهر الحملة النشطة في الصفحة الرئيسية وورشة المراجعة بشريط تقدم حي، ويحصل كل عضو مسجل يشارك في تحقيق هدفها على وسام الجدارة المخصص للحملة.
+        </p>
+
+        <div className="mt-5 grid gap-4">
+          <div className="grid gap-4 sm:grid-cols-[1fr_200px_160px]">
+            <label className="space-y-1.5 text-xs font-semibold text-zinc-700 dark:text-zinc-300">
+              <span>عنوان الحملة الجماعية</span>
+              <input
+                value={sprintTitle}
+                onChange={(e) => setSprintTitle(e.target.value)}
+                maxLength={160}
+                placeholder="مثال: حملة توثيق ١٠٠ شاهد من جهة درعة تافيلالت"
+                className="min-h-[42px] w-full rounded-xl border border-zinc-200 bg-zinc-50 px-3.5 text-sm text-zinc-950 focus:border-zinc-950 focus:bg-white focus:outline-none dark:border-white/12 dark:bg-[#07070A] dark:text-white dark:focus:border-[#D9FF43]"
+              />
+            </label>
+
+            <label className="space-y-1.5 text-xs font-semibold text-zinc-700 dark:text-zinc-300">
+              <span>الهدف العددي</span>
+              <input
+                type="number"
+                min={10}
+                max={5000}
+                value={sprintGoalCount}
+                onChange={(e) => setSprintGoalCount(Number(e.target.value) || 50)}
+                className="min-h-[42px] w-full rounded-xl border border-zinc-200 bg-zinc-50 px-3.5 font-mono text-sm text-zinc-950 dark:border-white/12 dark:bg-[#07070A] dark:text-white"
+              />
+            </label>
+
+            <label className="space-y-1.5 text-xs font-semibold text-zinc-700 dark:text-zinc-300">
+              <span>مدة الحملة</span>
+              <select
+                value={sprintDurationDays}
+                onChange={(e) => setSprintDurationDays(Number(e.target.value))}
+                className="min-h-[42px] w-full rounded-xl border border-zinc-200 bg-zinc-50 px-3 text-sm text-zinc-950 dark:border-white/12 dark:bg-[#07070A] dark:text-white"
+              >
+                <option value={7}>7 أيام (أسبوع)</option>
+                <option value={14}>14 يوماً</option>
+                <option value={30}>30 يوماً (شهر)</option>
+                <option value={60}>60 يوماً</option>
+              </select>
+            </label>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-3">
+            <label className="space-y-1.5 text-xs font-semibold text-zinc-700 dark:text-zinc-300">
+              <span>محور الاستهداف</span>
+              <select
+                value={sprintTargetType}
+                onChange={(e) => {
+                  const nextType = e.target.value as SprintTargetType
+                  setSprintTargetType(nextType)
+                  if (nextType === 'region') setSprintTargetValue(MOROCCAN_REGIONS[0] ?? 'درعة تافيلالت')
+                  else if (nextType === 'category') setSprintTargetValue(categories[0] ?? '')
+                  else if (nextType === 'entry_type') setSprintTargetValue('proverb')
+                  else if (nextType === 'etymology') setSprintTargetValue('amazigh')
+                  else setSprintTargetValue('')
+                }}
+                className="min-h-[42px] w-full rounded-xl border border-zinc-200 bg-zinc-50 px-3 text-sm text-zinc-950 dark:border-white/12 dark:bg-[#07070A] dark:text-white"
+              >
+                <option value="region">جهة جغرافية محددة</option>
+                <option value="missing_examples">مفردات تنقصها الشواهد السياقية</option>
+                <option value="entry_type">نوع المدخل (الأمثال / التعابير)</option>
+                <option value="category">فئة دلالية محددة</option>
+                <option value="etymology">تأصيل وجذر لغوي محدد</option>
+              </select>
+            </label>
+
+            <label className="space-y-1.5 text-xs font-semibold text-zinc-700 dark:text-zinc-300">
+              <span>القيمة المستهدفة</span>
+              {sprintTargetType === 'missing_examples' ? (
+                <input
+                  disabled
+                  value="جميع المفردات غير المشفوعة بأمثلة"
+                  className="min-h-[42px] w-full rounded-xl border border-zinc-200 bg-zinc-100 px-3 text-xs text-zinc-500 dark:border-white/10 dark:bg-[#07070A] dark:text-zinc-400"
+                />
+              ) : sprintTargetType === 'region' ? (
+                <select
+                  value={sprintTargetValue}
+                  onChange={(e) => setSprintTargetValue(e.target.value)}
+                  className="min-h-[42px] w-full rounded-xl border border-zinc-200 bg-zinc-50 px-3 text-sm text-zinc-950 dark:border-white/12 dark:bg-[#07070A] dark:text-white"
+                >
+                  {MOROCCAN_REGIONS.map((reg) => (
+                    <option key={reg} value={reg}>
+                      {reg}
+                    </option>
+                  ))}
+                </select>
+              ) : sprintTargetType === 'category' && categories.length > 0 ? (
+                <select
+                  value={sprintTargetValue}
+                  onChange={(e) => setSprintTargetValue(e.target.value)}
+                  className="min-h-[42px] w-full rounded-xl border border-zinc-200 bg-zinc-50 px-3 text-sm text-zinc-950 dark:border-white/12 dark:bg-[#07070A] dark:text-white"
+                >
+                  {categories.map((cat) => (
+                    <option key={cat} value={cat}>
+                      {cat}
+                    </option>
+                  ))}
+                </select>
+              ) : sprintTargetType === 'entry_type' ? (
+                <select
+                  value={sprintTargetValue}
+                  onChange={(e) => setSprintTargetValue(e.target.value)}
+                  className="min-h-[42px] w-full rounded-xl border border-zinc-200 bg-zinc-50 px-3 text-sm text-zinc-950 dark:border-white/12 dark:bg-[#07070A] dark:text-white"
+                >
+                  <option value="proverb">الأمثال الشعبية</option>
+                  <option value="expression">التعابير الاصطلاحية</option>
+                  <option value="word">المفردات المفردة</option>
+                </select>
+              ) : sprintTargetType === 'etymology' ? (
+                <select
+                  value={sprintTargetValue}
+                  onChange={(e) => setSprintTargetValue(e.target.value)}
+                  className="min-h-[42px] w-full rounded-xl border border-zinc-200 bg-zinc-50 px-3 text-sm text-zinc-950 dark:border-white/12 dark:bg-[#07070A] dark:text-white"
+                >
+                  {ETYMOLOGY_OPTIONS.map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.shortLabel}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <input
+                  value={sprintTargetValue}
+                  onChange={(e) => setSprintTargetValue(e.target.value)}
+                  placeholder="القيمة المستهدفة..."
+                  className="min-h-[42px] w-full rounded-xl border border-zinc-200 bg-zinc-50 px-3 text-sm text-zinc-950 dark:border-white/12 dark:bg-[#07070A] dark:text-white"
+                />
+              )}
+            </label>
+
+            <label className="space-y-1.5 text-xs font-semibold text-zinc-700 dark:text-zinc-300">
+              <span>اسم وسام المشاركين في الحملة</span>
+              <input
+                value={sprintBadgeLabel}
+                onChange={(e) => setSprintBadgeLabel(e.target.value)}
+                maxLength={80}
+                placeholder="مثال: وسام توثيق درعة تافيلالت"
+                className="min-h-[42px] w-full rounded-xl border border-zinc-200 bg-zinc-50 px-3.5 text-sm text-zinc-950 dark:border-white/12 dark:bg-[#07070A] dark:text-white"
+              />
+            </label>
+          </div>
+
+          <label className="space-y-1.5 text-xs font-semibold text-zinc-700 dark:text-zinc-300">
+            <span>وصف منهجي مختصر للحملة</span>
+            <textarea
+              rows={2}
+              value={sprintDesc}
+              onChange={(e) => setSprintDesc(e.target.value)}
+              maxLength={400}
+              placeholder="اشرح المطلوب من المساهمين لإنجاح الحملة..."
+              className="w-full rounded-xl border border-zinc-200 bg-zinc-50 p-3 text-sm text-zinc-950 focus:border-zinc-950 focus:bg-white focus:outline-none dark:border-white/12 dark:bg-[#07070A] dark:text-white dark:focus:border-[#D9FF43]"
+            />
+          </label>
+
+          <div>
+            <button
+              type="button"
+              onClick={() => void handleLaunchSprint()}
+              className="inline-flex min-h-[42px] items-center gap-2 rounded-full bg-zinc-950 px-6 py-2 text-xs sm:text-sm font-bold text-white hover:bg-zinc-800 cursor-pointer dark:bg-[#D9FF43] dark:text-[#050507] dark:hover:bg-[#e5ff73]"
+            >
+              <Target className="h-4 w-4" />
+              <span>إطلاق الحملة وتثبيت شريط التقدم</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Existing Sprints List */}
+      <div className="space-y-3">
+        {sprints.map((sp) => (
+          <div
+            key={sp.sprint.id}
+            className="rounded-2xl border border-zinc-200 bg-white p-5 dark:border-white/10 dark:bg-[#0B0B10]"
+          >
+            <div className="flex flex-wrap items-start justify-between gap-4">
+              <div className="space-y-1.5 min-w-0 flex-1">
+                <div className="flex flex-wrap items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400">
+                  <strong
+                    className={
+                      sp.sprint.status === 'active'
+                        ? 'text-emerald-700 dark:text-[#D9FF43]'
+                        : 'text-zinc-600 dark:text-zinc-400'
+                    }
+                  >
+                    {sp.sprint.status === 'active'
+                      ? 'حملة نشطة حالياً'
+                      : sp.sprint.status === 'completed'
+                        ? 'حملة مكتملة'
+                        : 'مؤرشفة'}
+                  </strong>
+                  <span aria-hidden="true">·</span>
+                  <span>{sp.sprint.badge_label}</span>
+                  <span aria-hidden="true">·</span>
+                  <span className="font-mono tabular-nums">
+                    {sp.currentCount}/{sp.goalCount} ({sp.progressPercent}%)
+                  </span>
+                </div>
+                <h4 className="font-display text-base font-bold text-zinc-950 dark:text-white">
+                  {sp.sprint.title}
+                </h4>
+                <p className="text-xs text-zinc-600 dark:text-zinc-400">{sp.sprint.description}</p>
+              </div>
+
+              {onUpdateSprintStatus && (
+                <div className="flex flex-wrap items-center gap-2">
+                  {sp.sprint.status !== 'active' && (
+                    <button
+                      type="button"
+                      onClick={() => void onUpdateSprintStatus(sp.sprint.id, 'active')}
+                      className="rounded-full bg-zinc-950 px-3.5 py-1.5 text-xs font-bold text-white cursor-pointer dark:bg-[#D9FF43] dark:text-[#050507]"
+                    >
+                      تفعيل الآن
+                    </button>
+                  )}
+                  {sp.sprint.status === 'active' && (
+                    <button
+                      type="button"
+                      onClick={() => void onUpdateSprintStatus(sp.sprint.id, 'completed')}
+                      className="rounded-full border border-emerald-400/70 bg-emerald-50 px-3.5 py-1.5 text-xs font-semibold text-emerald-900 cursor-pointer dark:border-[#D9FF43]/40 dark:bg-[#0C0F06] dark:text-[#D9FF43]"
+                    >
+                      إعلان اكتمال الهدف
+                    </button>
+                  )}
+                  {sp.sprint.status !== 'archived' && (
+                    <button
+                      type="button"
+                      onClick={() => void onUpdateSprintStatus(sp.sprint.id, 'archived')}
+                      className="rounded-full border border-zinc-300 px-3 py-1.5 text-xs font-semibold text-zinc-600 cursor-pointer dark:border-white/15 dark:text-zinc-400"
+                    >
+                      أرشفة
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+
   return (
     <section className="space-y-6" aria-labelledby="admin-members-heading">
       {/* Top Mode & Role Perspective Bar */}
@@ -504,6 +824,7 @@ export function AdminMembersPanel({
             {(
               [
                 { id: 'members', label: `سجل الأعضاء والرتب (${members.length})`, icon: Users },
+                { id: 'sprints', label: `حملات التوثيق الموجهة (${sprints.length})`, icon: Target },
                 { id: 'reports', label: `بلاغات المحررين (${kpis.openReports})`, icon: Flag },
                 { id: 'broadcast', label: 'نشر إعلان عام للمنصة', icon: Megaphone },
                 { id: 'audit', label: `سجل القرارات الإدارية (${modEvents.length})`, icon: Shield },
@@ -585,9 +906,14 @@ export function AdminMembersPanel({
                     const badges = computeContributorBadges({
                       role: member.role,
                       acceptedCount: member.accepted_count,
+                      documentedWordsCount: member.accepted_count,
                       attestationsCount: member.attestations_count,
                       dialectRegion: member.dialect_region,
+                      specialty: member.specialty,
                       githubHandle: member.github_handle,
+                      joinedYear: member.created_at
+                        ? new Date(member.created_at).getFullYear()
+                        : undefined,
                     })
                     const isSelf = currentProfile?.id === member.id
 
@@ -638,13 +964,7 @@ export function AdminMembersPanel({
                             {badges.length > 0 && (
                               <div className="flex flex-wrap gap-1.5 pt-1">
                                 {badges.map((b) => (
-                                  <span
-                                    key={b.id}
-                                    className={`inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-[10px] font-semibold ${getBadgeClasses(b.tone)}`}
-                                  >
-                                    <Award className="h-2.5 w-2.5" />
-                                    <span>{b.label}</span>
-                                  </span>
+                                  <MeritBadgeChip key={b.id} badge={b} size="sm" />
                                 ))}
                               </div>
                             )}
@@ -766,6 +1086,9 @@ export function AdminMembersPanel({
               )}
             </div>
           )}
+
+          {/* TAB 1B: DOCUMENTATION SPRINTS MANAGER */}
+          {activeTab === 'sprints' && renderSprintManagerSection()}
 
           {/* TAB 2: EDITOR ESCALATION REPORTS */}
           {activeTab === 'reports' && (
@@ -1073,6 +1396,8 @@ export function AdminMembersPanel({
               </div>
             )}
           </div>
+
+          {onCreateSprint && <div className="lg:col-span-2">{renderSprintManagerSection()}</div>}
         </div>
       )}
 

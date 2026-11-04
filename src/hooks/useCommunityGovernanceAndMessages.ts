@@ -219,6 +219,77 @@ export function useCommunityGovernanceAndMessages({
     void refreshMessages()
   }, [refreshPublicDirectory, refreshMessages, userEmail])
 
+  // Subscribe to Realtime member_messages events so the inbox badge updates immediately
+  useEffect(() => {
+    const client = supabase
+    if (!client || !userEmail) return
+
+    const userId = currentProfile?.id ?? null
+    const upsertRealtimeRow = (row: MemberMessageRecord) => {
+      if (!row?.id) return
+      const isRelevant =
+        row.is_broadcast || (userId !== null && row.recipient_id === userId)
+      if (!isRelevant) return
+
+      setLiveMessages((prev) => {
+        const idx = prev.findIndex((m) => m.id === row.id)
+        if (idx >= 0) {
+          const updated = [...prev]
+          updated[idx] = { ...updated[idx], ...row }
+          return updated
+        }
+        return [row, ...prev]
+      })
+    }
+
+    const channelName = `member-inbox-realtime-${userId ?? 'session'}`
+    const channel = client
+      .channel(channelName)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'member_messages',
+          ...(userId ? { filter: `recipient_id=eq.${userId}` } : {}),
+        },
+        (payload) => {
+          if (payload.eventType === 'DELETE') {
+            const oldId = (payload.old as { id?: string } | null)?.id
+            if (oldId) {
+              setLiveMessages((prev) => prev.filter((m) => m.id !== oldId))
+            }
+            return
+          }
+          upsertRealtimeRow(payload.new as MemberMessageRecord)
+        },
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'member_messages',
+          filter: 'is_broadcast=eq.true',
+        },
+        (payload) => {
+          if (payload.eventType === 'DELETE') {
+            const oldId = (payload.old as { id?: string } | null)?.id
+            if (oldId) {
+              setLiveMessages((prev) => prev.filter((m) => m.id !== oldId))
+            }
+            return
+          }
+          upsertRealtimeRow(payload.new as MemberMessageRecord)
+        },
+      )
+      .subscribe()
+
+    return () => {
+      void client.removeChannel(channel)
+    }
+  }, [userEmail, currentProfile?.id])
+
   useEffect(() => {
     void refreshAdminGovernance()
   }, [refreshAdminGovernance])

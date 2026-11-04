@@ -1,32 +1,43 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   ArrowLeft,
+  Bookmark,
   BookMarked,
   Check,
   ChevronLeft,
   ChevronRight,
+  Code2,
   Copy,
+  Download,
   Edit3,
   ExternalLink,
   Globe2,
+  History,
   Link2,
   Plus,
   Quote,
   Sparkles,
   Volume2,
 } from 'lucide-react'
-import type { EntryAttestationSummary, LexicalEntry } from '../../types/lexicon'
+import type { EntryAttestationSummary, EtymologyOrigin, LexicalEntry } from '../../types/lexicon'
 import {
   formatAccessionCode,
   formatRegisterLabel,
   formatStatusLabel,
 } from '../../services/dataset'
-import { buildCleanEntryUrl } from '../../utils/urlState'
+import { formatEtymologyLabel } from '../../utils/etymology'
+import { buildCleanEntryUrl, buildEmbedEntryUrl } from '../../utils/urlState'
+import { downloadShareableLexicalCard } from '../../utils/shareCardGenerator'
+import { EntryRevisionHistoryPanel } from './EntryRevisionHistoryPanel'
 
 interface DictionaryReferenceCardProps {
   entry: LexicalEntry
   allEntries: LexicalEntry[]
   corpusVersion: string
+  darkMode?: boolean
+  isAuthenticated?: boolean
+  isBookmarked?: boolean
+  onToggleBookmark?: () => void
   attestationSummary?: EntryAttestationSummary
   currentIndex: number
   totalFiltered: number
@@ -36,6 +47,8 @@ interface DictionaryReferenceCardProps {
   onSwitchToWorkshop: (focusAddExample?: boolean) => void
   onSelectEntry: (entry: LexicalEntry) => void
   onSelectCategory: (category: string) => void
+  onSelectEtymology?: (origin: EtymologyOrigin) => void
+  onOpenContributorProfile?: (slug: string) => void
   onBackToLexiconIndex?: () => void
 }
 
@@ -52,6 +65,10 @@ export function DictionaryReferenceCard({
   entry,
   allEntries,
   corpusVersion,
+  darkMode = true,
+  isAuthenticated = false,
+  isBookmarked = false,
+  onToggleBookmark,
   attestationSummary,
   currentIndex,
   totalFiltered,
@@ -61,12 +78,27 @@ export function DictionaryReferenceCard({
   onSwitchToWorkshop,
   onSelectEntry,
   onSelectCategory,
+  onSelectEtymology,
+  onOpenContributorProfile,
   onBackToLexiconIndex,
 }: DictionaryReferenceCardProps) {
   const [copiedShare, setCopiedShare] = useState(false)
+  const [downloadedCard, setDownloadedCard] = useState(false)
   const [showCitationBox, setShowCitationBox] = useState(false)
   const [citationFormat, setCitationFormat] = useState<'apa' | 'bibtex'>('apa')
   const [copiedCitation, setCopiedCitation] = useState(false)
+
+  const [showEmbedBox, setShowEmbedBox] = useState(false)
+  const [embedTheme, setEmbedTheme] = useState<'auto' | 'light' | 'dark'>('auto')
+  const [embedCompact, setEmbedCompact] = useState(false)
+  const [embedFormat, setEmbedFormat] = useState<'iframe' | 'html_card'>('iframe')
+  const [copiedEmbed, setCopiedEmbed] = useState(false)
+
+  const [activeInnerTab, setActiveInnerTab] = useState<'reference' | 'history'>('reference')
+
+  useEffect(() => {
+    setActiveInnerTab('reference')
+  }, [entry.id])
 
   const accessionCode = formatAccessionCode(entry.id, entry.numericId)
   const shareUrl = useMemo(() => buildCleanEntryUrl(entry.id), [entry.id])
@@ -89,6 +121,25 @@ export function DictionaryReferenceCard({
   url          = {${shareUrl}}
 }`
   }, [entry.id, entry.word, entry.latin, accessionCode, corpusVersion, currentYear, todayIso, shareUrl])
+
+  const embedIframeUrl = useMemo(
+    () => buildEmbedEntryUrl(entry.id, { theme: embedTheme, compact: embedCompact }),
+    [entry.id, embedTheme, embedCompact],
+  )
+
+  const iframeEmbedSnippet = useMemo(() => {
+    const heightPx = embedCompact ? 235 : 320
+    return `<iframe src="${embedIframeUrl}" title="معنى «${entry.word}» في الدارجة المغربية — Darija LexReview" width="100%" height="${heightPx}" style="border:0;max-width:640px;border-radius:16px;overflow:hidden;" loading="lazy"></iframe>\n<p style="font-size:12px;margin-top:6px;">المصدر: <a href="${shareUrl}" target="_blank" rel="noopener">مدخل «${entry.word}» في المعجم المغربي المفتوح Darija LexReview</a></p>`
+  }, [embedIframeUrl, embedCompact, entry.word, shareUrl])
+
+  const seoHtmlCardSnippet = useMemo(() => {
+    const latinText = entry.latin ? ` (/${entry.latin}/)` : ''
+    const exText =
+      !embedCompact && entry.examples[0]?.darijaAr
+        ? `<p style="margin:8px 0 0;color:#52525b;">شاهد سياقي: «${entry.examples[0].darijaAr}»</p>`
+        : ''
+    return `<blockquote dir="rtl" cite="${shareUrl}" style="border:1px solid #e4e4e7;border-radius:14px;padding:16px;max-width:600px;font-family:system-ui,sans-serif;">\n  <strong>${entry.word}${latinText}</strong> — ${entry.meaning}${exText}\n  <footer style="margin-top:10px;font-size:12px;"><a href="${shareUrl}" target="_blank" rel="noopener">توثيق المفردة في المعجم المغربي المفتوح (Darija LexReview · CC BY-NC 4.0)</a></footer>\n</blockquote>`
+  }, [entry.word, entry.latin, entry.meaning, entry.examples, embedCompact, shareUrl])
 
   const relatedEntries = useMemo(() => {
     return allEntries
@@ -121,12 +172,34 @@ export function DictionaryReferenceCard({
     }
   }
 
+  function handleDownloadVisualCard() {
+    const ok = downloadShareableLexicalCard(entry, {
+      corpusVersion,
+      theme: darkMode ? 'dark' : 'light',
+    })
+    if (ok) {
+      setDownloadedCard(true)
+      window.setTimeout(() => setDownloadedCard(false), 2200)
+    }
+  }
+
   async function handleCopyCitation() {
     const text = citationFormat === 'apa' ? apaCitation : bibtexCitation
     try {
       await navigator.clipboard.writeText(text)
       setCopiedCitation(true)
       window.setTimeout(() => setCopiedCitation(false), 2000)
+    } catch {
+      // Clipboard unavailable
+    }
+  }
+
+  async function handleCopyEmbedSnippet() {
+    const code = embedFormat === 'iframe' ? iframeEmbedSnippet : seoHtmlCardSnippet
+    try {
+      await navigator.clipboard.writeText(code)
+      setCopiedEmbed(true)
+      window.setTimeout(() => setCopiedEmbed(false), 2000)
     } catch {
       // Clipboard unavailable
     }
@@ -171,6 +244,23 @@ export function DictionaryReferenceCard({
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
+          {isAuthenticated && onToggleBookmark && (
+            <button
+              type="button"
+              onClick={onToggleBookmark}
+              aria-pressed={isBookmarked}
+              title={isBookmarked ? 'إزالة المفردة من المفضلة' : 'حفظ المفردة في مفضلتي'}
+              className={`inline-flex min-h-[34px] items-center gap-1.5 rounded-full border px-3.5 py-1 text-xs font-semibold transition-colors cursor-pointer ${
+                isBookmarked
+                  ? 'border-emerald-600 bg-emerald-50 text-emerald-900 dark:border-[#D9FF43] dark:bg-[#D9FF43]/15 dark:text-[#D9FF43]'
+                  : 'border-zinc-300 bg-white text-zinc-700 hover:border-zinc-950 hover:text-zinc-950 dark:border-white/15 dark:bg-[#0C0C10] dark:text-zinc-200 dark:hover:border-[#D9FF43]/60'
+              }`}
+            >
+              <Bookmark className={`h-3.5 w-3.5 ${isBookmarked ? 'fill-current' : ''}`} />
+              <span>{isBookmarked ? 'محفوظة' : 'حفظ'}</span>
+            </button>
+          )}
+
           <button
             type="button"
             onClick={handleCopyShare}
@@ -191,7 +281,29 @@ export function DictionaryReferenceCard({
 
           <button
             type="button"
-            onClick={() => setShowCitationBox((prev) => !prev)}
+            onClick={handleDownloadVisualCard}
+            title="تنزيل بطاقة بصرية للمفردة جاهزة للمشاركة (PNG)"
+            className="inline-flex min-h-[34px] items-center gap-1.5 rounded-full border border-zinc-300 bg-white px-3.5 py-1 text-xs font-semibold text-zinc-700 hover:border-zinc-950 hover:text-zinc-950 transition-colors cursor-pointer dark:border-white/15 dark:bg-[#0C0C10] dark:text-zinc-200 dark:hover:border-[#D9FF43]/60 dark:hover:text-white"
+          >
+            {downloadedCard ? (
+              <>
+                <Check className="h-3.5 w-3.5 text-emerald-700 dark:text-[#D9FF43]" />
+                <span>تم تنزيل البطاقة</span>
+              </>
+            ) : (
+              <>
+                <Download className="h-3.5 w-3.5" />
+                <span>بطاقة مصوّرة</span>
+              </>
+            )}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              setShowCitationBox((prev) => !prev)
+              setShowEmbedBox(false)
+            }}
             aria-expanded={showCitationBox}
             className={`inline-flex min-h-[34px] items-center gap-1.5 rounded-full border px-3.5 py-1 text-xs font-semibold transition-colors cursor-pointer ${
               showCitationBox
@@ -201,6 +313,24 @@ export function DictionaryReferenceCard({
           >
             <Quote className="h-3.5 w-3.5" />
             <span>اقتباس علمي</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              setShowEmbedBox((prev) => !prev)
+              setShowCitationBox(false)
+            }}
+            aria-expanded={showEmbedBox}
+            title="كود تضمين بطاقة المفردة في المدونات والمقالات الصحفية والمواقع الأكاديمية"
+            className={`inline-flex min-h-[34px] items-center gap-1.5 rounded-full border px-3.5 py-1 text-xs font-semibold transition-colors cursor-pointer ${
+              showEmbedBox
+                ? 'border-zinc-950 bg-zinc-950 text-white dark:border-[#D9FF43] dark:bg-[#D9FF43] dark:text-[#050507]'
+                : 'border-zinc-300 bg-white text-zinc-700 hover:border-zinc-950 hover:text-zinc-950 dark:border-white/15 dark:bg-[#0C0C10] dark:text-zinc-200 dark:hover:border-[#D9FF43]/60'
+            }`}
+          >
+            <Code2 className="h-3.5 w-3.5" />
+            <span>تضمين للمقالات</span>
           </button>
 
           <button
@@ -300,7 +430,143 @@ export function DictionaryReferenceCard({
         </div>
       )}
 
-      {/* Main Lexicographical Reference Body */}
+      {/* Expandable Embed Widget Code Drawer for Journalists, Bloggers & Researchers */}
+      {showEmbedBox && (
+        <div className="border-b border-zinc-200 bg-zinc-50 px-5 py-4 sm:px-7 dark:border-white/10 dark:bg-[#08080C] space-y-3">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex flex-wrap items-center gap-2.5">
+              <Code2 className="h-4 w-4 text-emerald-700 dark:text-[#D9FF43]" />
+              <span className="text-xs font-bold text-zinc-950 dark:text-white">
+                تضمين بطاقة «{entry.word}» في المدونات والمقالات
+              </span>
+
+              <div className="inline-flex rounded-lg border border-zinc-200 bg-white p-0.5 dark:border-white/10 dark:bg-[#0C0C10]">
+                <button
+                  type="button"
+                  onClick={() => setEmbedFormat('iframe')}
+                  className={`rounded-md px-2.5 py-1 text-[11px] font-semibold cursor-pointer ${
+                    embedFormat === 'iframe'
+                      ? 'bg-zinc-950 text-white dark:bg-[#D9FF43] dark:text-[#050507]'
+                      : 'text-zinc-500 dark:text-zinc-400'
+                  }`}
+                >
+                  بطاقة تفاعلية (iframe)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setEmbedFormat('html_card')}
+                  className={`rounded-md px-2.5 py-1 text-[11px] font-semibold cursor-pointer ${
+                    embedFormat === 'html_card'
+                      ? 'bg-zinc-950 text-white dark:bg-[#D9FF43] dark:text-[#050507]'
+                      : 'text-zinc-500 dark:text-zinc-400'
+                  }`}
+                >
+                  اقتباس HTML خفيف
+                </button>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              {embedFormat === 'iframe' && (
+                <select
+                  aria-label="مظهر بطاقة التضمين"
+                  value={embedTheme}
+                  onChange={(e) => setEmbedTheme(e.target.value as 'auto' | 'light' | 'dark')}
+                  className="min-h-[32px] rounded-lg border border-zinc-300 bg-white px-2.5 text-xs text-zinc-800 dark:border-white/15 dark:bg-[#0C0C10] dark:text-zinc-200"
+                >
+                  <option value="auto">المظهر: تلقائي</option>
+                  <option value="light">المظهر: فاتح</option>
+                  <option value="dark">المظهر: داكن</option>
+                </select>
+              )}
+
+              <label className="inline-flex items-center gap-1.5 text-xs text-zinc-600 dark:text-zinc-400 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={embedCompact}
+                  onChange={(e) => setEmbedCompact(e.target.checked)}
+                  className="h-3.5 w-3.5 rounded accent-emerald-600"
+                />
+                <span>وضع مختصر بدون الشاهد</span>
+              </label>
+
+              <button
+                type="button"
+                onClick={() => void handleCopyEmbedSnippet()}
+                className="inline-flex min-h-[32px] items-center gap-1.5 rounded-full bg-zinc-950 px-3.5 py-1 text-xs font-bold text-white hover:bg-zinc-800 cursor-pointer dark:bg-[#D9FF43] dark:text-[#050507]"
+              >
+                {copiedEmbed ? (
+                  <>
+                    <Check className="h-3.5 w-3.5" />
+                    <span>تم نسخ الكود</span>
+                  </>
+                ) : (
+                  <>
+                    <Copy className="h-3.5 w-3.5" />
+                    <span>نسخ كود التضمين</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+
+          <pre
+            dir="ltr"
+            className="overflow-x-auto rounded-xl border border-zinc-200 bg-white p-3.5 text-start text-[11px] leading-6 text-zinc-800 font-mono whitespace-pre-wrap dark:border-white/10 dark:bg-[#050507] dark:text-zinc-200"
+          >
+            {embedFormat === 'iframe' ? iframeEmbedSnippet : seoHtmlCardSnippet}
+          </pre>
+        </div>
+      )}
+
+      {/* Encyclopedic View Tabs: Reference Card vs Transparent Word Revision History */}
+      <div className="flex items-center justify-between gap-3 border-b border-zinc-200 px-5 py-2.5 sm:px-7 dark:border-white/10">
+        <div
+          role="tablist"
+          aria-label="أقسام بطاقة المفردة"
+          className="inline-flex items-center gap-1 rounded-xl border border-zinc-200 bg-zinc-100 p-1 dark:border-white/10 dark:bg-[#07070A]"
+        >
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activeInnerTab === 'reference'}
+            onClick={() => setActiveInnerTab('reference')}
+            className={`min-h-[30px] rounded-lg px-3 py-1 text-xs font-semibold transition-colors cursor-pointer ${
+              activeInnerTab === 'reference'
+                ? 'bg-zinc-950 text-white dark:bg-[#D9FF43] dark:text-[#050507]'
+                : 'text-zinc-600 hover:text-zinc-950 dark:text-zinc-400 dark:hover:text-white'
+            }`}
+          >
+            البطاقة المرجعية والشواهد
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activeInnerTab === 'history'}
+            onClick={() => setActiveInnerTab('history')}
+            className={`inline-flex min-h-[30px] items-center gap-1.5 rounded-lg px-3 py-1 text-xs font-semibold transition-colors cursor-pointer ${
+              activeInnerTab === 'history'
+                ? 'bg-zinc-950 text-white dark:bg-[#D9FF43] dark:text-[#050507]'
+                : 'text-zinc-600 hover:text-zinc-950 dark:text-zinc-400 dark:hover:text-white'
+            }`}
+          >
+            <History className="h-3.5 w-3.5" />
+            <span>سجل تاريخ المفردة</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Main Lexicographical Reference Body or Transparent Revision History */}
+      {activeInnerTab === 'history' ? (
+        <div className="p-6 sm:p-8">
+          <EntryRevisionHistoryPanel
+            entry={entry}
+            corpusVersion={corpusVersion}
+            attestationSummary={attestationSummary}
+            onOpenContributorProfile={onOpenContributorProfile}
+          />
+        </div>
+      ) : (
       <div className="p-6 sm:p-8 space-y-8">
         {/* Headword + Phonetic Transcription + Dialect Metadata */}
         <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between border-b border-zinc-200 pb-7 dark:border-white/10">
@@ -354,6 +620,27 @@ export function DictionaryReferenceCard({
                 <span>الانتشار:</span>
                 <strong className="text-zinc-900 dark:text-zinc-200">{regions.join('، ')}</strong>
               </span>
+              {entry.etymology && entry.etymology !== 'unspecified' && (
+                <span>
+                  الجذر والتأصيل:{' '}
+                  {onSelectEtymology ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (entry.etymology) onSelectEtymology(entry.etymology)
+                      }}
+                      title="تصفية المعجم حسب هذا الجذر التاريخي"
+                      className="font-semibold text-emerald-700 hover:underline cursor-pointer dark:text-[#D9FF43]"
+                    >
+                      {formatEtymologyLabel(entry.etymology)}
+                    </button>
+                  ) : (
+                    <strong className="text-zinc-900 dark:text-zinc-200">
+                      {formatEtymologyLabel(entry.etymology)}
+                    </strong>
+                  )}
+                </span>
+              )}
             </div>
           </div>
 
@@ -392,6 +679,15 @@ export function DictionaryReferenceCard({
             </p>
           </div>
         </div>
+
+        {entry.etymologyNote && (
+          <div className="rounded-xl border border-zinc-200/80 bg-zinc-50/60 px-4 py-3 text-xs leading-6 text-zinc-700 dark:border-white/10 dark:bg-white/[0.02] dark:text-zinc-300">
+            <strong className="text-emerald-800 dark:text-[#D9FF43]">
+              إضاءة التأصيل التاريخي ({formatEtymologyLabel(entry.etymology)}):{' '}
+            </strong>
+            {entry.etymologyNote}
+          </div>
+        )}
 
         {entry.reviewNotes && (
           <div className="rounded-xl border border-zinc-200/80 bg-zinc-50/40 px-4 py-3 text-xs leading-6 text-zinc-600 dark:border-white/10 dark:bg-white/[0.02] dark:text-zinc-400">
@@ -558,6 +854,7 @@ export function DictionaryReferenceCard({
           </a>
         </footer>
       </div>
+      )}
     </article>
   )
 }
