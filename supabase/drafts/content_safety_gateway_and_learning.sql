@@ -1009,6 +1009,8 @@ grant select, insert, update, delete on private.learning_release_policies to ser
 
 create unique index if not exists model_registry_one_active_per_name_idx
   on private.model_registry(model_name) where status = 'active';
+create unique index if not exists learning_release_policies_one_active_per_domain_idx
+  on private.learning_release_policies(domain) where active = true;
 
 create or replace function private.create_frozen_learning_dataset(
   p_domain text,
@@ -1478,7 +1480,7 @@ begin
   select * into v_current from private.model_registry m
   where m.model_name=p_model_name and m.status='active' for update;
   select * into v_target from private.model_registry m
-  where m.id=p_target_model_id and m.model_name=p_model_name and m.status='approved' for update;
+  where m.id=p_target_model_id and m.model_name=p_model_name and m.status in ('approved','rolled_back') for update;
   if v_current.id is null or v_target.id is null then
     raise exception 'An active model and an approved rollback target are required' using errcode = '55000';
   end if;
