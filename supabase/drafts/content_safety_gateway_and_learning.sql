@@ -229,6 +229,170 @@ $function$;
 
 revoke all on function private.content_projection_has_text(jsonb) from public, anon, authenticated;
 
+
+-- Internal governance notifications are generated only by the trusted
+-- reviewer-profile governance trigger. Give each generated message its own
+-- narrowly scoped audit token; do not create a general trigger bypass.
+create or replace function private.insert_governance_member_message(
+  p_recipient_id uuid,
+  p_sender_label text,
+  p_category text,
+  p_title text,
+  p_body text,
+  p_requires_ack boolean
+) returns void
+language plpgsql
+security definer
+set search_path = ''
+as $function$
+declare
+  v_actor uuid := (select auth.uid());
+  v_message jsonb;
+  v_projection jsonb;
+  v_token_id uuid;
+  v_previous_token_id text := nullif(pg_catalog.current_setting('app.content_scan_token_id', true), '');
+  v_previous_operation text := nullif(pg_catalog.current_setting('app.content_scan_operation', true), '');
+  v_previous_actor text := nullif(pg_catalog.current_setting('app.content_scan_actor_id', true), '');
+begin
+  if v_actor is null or p_recipient_id is null
+     or p_sender_label is null or p_category is null
+     or p_title is null or p_body is null then
+    raise exception 'Invalid internal governance notification'
+      using errcode = '22023';
+  end if;
+
+  v_message := pg_catalog.jsonb_build_object(
+    'sender_label', p_sender_label,
+    'title', p_title,
+    'body', p_body
+  );
+  v_projection := private.content_scan_projection('member_messages', v_message);
+
+  insert into private.content_scan_tokens(
+    token_hash, actor_id, operation, payload_hash,
+    engine_version, policy_version, expires_at, consumed_at
+  ) values (
+    extensions.digest(extensions.gen_random_bytes(32), 'sha256'),
+    v_actor,
+    'member_messages.create',
+    extensions.digest(pg_catalog.convert_to(v_projection::text, 'UTF8'), 'sha256'),
+    'internal-governance-trigger',
+    'internal-governance-v1',
+    pg_catalog.clock_timestamp() + interval '90 seconds',
+    pg_catalog.clock_timestamp()
+  ) returning id into v_token_id;
+
+  perform pg_catalog.set_config('app.content_scan_token_id', v_token_id::text, true);
+  perform pg_catalog.set_config('app.content_scan_operation', 'member_messages.create', true);
+  perform pg_catalog.set_config('app.content_scan_actor_id', v_actor::text, true);
+
+  insert into public.member_messages(
+    recipient_id, is_broadcast, sender_id, sender_label,
+    category, title, body, requires_ack
+  ) values (
+    p_recipient_id, false, v_actor, p_sender_label,
+    p_category, p_title, p_body, coalesce(p_requires_ack, false)
+  );
+
+  perform pg_catalog.set_config('app.content_scan_token_id', coalesce(v_previous_token_id, ''), true);
+  perform pg_catalog.set_config('app.content_scan_operation', coalesce(v_previous_operation, ''), true);
+  perform pg_catalog.set_config('app.content_scan_actor_id', coalesce(v_previous_actor, ''), true);
+end;
+$function$;
+
+revoke all on function private.insert_governance_member_message(uuid,text,text,text,text,boolean)
+  from public, anon, authenticated;
+
+create or replace function private.record_member_governance_side_effects()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $function$
+declare
+  v_actor uuid := (select auth.uid());
+  v_action text;
+  v_msg_cat text;
+  v_msg_title text;
+  v_msg_body text;
+  v_req_ack boolean := false;
+begin
+  if new.role is distinct from old.role then
+    v_action := case
+      when new.role in ('editor', 'admin') and old.role = 'reviewer' then 'promote'
+      when new.role = 'admin' and old.role = 'editor' then 'promote'
+      else 'demote'
+    end;
+
+    insert into public.member_moderation_events (
+      target_user_id, actor_id, action_type, previous_role, new_role,
+      previous_status, new_status, reason
+    ) values (
+      new.id, v_actor, v_action, old.role, new.role,
+      old.account_status, new.account_status, new.status_reason
+    );
+
+    v_msg_cat := 'role_update';
+    v_msg_title := case
+      when v_action = 'promote' then 'تمت ترقية صلاحيتك في منصة Darija LexReview'
+      else 'تحديث صلاحيات حسابك في المنصة'
+    end;
+    v_msg_body := case
+      when new.role = 'admin' then 'تم منح حسابك صلاحية «مشرف عام» لإدارة الأعضاء وحوكمة المتن المعجمي.'
+      when new.role = 'editor' then 'تهانينا! تم اعتمادك بصلاحية «محرر معتمد» للمشاركة في تحكيم المقترحات وتدقيق الشواهد.'
+      else 'تم تحديث دور حسابك إلى «مراجع مساهم».'
+    end;
+
+    perform private.insert_governance_member_message(
+      new.id, 'إدارة الحوكمة', v_msg_cat, v_msg_title, v_msg_body, false
+    );
+  end if;
+
+  if new.account_status is distinct from old.account_status then
+    v_action := case
+      when new.account_status = 'warned' then 'warn'
+      when new.account_status = 'suspended' then 'suspend'
+      when new.account_status = 'banned' then 'ban'
+      else 'restore'
+    end;
+
+    insert into public.member_moderation_events (
+      target_user_id, actor_id, action_type, previous_role, new_role,
+      previous_status, new_status, reason
+    ) values (
+      new.id, v_actor, v_action, old.role, new.role,
+      old.account_status, new.account_status, new.status_reason
+    );
+
+    if new.account_status = 'warned' then
+      v_msg_cat := 'warning';
+      v_msg_title := 'إنذار رسمي بخصوص ضوابط المساهمة المعجمية';
+      v_msg_body := coalesce(nullif(pg_catalog.btrim(coalesce(new.status_reason, '')), ''), 'يرجى الالتزام بالمعايير العلمية وتجنب إرسال بيانات غير موثقة.');
+      v_req_ack := true;
+    elsif new.account_status in ('suspended', 'banned') then
+      v_msg_cat := 'suspension_notice';
+      v_msg_title := case
+        when new.account_status = 'banned' then 'إشعار بحظر الحساب وإيقاف صلاحية النشر'
+        else 'إشعار بتجميد الحساب مؤقتاً'
+      end;
+      v_msg_body := coalesce(nullif(pg_catalog.btrim(coalesce(new.status_reason, '')), ''), 'تم تقييد صلاحية إرسال المساهمات بقرار إداري حفاظاً على نزاهة المتن.');
+    else
+      v_msg_cat := 'editorial_note';
+      v_msg_title := 'تمت إعادة تفعيل حسابك بالكامل';
+      v_msg_body := 'يمكنك الآن استئناف إرسال المساهمات والتصديقات في المعجم.';
+    end if;
+
+    perform private.insert_governance_member_message(
+      new.id, 'إدارة المعجم', v_msg_cat, v_msg_title, v_msg_body, v_req_ack
+    );
+  end if;
+
+  return new;
+end;
+$function$;
+
+revoke all on function private.record_member_governance_side_effects() from public, anon, authenticated;
+
 create or replace function private.enforce_content_scan_token()
 returns trigger
 language plpgsql
