@@ -272,7 +272,7 @@ select throws_ok(
 select throws_ok(
   $$select public.submit_learning_feedback_candidate(
     '00000000-0000-4000-8000-000000000038','linguistic','lexicon_suggestion','lexicon',
-    'no-consent-group','sample text','example','rationale',false,'CC-BY-4.0','{}'::jsonb,'pii-regex-1',null
+    'no-consent-group','sample text','example','rationale',false,'CC-BY-4.0','{}'::jsonb,null
   )$$,
   '22023', null,
   'feedback without explicit dataset consent is rejected'
@@ -283,7 +283,7 @@ select set_config(
   public.submit_learning_feedback_candidate(
     '00000000-0000-4000-8000-000000000038','content_safety','editor_correction','lexicon',
     'content-safety-group-1','sample unsafe content for review','unsafe','editorial benchmark rationale',
-    true,'CC-BY-4.0','{}'::jsonb,'pii-regex-1',null
+    true,'CC-BY-4.0','{}'::jsonb,null
   )::text,
   true
 );
