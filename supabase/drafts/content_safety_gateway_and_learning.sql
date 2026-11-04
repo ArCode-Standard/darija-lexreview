@@ -254,11 +254,24 @@ declare
   v_previous_operation text := nullif(pg_catalog.current_setting('app.content_scan_operation', true), '');
   v_previous_actor text := nullif(pg_catalog.current_setting('app.content_scan_actor_id', true), '');
 begin
-  if v_actor is null or p_recipient_id is null
-     or p_sender_label is null or p_category is null
+  if p_recipient_id is null or p_sender_label is null or p_category is null
      or p_title is null or p_body is null then
     raise exception 'Invalid internal governance notification'
       using errcode = '22023';
+  end if;
+
+  -- Some trusted administrative maintenance paths have no authenticated actor.
+  -- They emit a sender-less system notification, matching the existing signup
+  -- system-message path and its narrow trigger exception.
+  if v_actor is null then
+    insert into public.member_messages(
+      recipient_id, is_broadcast, sender_id, sender_label,
+      category, title, body, requires_ack
+    ) values (
+      p_recipient_id, false, null, p_sender_label,
+      p_category, p_title, p_body, coalesce(p_requires_ack, false)
+    );
+    return;
   end if;
 
   v_message := pg_catalog.jsonb_build_object(
