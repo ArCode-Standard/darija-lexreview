@@ -184,7 +184,9 @@ as $function$
       'proposed_data', p_row->'proposed_data', 'evidence', p_row->'evidence',
       'reviewer_note', p_row->'reviewer_note', 'editor_note', p_row->'editor_note'
     )
-    when 'community_attestations' then pg_catalog.jsonb_build_object('note', p_row->'note')
+    when 'community_attestations' then pg_catalog.jsonb_build_object(
+      'dialect_region', p_row->'dialect_region', 'note', p_row->'note'
+    )
     when 'reviewer_profiles' then pg_catalog.jsonb_build_object(
       'display_name', p_row->'display_name', 'specialty', p_row->'specialty',
       'dialect_region', p_row->'dialect_region', 'github_handle', p_row->'github_handle',
@@ -198,8 +200,9 @@ as $function$
       'admin_note', p_row->'admin_note'
     )
     when 'role_promotion_requests' then pg_catalog.jsonb_build_object(
-      'requester_name', p_row->'requester_name', 'experience_summary', p_row->'experience_summary',
-      'sample_links', p_row->'sample_links', 'admin_note', p_row->'admin_note'
+      'requester_name', p_row->'requester_name', 'dialect_region', p_row->'dialect_region',
+      'experience_summary', p_row->'experience_summary', 'sample_links', p_row->'sample_links',
+      'admin_note', p_row->'admin_note'
     )
     else '{}'::jsonb
   end;
