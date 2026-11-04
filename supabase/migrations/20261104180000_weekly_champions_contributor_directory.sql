@@ -117,7 +117,7 @@ as $$
         )::integer as documented_examples_count,
         coalesce(ws.weekly_contributions_count, 0) as weekly_contributions_count,
         coalesce(ss.recent_words, array[]::text[]) as recent_words,
-        coalesce(pg_catalog.extract(year from rp.created_at)::integer, 2024) as joined_year
+        coalesce(extract(year from rp.created_at)::integer, 2024) as joined_year
     from public.reviewer_profiles rp
     left join submission_stats ss on ss.reviewer_id = rp.id
     left join attestation_stats ats on ats.reviewer_id = rp.id
