@@ -1034,7 +1034,7 @@ begin
   if v_role <> 'service_role' then
     raise exception 'Service role required to freeze datasets' using errcode = '42501';
   end if;
-  if p_domain not in ('linguistic','content_safety')
+  if p_domain is null or p_domain not in ('linguistic','content_safety')
      or p_version is null or pg_catalog.btrim(p_version) = ''
      or p_created_by is null
      or p_source_candidate_ids is null or pg_catalog.cardinality(p_source_candidate_ids) < 3
@@ -1201,7 +1201,8 @@ begin
     raise exception 'Evaluation metrics must be numeric' using errcode = '22023';
   end;
 
-  if v_precision not between 0 and 1 or v_recall not between 0 and 1
+  if v_precision is null or v_recall is null or v_fpr is null or v_fnr is null or v_latency is null
+     or v_precision not between 0 and 1 or v_recall not between 0 and 1
      or v_fpr not between 0 and 1 or v_fnr not between 0 and 1
      or v_latency < 0 then
     raise exception 'Evaluation metrics are outside their valid ranges' using errcode = '22023';
