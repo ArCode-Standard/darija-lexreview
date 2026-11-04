@@ -222,7 +222,7 @@ select ok(
 
 
 
-select ok(to_regprocedure('public.submit_learning_feedback_candidate(uuid,text,text,text,text,text,text,text,boolean,text,jsonb,text,text)') is not null, 'service-only feedback intake RPC exists');
+select ok(to_regprocedure('public.submit_learning_feedback_candidate(uuid,text,text,text,text,text,text,text,boolean,text,jsonb,text)') is not null, 'service-only feedback intake RPC exists');
 select is(
   has_function_privilege('anon', 'public.review_learning_feedback_candidate(uuid,text,text)', 'EXECUTE'),
   false,
@@ -264,7 +264,7 @@ select set_config('request.jwt.claim.role', 'service_role', true);
 select throws_ok(
   $$select public.submit_learning_feedback_candidate(
     '00000000-0000-4000-8000-000000000038','linguistic','lexicon_suggestion','private_message',
-    'private-message-group','private text','example','rationale',true,'CC-BY-4.0','{}'::jsonb,'pii-regex-1',null
+    'private-message-group','private text','example','rationale',true,'CC-BY-4.0','{}'::jsonb,null
   )$$,
   '22023', null,
   'private messages cannot enter the learning dataset'
