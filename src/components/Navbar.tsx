@@ -44,7 +44,7 @@ export function Navbar({ isFocusMode = false, onOpenCommandPalette }: NavbarProp
             aria-hidden="true"
             className="h-7 w-auto select-none object-contain sm:h-8"
           />
-          <span dir="ltr" className="whitespace-nowrap tracking-wide">
+          <span dir="ltr" className="hidden whitespace-nowrap tracking-wide sm:inline">
             Darija <span className="text-emerald-700 dark:text-[#D9FF43]">LexReview</span>
           </span>
         </a>
@@ -56,10 +56,11 @@ export function Navbar({ isFocusMode = false, onOpenCommandPalette }: NavbarProp
               onClick={onOpenCommandPalette}
               aria-label="البحث في المعجم والصفحات"
               title="البحث في المعجم والصفحات"
-              className="inline-flex h-10 w-full max-w-[680px] items-center justify-center gap-2 rounded-full border border-zinc-200 bg-white px-4 text-sm font-medium text-zinc-600 shadow-sm transition-colors hover:border-zinc-400 hover:text-zinc-950 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 dark:border-white/12 dark:bg-[#0C0C10] dark:text-zinc-300 dark:hover:border-[#D9FF43]/60 dark:hover:text-white dark:focus-visible:outline-[#D9FF43]"
+              className="inline-flex h-9 w-full max-w-[680px] min-w-0 items-center justify-center gap-2 rounded-full border border-zinc-200 bg-white px-2.5 text-xs font-medium text-zinc-600 shadow-sm transition-colors hover:border-zinc-400 hover:text-zinc-950 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 sm:h-10 sm:px-4 sm:text-sm dark:border-white/12 dark:bg-[#0C0C10] dark:text-zinc-300 dark:hover:border-[#D9FF43]/60 dark:hover:text-white dark:focus-visible:outline-[#D9FF43]"
             >
               <Search className="h-4 w-4 shrink-0 text-emerald-700 dark:text-[#D9FF43]" />
-              <span>بحث في المعجم والصفحات</span>
+              <span className="truncate sm:hidden">بحث</span>
+              <span className="hidden truncate sm:inline">بحث في المعجم والصفحات</span>
             </button>
           )}
         </div>
