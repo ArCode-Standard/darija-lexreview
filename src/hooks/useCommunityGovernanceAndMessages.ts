@@ -461,13 +461,6 @@ export function useCommunityGovernanceAndMessages({
       requiresAck?: boolean
       pinDays?: number
     }): Promise<{ ok: boolean; error?: string }> => {
-      const senderLabel =
-        currentProfile?.role === 'admin'
-          ? `الإدارة العامة (${currentProfile.display_name || 'مشرف'})`
-          : currentProfile?.role === 'editor'
-            ? `هيئة التحرير (${currentProfile.display_name || 'محرر'})`
-            : 'إدارة المعجم'
-
       const pinnedUntil =
         params.isBroadcast && params.pinDays
           ? new Date(Date.now() + params.pinDays * 86_400_000).toISOString()
