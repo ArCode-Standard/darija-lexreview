@@ -1,6 +1,6 @@
 begin;
 
-select plan(40);
+select plan(50);
 
 select ok(to_regclass('private.content_scan_tokens') is not null, 'private one-time token table exists');
 select ok(to_regclass('private.feedback_candidates') is not null, 'private governed feedback table exists');
@@ -308,6 +308,17 @@ select is(
   2,
   'two distinct editorial review records are persisted'
 );
+
+select ok(to_regclass('private.learning_release_policies') is not null, 'versioned domain-specific release policies exist');
+select ok(to_regprocedure('public.create_frozen_learning_dataset(text,text,uuid[],jsonb,uuid)') is not null, 'frozen dataset RPC exists');
+select ok(to_regprocedure('public.record_learning_evaluation(uuid,text,text,text,text,jsonb)') is not null, 'evaluation RPC exists');
+select ok(to_regprocedure('public.register_model_candidate(text,text,text,uuid,uuid,text,uuid)') is not null, 'model candidate registration RPC exists');
+select ok(to_regprocedure('public.review_model_release(uuid,text,text)') is not null, 'independent model release review RPC exists');
+select ok(to_regprocedure('public.activate_model_release(uuid)') is not null, 'model activation RPC exists');
+select ok(to_regprocedure('public.rollback_model_release(text,uuid,text,uuid)') is not null, 'model rollback RPC exists');
+select is(has_function_privilege('anon', 'public.create_frozen_learning_dataset(text,text,uuid[],jsonb,uuid)', 'EXECUTE'), false, 'anon cannot freeze datasets');
+select is(has_function_privilege('service_role', 'public.create_frozen_learning_dataset(text,text,uuid[],jsonb,uuid)', 'EXECUTE'), true, 'only trusted service role can freeze datasets');
+select is(has_function_privilege('authenticated', 'public.review_model_release(uuid,text,text)', 'EXECUTE'), true, 'authenticated reviewers can submit guarded model release reviews');
 
 select * from finish();
 rollback;
