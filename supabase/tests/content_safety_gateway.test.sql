@@ -1,6 +1,6 @@
 begin;
 
-select plan(50);
+select plan(52);
 
 select ok(to_regclass('private.content_scan_tokens') is not null, 'private one-time token table exists');
 select ok(to_regclass('private.feedback_candidates') is not null, 'private governed feedback table exists');
@@ -244,6 +244,20 @@ where id in (
   '00000000-0000-4000-8000-000000000038',
   '00000000-0000-4000-8000-000000000039',
   '00000000-0000-4000-8000-000000000040'
+);
+
+select ok(
+  to_regprocedure('private.insert_governance_member_message(uuid,text,text,text,text,boolean)') is not null,
+  'governance notifications use a dedicated internal authorization helper'
+);
+select ok(
+  exists(
+    select 1 from public.member_messages
+    where recipient_id='00000000-0000-4000-8000-000000000038'
+      and category='role_update'
+      and sender_label='إدارة الحوكمة'
+  ),
+  'role changes generate a system notification through the scoped internal token'
 );
 
 select set_config('request.jwt.claim.role', 'service_role', true);
