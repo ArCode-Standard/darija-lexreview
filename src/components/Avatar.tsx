@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import type { CSSProperties } from 'react'
 import { supabase } from '../lib/supabase'
 
-export type AvatarSource = 'upload' | 'github' | 'dicebear' | 'arcode'
+export type AvatarSource = 'upload' | 'github' | 'arcode'
 
 interface AvatarProps {
   source?: AvatarSource | null
@@ -66,9 +66,6 @@ export function Avatar({
     }
     if (source === 'github' && githubHandle) {
       return `https://github.com/${encodeURIComponent(githubHandle.replace(/^@/, ''))}.png?size=${Math.max(48, size * 2)}`
-    }
-    if (source === 'dicebear') {
-      return `https://api.dicebear.com/9.x/adventurer-neutral/svg?seed=${encodeURIComponent(stableSeed)}`
     }
     return null
   }, [source, path, githubHandle, size, stableSeed])

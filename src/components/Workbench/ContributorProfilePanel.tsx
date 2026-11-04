@@ -353,12 +353,11 @@ export function ContributorProfilePanel({
                       <input type="file" accept="image/png,image/jpeg,image/webp" className="sr-only" onChange={(event) => { const file = event.target.files?.[0]; if (file) void handleAvatarUpload(file); event.currentTarget.value = '' }} />
                     </label>
                     <button type="button" onClick={() => { setAvatarSource('github'); setAvatarPath(null) }} className="min-h-9 rounded-lg border border-zinc-300 px-3 text-xs font-semibold text-zinc-700 dark:border-white/15 dark:text-zinc-300">GitHub</button>
-                    <button type="button" onClick={() => { setAvatarSource('dicebear'); setAvatarPath(null) }} className="min-h-9 rounded-lg border border-zinc-300 px-3 text-xs font-semibold text-zinc-700 dark:border-white/15 dark:text-zinc-300">DiceBear</button>
                     <button type="button" onClick={() => { setAvatarSource('arcode'); setAvatarPath(null) }} className="min-h-9 rounded-lg border border-zinc-300 px-3 text-xs font-semibold text-zinc-700 dark:border-white/15 dark:text-zinc-300">شخصيات ArCode</button>
                   </div>
                 </div>
               </div>
-              {(avatarSource === 'dicebear' || avatarSource === 'arcode') && (
+              {avatarSource === 'arcode' && (
                 <label className="mt-4 block space-y-1.5 text-xs font-semibold text-zinc-700 dark:text-zinc-300">
                   <span>معرّف الشخصية</span>
                   <input value={avatarSeed} onChange={(event) => setAvatarSeed(event.target.value)} maxLength={80} dir="ltr" className={inputClass + ' text-left font-mono'} />
