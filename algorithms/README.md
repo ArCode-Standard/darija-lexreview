@@ -5,7 +5,7 @@ A deterministic TypeScript library for Moroccan Darija text and lexical review. 
 ## Modules
 
 - Text and lexical normalization, script detection, and tokenization.
-- Arabizi-to-Arabic N-best transliteration with contextual grapheme alternatives and bounded beam search. See [the Arabizi engine specification](./ARABIZI-NBEST-ENGINE.md).
+- Arabizi-to-Arabic N-best transliteration with bounded beam search, caller-supplied context lexicon priors, traceable morphology-affix hypotheses, and optional explicit region filtering. See [the Arabizi engine specification](./ARABIZI-NBEST-ENGINE.md).
 - Duplicate and spelling-variant candidate ranking.
 - Surface polarity-conflict alerts constrained by shared topic evidence.
 - Dialect hints from a caller-supplied, source-identified lexicon.
