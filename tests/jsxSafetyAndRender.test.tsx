@@ -272,7 +272,7 @@ describe('JSX React child safety & SSR smoke rendering', () => {
     ).not.toThrow()
   })
 
-  it('provides Quick Lexicon Search (⌘K) to visitors while strictly hiding private member and staff routes', () => {
+  it('strictly limits Quick Search (⌘K) and Command Palette to registered authenticated members', () => {
     const noop = () => {}
 
     const visitorNavbarHtml = renderToStaticMarkup(
@@ -290,8 +290,8 @@ describe('JSX React child safety & SSR smoke rendering', () => {
         onNavigatePage={noop}
       />,
     )
-    expect(visitorNavbarHtml).toContain('⌘K')
-    expect(visitorNavbarHtml).toContain('بحث سريع')
+    expect(visitorNavbarHtml).not.toContain('⌘K')
+    expect(visitorNavbarHtml).not.toContain('بحث سريع')
     expect(visitorNavbarHtml).not.toContain('صندوق الرسائل')
     expect(visitorNavbarHtml).toContain('التبديل إلى الوضع النهاري')
 
@@ -341,10 +341,40 @@ describe('JSX React child safety & SSR smoke rendering', () => {
         <div>محتوى</div>
       </WorkspaceShell>,
     )
-    expect(visitorShellHtml).toContain('⌘K')
-    expect(visitorShellHtml).toContain('بحث أو انتقال سريع')
+    expect(visitorShellHtml).not.toContain('⌘K')
+    expect(visitorShellHtml).not.toContain('بحث أو انتقال سريع')
     expect(visitorShellHtml).not.toContain('صندوق الرسائل')
     expect(visitorShellHtml).toContain('التبديل إلى الوضع النهاري')
+
+    const memberShellHtml = renderToStaticMarkup(
+      <WorkspaceShell
+        activePage="lexicon"
+        explorerSubView="entries"
+        isFocusMode={false}
+        onExitFocusMode={noop}
+        isAuthenticated
+        userDisplayName="عضو موثق"
+        userRole="reviewer"
+        canAccessEditorialTools={false}
+        isStaffRole={false}
+        darkMode
+        onToggleDarkMode={noop}
+        dataMode="live"
+        entriesCount={DEMO_ENTRIES.length}
+        corpusVersion="1.5.0"
+        cachedCorpusAt={null}
+        completedTodayCount={0}
+        draftsCount={0}
+        unreadMessagesCount={0}
+        onReloadCorpus={noop}
+        onOpenCommandPalette={noop}
+        onNavigatePage={noop}
+      >
+        <div>محتوى</div>
+      </WorkspaceShell>,
+    )
+    expect(memberShellHtml).toContain('⌘K')
+    expect(memberShellHtml).toContain('بحث أو انتقال سريع')
 
     const visitorPaletteHtml = renderToStaticMarkup(
       <CommandPalette
@@ -359,12 +389,23 @@ describe('JSX React child safety & SSR smoke rendering', () => {
         onQuickAddWord={noop}
       />,
     )
-    expect(visitorPaletteHtml).toContain('تصفح مفردات المعجم')
-    expect(visitorPaletteHtml).toContain('تسجيل الدخول أو إنشاء حساب مساهم')
-    expect(visitorPaletteHtml).not.toContain('صندوق رسائل الأعضاء والتنبيهات')
-    expect(visitorPaletteHtml).not.toContain('ملفي الشخصي وربط GitHub / Google')
-    expect(visitorPaletteHtml).not.toContain('تحكيم المحررين وحوكمة الأدوار')
-    expect(visitorPaletteHtml).not.toContain('إدارة الأعضاء والترقية والطرد')
+    expect(visitorPaletteHtml).toBe('')
+
+    const memberPaletteHtml = renderToStaticMarkup(
+      <CommandPalette
+        open
+        onClose={noop}
+        entries={DEMO_ENTRIES}
+        isAuthenticated
+        canAccessEditorialTools={false}
+        draftsCount={0}
+        onNavigatePage={noop}
+        onSelectEntry={noop}
+        onQuickAddWord={noop}
+      />,
+    )
+    expect(memberPaletteHtml).toContain('تصفح مفردات المعجم')
+    expect(memberPaletteHtml).toContain('ملفي الشخصي وربط GitHub / Google')
   })
 
   it('syncs Light/Dark theme across Footer links and all 6 static institutional pages without inline CSP violations', () => {

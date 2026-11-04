@@ -218,7 +218,7 @@ export function CommandPalette({
     return entries.filter((e) => matchesDarijaQuery(e, trimmed)).slice(0, 8)
   }, [entries, trimmed])
 
-  if (!open) return null
+  if (!open || !isAuthenticated) return null
 
   return (
     <div

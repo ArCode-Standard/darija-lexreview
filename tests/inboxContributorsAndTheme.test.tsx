@@ -354,6 +354,140 @@ describe('Public Contributors Honor Roll interactive profile card', () => {
     expect(badgeModalHtml).toContain('تصفية حاملي الوسام (1)')
     expect(badgeModalHtml).toContain('ابدأ المساهمة لنيل الوسام')
   })
+
+  it('computes and assigns contributor ranks correctly across all four contribution tiers', async () => {
+    const { computeContributorRank } = await import('../src/utils/contributorRanks')
+
+    // 0 contributions -> Novice (Bronze)
+    const novice = computeContributorRank(0)
+    expect(novice.id).toBe('novice')
+    expect(novice.name).toBe('مبتدئ')
+    expect(novice.tier).toBe('bronze')
+    expect(novice.remainingForNext).toBe(10)
+
+    // 15 contributions -> Seasoned (Silver)
+    const seasoned = computeContributorRank(15)
+    expect(seasoned.id).toBe('seasoned')
+    expect(seasoned.name).toBe('مساهم متمرس')
+    expect(seasoned.tier).toBe('silver')
+    expect(seasoned.remainingForNext).toBe(15)
+
+    // 45 contributions -> Researcher (Gold)
+    const researcher = computeContributorRank(45)
+    expect(researcher.id).toBe('researcher')
+    expect(researcher.name).toBe('باحث دارجة')
+    expect(researcher.tier).toBe('gold')
+    expect(researcher.remainingForNext).toBe(15)
+
+    // 80 contributions -> Expert (Master / Sovereign Diamond)
+    const expert = computeContributorRank(80)
+    expect(expert.id).toBe('expert')
+    expect(expert.name).toBe('خبير لغوي')
+    expect(expert.tier).toBe('master')
+    expect(expert.nextRankMin).toBeNull()
+    expect(expert.remainingForNext).toBe(0)
+    expect(expert.progressPercent).toBe(100)
+  })
+
+  it('renders Rank Badge chips on contributor cards, in filters, and in the identity card modal', () => {
+    const noop = () => {}
+
+    const listHtml = renderToStaticMarkup(
+      <PublicContributorsPage
+        contributors={sampleContributors}
+        loading={false}
+        isAuthenticated={false}
+        entriesCount={120}
+        corpusVersion="2.4.0"
+        onOpenProfileOrAuth={noop}
+        onStartContributing={noop}
+      />,
+    )
+
+    // Contributor cards render rank chip
+    expect(listHtml).toContain('تصفية حسب الرتبة المعجمية')
+    expect(listHtml).toContain('مبتدئ')
+    expect(listHtml).toContain('مساهم متمرس')
+    expect(listHtml).toContain('باحث دارجة')
+    expect(listHtml).toContain('خبير لغوي')
+
+    // Modal renders RankProgressCard
+    const modalHtml = renderToStaticMarkup(
+      <PublicContributorsPage
+        contributors={sampleContributors}
+        loading={false}
+        isAuthenticated={false}
+        entriesCount={120}
+        corpusVersion="2.4.0"
+        onOpenProfileOrAuth={noop}
+        onStartContributing={noop}
+        initialSelectedSlug="salma-9f2a1c"
+      />,
+    )
+
+    expect(modalHtml).toContain('الرتبة المعجمية الرسمية')
+    expect(modalHtml).toContain('التقدم نحو الرتبة التالية')
+  })
+
+  it('renders Weekly Champions correctly with real active contributors and invites participation without fake data when inactive', () => {
+    const noop = () => {}
+
+    // 1. Without active weekly contributions: strictly no fake data, dignified invitation state
+    const inactiveContributors = sampleContributors.map((c) => ({
+      ...c,
+      weekly_contributions_count: 0,
+    }))
+
+    const emptyHtml = renderToStaticMarkup(
+      <PublicContributorsPage
+        contributors={inactiveContributors}
+        loading={false}
+        isAuthenticated={false}
+        entriesCount={120}
+        corpusVersion="2.4.0"
+        onOpenProfileOrAuth={noop}
+        onStartContributing={noop}
+      />,
+    )
+
+    expect(emptyHtml).toContain('أبطال الأسبوع')
+    expect(emptyHtml).toContain('باب صدارة الأسبوع مفتوح الآن للجميع')
+    expect(emptyHtml).toContain('كن أول بطل لهذا الأسبوع')
+    expect(emptyHtml).not.toContain('المركز الأول')
+
+    // 2. With real weekly contributions: renders dynamic champions strip with ranks and weekly count
+    const activeContributors: PublicContributorRecord[] = [
+      {
+        ...sampleContributors[0],
+        public_slug: 'salma-9f2a1c',
+        weekly_contributions_count: 7,
+      },
+      {
+        ...sampleContributors[0],
+        public_slug: 'yassine-3d8b12',
+        display_name: 'ياسين الفاسي',
+        weekly_contributions_count: 3,
+      },
+    ]
+
+    const championsHtml = renderToStaticMarkup(
+      <PublicContributorsPage
+        contributors={activeContributors}
+        loading={false}
+        isAuthenticated={false}
+        entriesCount={120}
+        corpusVersion="2.4.0"
+        onOpenProfileOrAuth={noop}
+        onStartContributing={noop}
+      />,
+    )
+
+    expect(championsHtml).toContain('أبطال الأسبوع')
+    expect(championsHtml).toContain('المركز الأول')
+    expect(championsHtml).toContain('7 مساهمة / 7 أيام')
+    expect(championsHtml).toContain('المركز الثاني')
+    expect(championsHtml).toContain('3 مساهمة / 7 أيام')
+  })
 })
 
 

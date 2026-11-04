@@ -205,6 +205,7 @@ export interface PublicContributorRecord {
   sprint_participations_count?: number
   documented_words_count?: number
   documented_examples_count?: number
+  weekly_contributions_count?: number
   recent_words?: string[]
   joined_year: number
 }

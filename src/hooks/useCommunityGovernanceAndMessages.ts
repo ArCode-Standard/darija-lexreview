@@ -325,6 +325,9 @@ export function useCommunityGovernanceAndMessages({
               currentProfile.attestations_count ?? 0,
               totalAttestationsCount,
             ),
+            documented_words_count: currentProfile.accepted_count ?? 0,
+            documented_examples_count: 0,
+            weekly_contributions_count: 0,
             joined_year: currentProfile.created_at
               ? new Date(currentProfile.created_at).getFullYear()
               : new Date().getFullYear(),

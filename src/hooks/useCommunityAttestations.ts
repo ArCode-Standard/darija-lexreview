@@ -32,65 +32,8 @@ const DEFAULT_PREFS: RapidSessionPrefs = {
   dailyGoal: 10,
 }
 
-/**
- * Initial baseline community signals so editors in editorial moderation
- * can see how crowd consensus and contested flags appear.
- */
-const BASELINE_SUMMARIES: Record<string, EntryAttestationSummary> = {
-  '1': {
-    entryId: '1',
-    accurateCount: 7,
-    flaggedCount: 0,
-    regionalCount: 2,
-    weightedAccurateScore: 8.5,
-    regions: ['مشترك عام', 'الدار البيضاء والوسط', 'فاس ومكناس'],
-  },
-  '2': {
-    entryId: '2',
-    accurateCount: 5,
-    flaggedCount: 1,
-    regionalCount: 1,
-    weightedAccurateScore: 6.5,
-    regions: ['مشترك عام', 'مراكش والحوز'],
-  },
-  '3': {
-    entryId: '3',
-    accurateCount: 2,
-    flaggedCount: 3,
-    regionalCount: 1,
-    weightedAccurateScore: 2.0,
-    regions: ['الرباط وسلا', 'الشمال وجبالة'],
-  },
-  '4': {
-    entryId: '4',
-    accurateCount: 6,
-    flaggedCount: 0,
-    regionalCount: 2,
-    weightedAccurateScore: 7.5,
-    regions: ['مشترك عام', 'الشرق والريف'],
-  },
-}
-
-const BASELINE_EXAMPLE_SUMMARIES: Record<string, ExampleAttestationSummary> = {
-  'ctx-000001': {
-    exampleId: 'ctx-000001',
-    entryId: '1',
-    accurateCount: 4,
-    flaggedCount: 0,
-    regionalCount: 1,
-    weightedAccurateScore: 4.5,
-    regions: ['مشترك عام', 'الدار البيضاء والوسط'],
-  },
-  'ctx-000002': {
-    exampleId: 'ctx-000002',
-    entryId: '2',
-    accurateCount: 3,
-    flaggedCount: 0,
-    regionalCount: 1,
-    weightedAccurateScore: 3.5,
-    regions: ['مشترك عام'],
-  },
-}
+const BASELINE_SUMMARIES: Record<string, EntryAttestationSummary> = {}
+const BASELINE_EXAMPLE_SUMMARIES: Record<string, ExampleAttestationSummary> = {}
 
 interface HistoryStep {
   entryId: string

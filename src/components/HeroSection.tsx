@@ -11,7 +11,7 @@ interface HeroSectionProps {
   entriesCount: number
   categoriesCount: number
   examplesCount: number
-  dataMode: DataMode
+  dataMode?: DataMode
   isAuthenticated?: boolean
   onStartRapidReview: () => void
   onStartDetailedReview: () => void
@@ -26,7 +26,6 @@ export function HeroSection({
   entriesCount,
   categoriesCount,
   examplesCount,
-  dataMode,
   isAuthenticated = false,
   onStartRapidReview,
   onStartDetailedReview,
@@ -39,10 +38,9 @@ export function HeroSection({
   const [secondaryImgFailed, setSecondaryImgFailed] = useState(false)
   const [heroQuery, setHeroQuery] = useState('')
 
-  const isRealCorpus = dataMode === 'live' || dataMode === 'cached'
-  const displayEntries = isRealCorpus ? entriesCount : 921
-  const displayCategories = isRealCorpus ? categoriesCount : 38
-  const displayExamples = isRealCorpus && examplesCount > 0 ? examplesCount : 146
+  const displayEntries = entriesCount
+  const displayCategories = categoriesCount
+  const displayExamples = examplesCount
 
   const trimmedQuery = heroQuery.trim()
   const instantMatches = useMemo(() => {

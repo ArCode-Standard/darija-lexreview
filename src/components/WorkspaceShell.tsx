@@ -55,7 +55,7 @@ interface WorkspaceShellProps {
   draftsCount: number
   unreadMessagesCount?: number
   onReloadCorpus: () => void
-  onOpenCommandPalette: () => void
+  onOpenCommandPalette?: () => void
   onNavigatePage: (page: AppPage, options?: { subView?: 'entries' | 'categories' }) => void
   children: React.ReactNode
 }
@@ -595,7 +595,7 @@ export function WorkspaceShell({
               >
                 <span>إنهاء وضع التركيز</span>
               </button>
-            ) : (
+            ) : isAuthenticated && onOpenCommandPalette ? (
               <button
                 type="button"
                 onClick={onOpenCommandPalette}
@@ -612,7 +612,7 @@ export function WorkspaceShell({
                   ⌘K
                 </kbd>
               </button>
-            )}
+            ) : null}
 
             {/* Member Inbox Bell — Strictly Hidden from Unauthenticated Visitors */}
             {!isFocusMode && isAuthenticated && (

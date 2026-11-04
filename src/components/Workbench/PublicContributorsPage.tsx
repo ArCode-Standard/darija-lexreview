@@ -22,6 +22,9 @@ import {
   UserPlus,
   Users,
   X,
+  ChevronLeft,
+  ChevronRight,
+  Flame,
 } from 'lucide-react'
 import type { PublicContributorRecord, UserRole } from '../../types/lexicon'
 import { Avatar } from '../Avatar'
@@ -31,6 +34,10 @@ import {
   MeritBadgeMedallionCard,
   MeritSealMedallion,
 } from '../MeritBadgeVisual'
+import {
+  RankBadgeChip,
+  RankProgressCard,
+} from '../ContributorRankVisual'
 import {
   buildContributorAcademicCitation,
   downloadContributorHonorCard,
@@ -45,6 +52,11 @@ import {
   computeNextBadgeMilestones,
   getTierPillClasses,
 } from '../../utils/meritBadges'
+import {
+  CONTRIBUTOR_RANKS_CONFIG,
+  type ContributorRankId,
+  computeContributorRank,
+} from '../../utils/contributorRanks'
 import { buildContributorProfileUrl } from '../../utils/urlState'
 import { MOROCCAN_REGIONS } from '../../utils/validation'
 
@@ -125,6 +137,8 @@ export function PublicContributorsPage({
   const [selectedRegionFilter, setSelectedRegionFilter] = useState<string>('all')
   const [selectedBadgeFilter, setSelectedBadgeFilter] = useState<'all' | MeritBadgeId>('all')
   const [sortBy, setSortBy] = useState<SortOption>('impact')
+  const [selectedRankFilter, setSelectedRankFilter] = useState<'all' | ContributorRankId>('all')
+  const [weeklyTickerIndex, setWeeklyTickerIndex] = useState(0)
   const [showBadgeCatalog, setShowBadgeCatalog] = useState(false)
   const [selectedContributorSlug, setSelectedContributorSlug] = useState<string | null>(
     initialSelectedSlug,
@@ -219,6 +233,21 @@ export function PublicContributorsPage({
     return { represented, unrepresented }
   }, [contributors])
 
+  // Real Weekly Champions: strictly derived from contributors with weekly_contributions_count > 0.
+  // Never fabricate mock champions.
+  const weeklyChampions = useMemo(() => {
+    return contributors
+      .filter((c) => (c.weekly_contributions_count ?? 0) > 0)
+      .sort((a, b) => {
+        const weeklyA = a.weekly_contributions_count ?? 0
+        const weeklyB = b.weekly_contributions_count ?? 0
+        if (weeklyB !== weeklyA) return weeklyB - weeklyA
+        const totalA = (a.documented_words_count ?? a.accepted_count) + (a.documented_examples_count ?? a.attestations_count)
+        const totalB = (b.documented_words_count ?? b.accepted_count) + (b.documented_examples_count ?? b.attestations_count)
+        return totalB - totalA
+      })
+  }, [contributors])
+
   const filteredAndSortedContributors = useMemo(() => {
     const trimmed = query.trim().toLowerCase()
     const filtered = contributors.filter((c) => {
@@ -230,6 +259,11 @@ export function PublicContributorsPage({
       if (selectedBadgeFilter !== 'all') {
         const personBadges = badgesBySlug.get(c.public_slug) ?? []
         if (!personBadges.some((b) => b.id === selectedBadgeFilter)) return false
+      }
+      if (selectedRankFilter !== 'all') {
+        const total = (c.documented_words_count ?? c.accepted_count) + (c.documented_examples_count ?? c.attestations_count)
+        const rank = computeContributorRank(total)
+        if (rank.id !== selectedRankFilter) return false
       }
 
       if (!trimmed) return true
@@ -263,7 +297,7 @@ export function PublicContributorsPage({
       }
       return wordsB + exB - (wordsA + exA)
     })
-  }, [contributors, query, roleFilter, selectedRegionFilter, selectedBadgeFilter, sortBy, badgesBySlug])
+  }, [contributors, query, roleFilter, selectedRegionFilter, selectedBadgeFilter, selectedRankFilter, sortBy, badgesBySlug])
 
   const shouldSplitBoardAndCommunity =
     roleFilter === 'all' &&
@@ -424,13 +458,15 @@ export function PublicContributorsPage({
     query.trim() !== '' ||
     roleFilter !== 'all' ||
     selectedRegionFilter !== 'all' ||
-    selectedBadgeFilter !== 'all'
+    selectedBadgeFilter !== 'all' ||
+    selectedRankFilter !== 'all'
 
   function renderContributorCard(person: PublicContributorRecord, isEditorialBoardCard = false) {
     const badges = badgesBySlug.get(person.public_slug) ?? []
     const nextMilestone = (milestonesBySlug.get(person.public_slug) ?? [])[0] ?? null
     const wordsCount = person.documented_words_count ?? person.accepted_count
     const examplesCount = person.documented_examples_count ?? person.attestations_count
+    const rank = computeContributorRank(wordsCount + examplesCount)
     const recentWords = (person.recent_words ?? []).slice(0, 3)
 
     return (
@@ -474,6 +510,10 @@ export function PublicContributorsPage({
                   <span className="font-normal text-zinc-500 dark:text-zinc-400">
                     انضم {person.joined_year}
                   </span>
+                  <span aria-hidden="true" className="text-zinc-400">
+                    ·
+                  </span>
+                  <RankBadgeChip rank={rank} size="sm" />
                 </div>
                 <h3 className="mt-0.5 truncate font-display text-base sm:text-lg font-bold text-zinc-950 group-hover:text-emerald-800 transition-colors dark:text-white dark:group-hover:text-[#D9FF43]">
                   {person.display_name}
@@ -852,6 +892,23 @@ export function PublicContributorsPage({
         <div className="flex flex-wrap items-center justify-between gap-2.5 border-t border-zinc-100 pt-3 text-xs dark:border-white/8">
           <div className="flex flex-wrap items-center gap-2">
             <label className="inline-flex items-center gap-1.5 text-zinc-600 dark:text-zinc-400">
+              <span>الرتبة:</span>
+              <select
+                aria-label="تصفية حسب الرتبة المعجمية"
+                value={selectedRankFilter}
+                onChange={(e) => setSelectedRankFilter(e.target.value as 'all' | ContributorRankId)}
+                className="min-h-[34px] rounded-lg border border-zinc-200 bg-zinc-50 px-2.5 py-1 text-xs font-semibold text-zinc-900 dark:border-white/12 dark:bg-[#07070A] dark:text-zinc-200"
+              >
+                <option value="all">جميع الرتب والتصنيفات</option>
+                {CONTRIBUTOR_RANKS_CONFIG.map((rankCfg) => (
+                  <option key={rankCfg.id} value={rankCfg.id}>
+                    {rankCfg.name} ({rankCfg.tierLabel} · {rankCfg.minContributions}+ مساهمة)
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className="inline-flex items-center gap-1.5 text-zinc-600 dark:text-zinc-400">
               <span>الوسام:</span>
               <select
                 aria-label="تصفية حسب الوسام العلمي"
@@ -905,6 +962,7 @@ export function PublicContributorsPage({
                 setRoleFilter('all')
                 setSelectedRegionFilter('all')
                 setSelectedBadgeFilter('all')
+                setSelectedRankFilter('all')
               }}
               className="font-semibold text-emerald-700 hover:underline cursor-pointer dark:text-[#D9FF43]"
             >
@@ -1009,7 +1067,188 @@ export function PublicContributorsPage({
         )}
       </div>
 
-      {/* 4. Contributors Honor Sections (Editorial Board + Community Lexicographers) */}
+      {/* 4. Weekly Champions Section (أبطال الأسبوع — سجل الـ 7 أيام الماضية) */}
+      <section
+        aria-label="أبطال الأسبوع في المتن المعجمي"
+        className="rounded-2xl border border-zinc-200 bg-white p-5 sm:p-6 shadow-xs dark:border-white/10 dark:bg-[#0B0B10]"
+      >
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-zinc-100 pb-4 dark:border-white/8">
+          <div className="flex items-center gap-2.5">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl border border-amber-500/25 bg-amber-500/10 text-amber-600 dark:border-[#D9FF43]/30 dark:bg-[#D9FF43]/10 dark:text-[#D9FF43]">
+              <Flame className="h-4 w-4" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="font-display text-base sm:text-lg font-bold text-zinc-950 dark:text-white">
+                  أبطال الأسبوع
+                </h3>
+                <span className="rounded-full bg-amber-100 px-2.5 py-0.5 text-[10.5px] font-bold text-amber-900 dark:bg-[#D9FF43]/20 dark:text-[#D9FF43]">
+                  آخر 7 أيام
+                </span>
+              </div>
+              <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
+                سجل النشاط الميداني للأيام السبعة الماضية فقط — فرصة متجددة لكل مساهم جديد للبروز والتألق
+              </p>
+            </div>
+          </div>
+
+          {weeklyChampions.length > 0 && (
+            <div className="flex items-center gap-1.5 text-xs text-zinc-500 dark:text-zinc-400">
+              <span className="font-mono font-semibold tabular-nums text-emerald-700 dark:text-[#D9FF43]">
+                {weeklyChampions.length}
+              </span>
+              <span>مساهم نشط هذا الأسبوع</span>
+              <div className="ms-2 flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() => setWeeklyTickerIndex((prev) => Math.max(0, prev - 1))}
+                  disabled={weeklyTickerIndex === 0}
+                  aria-label="السابق في شريط أبطال الأسبوع"
+                  className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-zinc-200 text-zinc-600 hover:border-zinc-400 hover:text-zinc-950 disabled:opacity-40 disabled:pointer-events-none cursor-pointer dark:border-white/10 dark:text-zinc-400 dark:hover:text-white"
+                >
+                  <ChevronRight className="h-3.5 w-3.5" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setWeeklyTickerIndex((prev) =>
+                      Math.min(Math.max(0, weeklyChampions.length - 1), prev + 1),
+                    )
+                  }
+                  disabled={weeklyTickerIndex >= Math.max(0, weeklyChampions.length - 1)}
+                  aria-label="التالي في شريط أبطال الأسبوع"
+                  className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-zinc-200 text-zinc-600 hover:border-zinc-400 hover:text-zinc-950 disabled:opacity-40 disabled:pointer-events-none cursor-pointer dark:border-white/10 dark:text-zinc-400 dark:hover:text-white"
+                >
+                  <ChevronLeft className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {weeklyChampions.length === 0 ? (
+          /* Strict Zero Fake Data: Dignified invitational empty state */
+          <div className="mt-4 flex flex-col items-center justify-between gap-4 rounded-xl border border-dashed border-zinc-200 bg-zinc-50/60 p-6 text-center sm:flex-row sm:text-start dark:border-white/10 dark:bg-[#07070A]/60">
+            <div className="flex items-center gap-3.5">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-zinc-200/70 text-zinc-600 dark:bg-white/10 dark:text-zinc-300">
+                <Sparkles className="h-5 w-5 text-emerald-700 dark:text-[#D9FF43]" />
+              </div>
+              <div>
+                <h4 className="font-display text-sm font-bold text-zinc-950 dark:text-white">
+                  باب صدارة الأسبوع مفتوح الآن للجميع
+                </h4>
+                <p className="mt-0.5 text-xs text-zinc-600 dark:text-zinc-400">
+                  لم تُسجل مساهمات جديدة خلال السبعة أيام الأخيرة بعد. وثّق مفردة دارجة أو صدّق شاهداً لتتصدر لوحة الأسبوع فوراً!
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={onStartContributing}
+              className="inline-flex min-h-[38px] shrink-0 items-center gap-2 rounded-xl bg-zinc-950 px-4 py-2 text-xs font-bold text-white hover:bg-zinc-800 transition-colors cursor-pointer dark:bg-[#D9FF43] dark:text-[#050507] dark:hover:bg-[#e5ff73]"
+            >
+              <Sparkles className="h-3.5 w-3.5" />
+              <span>كن أول بطل لهذا الأسبوع</span>
+            </button>
+          </div>
+        ) : (
+          <div className="mt-4 overflow-x-auto pb-1 [scrollbar-width:thin]">
+            <div className="flex items-stretch gap-3.5 min-w-max">
+              {weeklyChampions.map((champion, idx) => {
+                const weeklyCount = champion.weekly_contributions_count ?? 0
+                const words = champion.documented_words_count ?? champion.accepted_count
+                const examples = champion.documented_examples_count ?? champion.attestations_count
+                const rank = computeContributorRank(words + examples)
+                const isFirst = idx === 0
+                const isSecond = idx === 1
+                const isThird = idx === 2
+
+                return (
+                  <article
+                    key={champion.public_slug}
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => selectContributor(champion.public_slug)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault()
+                        selectContributor(champion.public_slug)
+                      }
+                    }}
+                    title={`عرض بطاقة ${champion.display_name} — حقق ${weeklyCount} مساهمة خلال الـ 7 أيام الماضية`}
+                    className={`group relative flex w-[260px] flex-col justify-between rounded-xl border p-4 transition-all hover:scale-[1.01] cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700 dark:focus-visible:outline-[#D9FF43] ${
+                      isFirst
+                        ? 'border-amber-400/80 bg-gradient-to-b from-amber-500/10 via-amber-500/5 to-transparent hover:border-amber-500 dark:border-amber-400/40 dark:from-amber-400/15'
+                        : isSecond
+                          ? 'border-slate-300 bg-gradient-to-b from-slate-200/40 to-transparent hover:border-slate-400 dark:border-white/20 dark:from-white/10'
+                          : isThird
+                            ? 'border-amber-700/40 bg-gradient-to-b from-amber-700/10 to-transparent hover:border-amber-700/70 dark:border-amber-600/30 dark:from-amber-600/10'
+                            : 'border-zinc-200 bg-zinc-50/50 hover:border-zinc-400 dark:border-white/10 dark:bg-[#07070A]'
+                    }`}
+                  >
+                    <div>
+                      {/* Champion Ribbon Badge */}
+                      <div className="flex items-center justify-between gap-2">
+                        <span
+                          className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 font-mono text-[10.5px] font-bold ${
+                            isFirst
+                              ? 'bg-amber-500 text-white shadow-xs dark:bg-[#D9FF43] dark:text-[#050507]'
+                              : isSecond
+                                ? 'bg-slate-500 text-white dark:bg-zinc-200 dark:text-zinc-900'
+                                : isThird
+                                  ? 'bg-[#B87333] text-white dark:bg-[#E09858] dark:text-zinc-950'
+                                  : 'bg-zinc-200 text-zinc-700 dark:bg-white/10 dark:text-zinc-300'
+                          }`}
+                        >
+                          <span>#{idx + 1}</span>
+                          <span>
+                            {isFirst ? 'المركز الأول' : isSecond ? 'المركز الثاني' : isThird ? 'المركز الثالث' : 'نشط'}
+                          </span>
+                        </span>
+
+                        <span className="font-mono text-[11px] font-bold text-amber-700 dark:text-[#D9FF43]">
+                          {weeklyCount} مساهمة / 7 أيام
+                        </span>
+                      </div>
+
+                      {/* Contributor Row */}
+                      <div className="mt-3 flex items-center gap-2.5">
+                        <Avatar
+                          source={champion.avatar_source}
+                          path={champion.avatar_path}
+                          seed={champion.avatar_seed || champion.public_slug}
+                          githubHandle={champion.github_handle}
+                          displayName={champion.display_name}
+                          size={38}
+                          className="ring-1 ring-zinc-200 shrink-0 dark:ring-white/15"
+                        />
+                        <div className="min-w-0 flex-1">
+                          <h4 className="truncate font-display text-sm font-bold text-zinc-950 group-hover:text-emerald-800 transition-colors dark:text-white dark:group-hover:text-[#D9FF43]">
+                            {champion.display_name}
+                          </h4>
+                          <p className="truncate text-[10.5px] text-zinc-500 dark:text-zinc-400">
+                            {champion.dialect_region || 'مشترك عام'}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Rank Chip & CTA */}
+                    <div className="mt-3.5 flex items-center justify-between gap-1 border-t border-zinc-200/70 pt-2.5 dark:border-white/10">
+                      <RankBadgeChip rank={rank} size="sm" />
+                      <span className="font-mono text-[10px] text-zinc-400 group-hover:text-zinc-700 dark:group-hover:text-zinc-200">
+                        عرض البطاقة ←
+                      </span>
+                    </div>
+                  </article>
+                )
+              })}
+            </div>
+          </div>
+        )}
+      </section>
+
+      {/* 5. Contributors Honor Sections (Editorial Board + Community Lexicographers) */}
       {loading ? (
         <div className="rounded-2xl border border-zinc-200 bg-white p-12 text-center text-sm text-zinc-500 dark:border-white/10 dark:bg-[#0B0B10] dark:text-zinc-400">
           جارٍ تحميل لوحة شرف المساهمين…
@@ -1130,6 +1369,7 @@ export function PublicContributorsPage({
           selectedPerson.documented_examples_count ?? selectedPerson.attestations_count
         const totalImpact = Math.max(1, wordsCount + examplesCount)
         const wordsRatio = Math.round((wordsCount / totalImpact) * 100)
+        const rank = computeContributorRank(wordsCount + examplesCount)
         const serialId = formatContributorIdentitySerial(selectedPerson)
 
         return (
@@ -1283,6 +1523,11 @@ export function PublicContributorsPage({
                       'توثيق المفردات المتداولة ومراجعة الشواهد السياقية للدارجة المغربية'}
                   </p>
                 </div>
+              </div>
+
+              {/* Contributor Lexicon Rank & Progress */}
+              <div className="mt-5 border-b border-zinc-200 pb-5 dark:border-white/10">
+                <RankProgressCard rank={rank} />
               </div>
 
               {/* Detailed Platform Statistics & Impact Distribution */}

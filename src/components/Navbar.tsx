@@ -234,8 +234,8 @@ export function Navbar({
               </div>
             )}
 
-            {/* Quick Lexicon Search & Jump (⌘K) — Open to Visitors & Members */}
-            {!isFocusMode && onOpenCommandPalette && (
+            {/* Quick Lexicon Search & Jump (⌘K) — Registered/Authenticated Users Only */}
+            {!isFocusMode && isAuthenticated && onOpenCommandPalette && (
               <button
                 type="button"
                 onClick={onOpenCommandPalette}

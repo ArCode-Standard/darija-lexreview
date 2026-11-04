@@ -5,11 +5,7 @@ import type {
   LexicalEntry,
   RawOfficialCorpus,
 } from '../types/lexicon'
-import {
-  DEMO_ENTRIES,
-  DEMO_RAW_CORPUS,
-  loadCorpusWithOfflineFallback,
-} from '../services/dataset'
+import { loadCorpusWithOfflineFallback } from '../services/dataset'
 import {
   fetchLiveApprovedSubmissions,
   mergeApprovedSubmissionsIntoCorpus,
@@ -17,14 +13,51 @@ import {
 import { isPriorityEnrichmentEntry, matchesDarijaQuery } from '../utils/phoneticSearch'
 import type { AppRouteState } from '../utils/urlState'
 
+const EMPTY_RAW_CORPUS: RawOfficialCorpus = {
+  lexiconMeta: {
+    version: '1.5.0',
+    release_date: '2026-11-01',
+    entries_count: 0,
+  },
+  rawEntries: [],
+  examplesMeta: {
+    version: '1.5.0',
+    examples_count: 0,
+  },
+  rawExamples: [],
+}
+
+const EMPTY_ENTRY: LexicalEntry = {
+  id: '',
+  numericId: null,
+  word: '',
+  latin: '',
+  meaning: '',
+  french: '',
+  category: '',
+  entryType: 'word',
+  register: 'neutral',
+  status: 'pending',
+  reviewNotes: '',
+  provenance: {
+    sourceType: 'original',
+    sourceName: '',
+    rightsHolder: '',
+    license: 'CC BY-NC 4.0',
+    redistributionPermission: 'allowed',
+    trainingPermission: 'allowed',
+    commercialPermission: 'not_allowed',
+    notes: '',
+  },
+  examples: [],
+}
+
 export function useLexiconCorpusAndFilters(initialRoute: AppRouteState) {
-  const [baseEntries, setBaseEntries] = useState<LexicalEntry[]>(DEMO_ENTRIES)
-  const [entries, setEntries] = useState<LexicalEntry[]>(DEMO_ENTRIES)
-  const [rawCorpus, setRawCorpus] = useState<RawOfficialCorpus>(DEMO_RAW_CORPUS)
-  const [categories, setCategories] = useState<string[]>(
-    Array.from(new Set(DEMO_ENTRIES.map((e) => e.category))),
-  )
-  const [totalExamplesCount, setTotalExamplesCount] = useState<number>(4)
+  const [baseEntries, setBaseEntries] = useState<LexicalEntry[]>([])
+  const [entries, setEntries] = useState<LexicalEntry[]>([])
+  const [rawCorpus, setRawCorpus] = useState<RawOfficialCorpus>(EMPTY_RAW_CORPUS)
+  const [categories, setCategories] = useState<string[]>([])
+  const [totalExamplesCount, setTotalExamplesCount] = useState<number>(0)
   const [liveOverlayCount, setLiveOverlayCount] = useState<number>(0)
   const [dataMode, setDataMode] = useState<DataMode>('loading')
   const [cachedCorpusAt, setCachedCorpusAt] = useState<string | null>(null)
@@ -40,7 +73,7 @@ export function useLexiconCorpusAndFilters(initialRoute: AppRouteState) {
   const [selectedEtymology, setSelectedEtymology] = useState<string>(
     initialRoute.etymology ?? 'all',
   )
-  const [activeId, setActiveId] = useState<string>(initialRoute.entryId ?? DEMO_ENTRIES[0].id)
+  const [activeId, setActiveId] = useState<string>(initialRoute.entryId ?? '')
 
   const applyLiveApprovedOverlay = useCallback(async (seedEntries: LexicalEntry[]) => {
     const approved = await fetchLiveApprovedSubmissions()
@@ -94,20 +127,9 @@ export function useLexiconCorpusAndFilters(initialRoute: AppRouteState) {
   }, [loadCorpus])
 
   const refreshLiveApprovedOverlay = useCallback(async () => {
-    if (baseEntries.length === 0 || dataMode === 'demo' || dataMode === 'error') return
+    if (baseEntries.length === 0 || dataMode === 'error') return
     await applyLiveApprovedOverlay(baseEntries)
   }, [baseEntries, dataMode, applyLiveApprovedOverlay])
-
-  const enableDemoPreview = useCallback(() => {
-    setBaseEntries(DEMO_ENTRIES)
-    setEntries(DEMO_ENTRIES)
-    setRawCorpus(DEMO_RAW_CORPUS)
-    setCategories(Array.from(new Set(DEMO_ENTRIES.map((entry) => entry.category))))
-    setTotalExamplesCount(4)
-    setLiveOverlayCount(0)
-    setActiveId(DEMO_ENTRIES[0]?.id ?? '')
-    setDataMode('demo')
-  }, [])
 
   const filteredEntries = useMemo(() => {
     return entries.filter((entry) => {
@@ -151,7 +173,7 @@ export function useLexiconCorpusAndFilters(initialRoute: AppRouteState) {
       entries.find((e) => e.id === activeId) ??
       filteredEntries[0] ??
       entries[0] ??
-      DEMO_ENTRIES[0]
+      EMPTY_ENTRY
     )
   }, [entries, filteredEntries, activeId])
 
@@ -185,7 +207,6 @@ export function useLexiconCorpusAndFilters(initialRoute: AppRouteState) {
     cachedCorpusAt,
     corpusError,
     loadCorpus,
-    enableDemoPreview,
     refreshLiveApprovedOverlay,
     query,
     setQuery,

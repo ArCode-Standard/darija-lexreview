@@ -248,7 +248,6 @@ export default function App() {
     cachedCorpusAt,
     corpusError,
     loadCorpus,
-    enableDemoPreview,
     refreshLiveApprovedOverlay,
     query,
     setQuery,
@@ -505,8 +504,9 @@ export default function App() {
     return () => window.removeEventListener('storage', onStorage)
   }, [])
 
-  // Global Command Palette shortcut (Ctrl+K / Cmd+K) — Open to Visitors & Members
+  // Global Command Palette shortcut (Ctrl+K / Cmd+K) — Registered Members Only
   useEffect(() => {
+    if (!userEmail) return
     const onKeyDown = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
         e.preventDefault()
@@ -515,7 +515,7 @@ export default function App() {
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [])
+  }, [userEmail])
 
   const syncUserSession = useCallback(async () => {
     if (!supabase) {
@@ -1128,59 +1128,7 @@ export default function App() {
             >
               <RefreshCw className="h-4 w-4" /> إعادة المحاولة
             </button>
-            <button
-              type="button"
-              onClick={enableDemoPreview}
-              className="min-h-10 rounded-full border border-zinc-300 px-5 py-2 text-sm font-semibold text-zinc-700 hover:bg-zinc-50 cursor-pointer dark:border-white/15 dark:text-zinc-200 dark:hover:bg-white/[0.04]"
-            >
-              معاينة عينة توضيحية فقط
-            </button>
           </div>
-          <p className="mt-4 text-xs text-zinc-500">
-            المعاينة التوضيحية منفصلة عن المتن الرسمي ولا تتيح الإرسال أو التحكيم أو التصدير.
-          </p>
-        </section>
-      </main>
-    )
-  }
-
-  if (dataMode === 'demo') {
-    return (
-      <main
-        className="min-h-screen bg-[#FAFAFC] px-5 py-12 text-zinc-900 dark:bg-[#050507] dark:text-zinc-100"
-        dir="rtl"
-      >
-        <section className="mx-auto max-w-3xl">
-          <div className="rounded-xl border border-amber-300 bg-amber-50 p-5 dark:border-amber-900/60 dark:bg-amber-950/20">
-            <p className="text-xs font-bold text-amber-800 dark:text-amber-300">
-              وضع المعاينة التوضيحية المؤقتة (تعذّر الوصول إلى المتن الرسمي)
-            </p>
-            <h1 className="mt-2 text-xl font-bold">عينة واجهة Darija LexReview</h1>
-            <p className="mt-2 text-sm leading-7 text-amber-950 dark:text-amber-100">
-              هذه المداخل أمثلة اصطناعية لشرح شكل البيانات فقط عند انقطاع الاتصال بالمستودع، ولا تمثّل متناً معتمداً ولا تُفعّل فيها أدوات الإرسال أو التحكيم.
-            </p>
-          </div>
-          <div className="mt-5 overflow-hidden rounded-xl border border-zinc-200 bg-white dark:border-white/10 dark:bg-[#0C0C10]">
-            {entries.map((entry) => (
-              <div
-                key={entry.id}
-                className="border-b border-zinc-100 p-4 last:border-0 dark:border-white/10"
-              >
-                <div className="flex items-baseline justify-between gap-3">
-                  <strong className="text-lg">{entry.word}</strong>
-                  <span className="text-xs font-mono text-zinc-500">{entry.latin}</span>
-                </div>
-                <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-300">{entry.meaning}</p>
-              </div>
-            ))}
-          </div>
-          <button
-            type="button"
-            onClick={loadCorpus}
-            className="mt-5 inline-flex min-h-10 items-center gap-2 rounded-full bg-zinc-950 px-5 py-2 text-sm font-semibold text-white hover:bg-zinc-800 cursor-pointer dark:bg-[#D9FF43] dark:text-[#050507] dark:hover:bg-[#e5ff73]"
-          >
-            <RefreshCw className="h-4 w-4" /> العودة لمحاولة تحميل المتن الرسمي
-          </button>
         </section>
       </main>
     )
@@ -1333,7 +1281,7 @@ export default function App() {
             darkMode={darkMode}
             onToggleDarkMode={handleToggleDarkMode}
             onOpenAuth={() => navigatePage('auth')}
-            onOpenCommandPalette={() => setCommandPaletteOpen(true)}
+            onOpenCommandPalette={userEmail ? () => setCommandPaletteOpen(true) : undefined}
             onSelectWorkbenchTab={handleLegacyWorkbenchTabSelect}
             onNavigatePage={navigatePage}
           />
@@ -1433,7 +1381,7 @@ export default function App() {
           draftsCount={draftsList.length}
           unreadMessagesCount={unreadMessagesCount}
           onReloadCorpus={loadCorpus}
-          onOpenCommandPalette={() => setCommandPaletteOpen(true)}
+          onOpenCommandPalette={userEmail ? () => setCommandPaletteOpen(true) : undefined}
           onNavigatePage={navigatePage}
         >
           <Suspense
@@ -2308,18 +2256,20 @@ export default function App() {
         />
       </Suspense>
 
-      {/* Global Command Palette (Ctrl+K / Cmd+K) — Open to Visitors & Members with Role-Scoped Destinations */}
-      <CommandPalette
-        open={commandPaletteOpen}
-        onClose={() => setCommandPaletteOpen(false)}
-        entries={entries}
-        isAuthenticated={Boolean(userEmail)}
-        canAccessEditorialTools={canAccessEditorialTools}
-        draftsCount={draftsList.length}
-        onNavigatePage={navigatePage}
-        onSelectEntry={(entry) => handleSelectEntryAndOpenPage(entry, true)}
-        onQuickAddWord={handleQuickAddWord}
-      />
+      {/* Global Command Palette (Ctrl+K / Cmd+K) — Registered Members Only */}
+      {Boolean(userEmail) && (
+        <CommandPalette
+          open={commandPaletteOpen}
+          onClose={() => setCommandPaletteOpen(false)}
+          entries={entries}
+          isAuthenticated={true}
+          canAccessEditorialTools={canAccessEditorialTools}
+          draftsCount={draftsList.length}
+          onNavigatePage={navigatePage}
+          onSelectEntry={(entry) => handleSelectEntryAndOpenPage(entry, true)}
+          onQuickAddWord={handleQuickAddWord}
+        />
+      )}
 
       {/* Mandatory Official Warning Acknowledgment Modal — Authenticated Members Only */}
       {Boolean(userEmail) && (
