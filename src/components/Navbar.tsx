@@ -25,7 +25,7 @@ interface NavbarProps {
   onNavigatePage?: (page: AppPage, options?: { subView?: 'entries' | 'categories' }) => void
 }
 
-export function Navbar({ isFocusMode = false, onOpenCommandPalette }: NavbarProps) {
+export function Navbar({ isFocusMode = false, onOpenCommandPalette, onNavigatePage }: NavbarProps) {
   return (
     <header
       className={`sticky top-0 z-30 border-b border-zinc-200 bg-[#FAFAFC]/90 backdrop-blur-md dark:border-white/10 dark:bg-[#050507]/90 ${
@@ -35,6 +35,12 @@ export function Navbar({ isFocusMode = false, onOpenCommandPalette }: NavbarProp
       <div className="mx-auto flex h-full max-w-[1280px] items-center gap-4 px-4 sm:px-6 lg:px-8">
         <a
           href="/"
+          onClick={(event) => {
+            if (onNavigatePage) {
+              event.preventDefault()
+              onNavigatePage('home')
+            }
+          }}
           aria-label="Darija LexReview — الصفحة الرئيسية"
           className="inline-flex shrink-0 items-center gap-2 font-display text-sm font-bold tracking-tight text-zinc-950 dark:text-white focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#D9FF43]"
         >
