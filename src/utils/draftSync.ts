@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase'
+import { writeScannedContent } from '../lib/contentGateway'
 import type { EvidenceItem, LexicalEntry, LocalDraft, ProposedFields } from '../types/lexicon'
 import {
   containsArabicScript,
@@ -273,32 +274,35 @@ export async function syncLocalDraftsToAccount(
     }
   })
 
-  let insertRes = await supabase.from('review_submissions').insert(rowsWithPinning)
+  const syncedEntryIds: string[] = []
+  for (let index = 0; index < rowsWithPinning.length; index += 1) {
+    const row = rowsWithPinning[index]
+    const { error } = await writeScannedContent('review_submissions.create', {
+      entry_id: row.entry_id,
+      proposed_data: row.proposed_data,
+      evidence: row.evidence,
+      reviewer_note: row.reviewer_note,
+      corpus_version: row.corpus_version,
+      baseline_fingerprint: row.baseline_fingerprint,
+    })
 
-  if (insertRes.error) {
-    const fallbackRows = rowsWithPinning.map((r) => ({
-      entry_id: r.entry_id,
-      proposed_data: r.proposed_data,
-      evidence: r.evidence,
-      reviewer_note: r.reviewer_note,
-      status: r.status,
-    }))
-    insertRes = await supabase.from('review_submissions').insert(fallbackRows)
-  }
-
-  if (insertRes.error) {
-    return {
-      syncedEntryIds: [],
-      skippedAudits,
-      error: humanizeSystemError(
-        insertRes.error,
-        'تعذر إرسال المسودات حالياً. يرجى المحاولة لاحقاً.',
-      ),
+    if (error) {
+      return {
+        syncedEntryIds,
+        skippedAudits,
+        error: humanizeSystemError(
+          error,
+          syncedEntryIds.length > 0
+            ? 'تمت مزامنة بعض المسودات، وتعذر إرسال البقية بعد فشل فحص المحتوى.'
+            : 'تعذر إرسال المسودات حالياً. يرجى المحاولة لاحقاً.',
+        ),
+      }
     }
+    syncedEntryIds.push(readyAudits[index].draft.entryId)
   }
 
   return {
-    syncedEntryIds: readyAudits.map((item) => item.draft.entryId),
+    syncedEntryIds,
     skippedAudits,
   }
 }
