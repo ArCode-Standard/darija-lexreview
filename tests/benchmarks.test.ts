@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { GOLD_FORMS, GOLD_ARABIZI, NORMALIZATION_GOLD_PAIRS } from '../benchmarks/dataset'
-import { discoverVariantCandidates, normalizeDarijaSearchKey, transliterateArabizi, findDuplicateCandidates, discoverVariantCandidatesWithStats } from '../algorithms'
+import { discoverVariantCandidates, normalizeDarijaSearchKey, transliterateArabizi, findDuplicateCandidates, discoverVariantCandidatesWithStats, transliterateArabiziCandidates } from '../algorithms'
 
 const expectedPairs = new Set<string>()
 for (let i=0;i<GOLD_FORMS.length;i++) for(let j=i+1;j<GOLD_FORMS.length;j++) {
@@ -63,6 +63,20 @@ describe('Darija benchmark quality baseline (provisional fixtures)',()=>{
     const result=metrics(tp,fp,fn)
     console.info('[Darija benchmark] Arabizi exact-match metrics',result)
     expect(result.tp+result.fn).toBe(GOLD_ARABIZI.length)
+  })
+  it('reports N-best Arabizi top-1 exact match and top-k recall separately',()=>{
+    let top1=0,topK=0
+    for(const item of GOLD_ARABIZI) {
+      const expected=normalizeDarijaSearchKey(item.expectedArabic)
+      const candidates=transliterateArabiziCandidates(item.form,{latinTokenPolicy:'all',maxCandidates:5})
+        .map(candidate=>normalizeDarijaSearchKey(candidate.value))
+      if(candidates[0]===expected) top1++
+      if(candidates.includes(expected)) topK++
+    }
+    const result={count:GOLD_ARABIZI.length,top1ExactMatch:top1/GOLD_ARABIZI.length,top5Recall:topK/GOLD_ARABIZI.length,top1,top5:topK}
+    console.info('[Darija benchmark] Arabizi N-best provisional metrics',result)
+    expect(result.count).toBeGreaterThan(0)
+    expect(result.top5).toBeGreaterThanOrEqual(result.top1)
   })
   it('reports normalization pair classification metrics against orthographic gold pairs',()=>{
     let tp=0,fp=0,fn=0
