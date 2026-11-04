@@ -194,7 +194,8 @@ select set_config(
   true
 );
 update private.content_scan_tokens
-set expires_at = now() - interval '1 second'
+set created_at = now() - interval '2 minutes',
+    expires_at = now() - interval '1 second'
 where token_hash = extensions.digest(convert_to(current_setting('app.test_scan_token'), 'UTF8'), 'sha256');
 select set_config('request.jwt.claim.role', 'authenticated', true);
 set local role authenticated;
