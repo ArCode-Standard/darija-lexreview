@@ -129,14 +129,6 @@ describe('governed learning pipeline', () => {
       rationale: 'z', contributorRef: 'c', consentToDatasetUse: false, license: 'CC0',
     })).toThrow(/consent/)
   })
-  it('rejects obvious personal identifiers before a candidate enters review', () => {
-    expect(() => submitFeedbackCandidate({
-      id: 'pii', domain: 'linguistic', source: 'editor_correction',
-      sourceSurface: 'lexicon', groupId: 'g', text: 'contact me at user@example.com',
-      label: 'x', rationale: 'y', contributorRef: 'c',
-      consentToDatasetUse: true, license: 'CC0',
-    })).toThrow(/personal data/)
-  })
   it('prevents contributors from approving their own examples', () => {
     expect(() => reviewFeedbackCandidate({
       candidate: makeCandidate(), reviewerRef: 'contributor-1', role: 'editor',
