@@ -32,11 +32,12 @@ const MOROCCAN_IBAN = /\bMA\d{26}\b/iu;
 export function findPii(value: string): PiiFinding[] {
   const normalized = normalizeForPiiScan(value);
   const findings: PiiFinding[] = [];
+  const isMoroccanIban = MOROCCAN_IBAN.test(normalized);
   if (EMAIL.test(normalized)) findings.push("email");
-  if (MOROCCAN_PHONE.test(normalized)) findings.push("moroccan_phone");
+  if (isMoroccanIban) findings.push("moroccan_iban");
+  else if (MOROCCAN_PHONE.test(normalized)) findings.push("moroccan_phone");
   else if (INTERNATIONAL_PHONE.test(normalized)) findings.push("international_phone");
   if (MOROCCAN_CIN.test(normalized)) findings.push("moroccan_national_id");
-  if (MOROCCAN_IBAN.test(normalized)) findings.push("moroccan_iban");
   return findings;
 }
 
