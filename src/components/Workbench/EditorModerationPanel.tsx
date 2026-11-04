@@ -11,6 +11,7 @@ import {
   GitBranch,
 } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
+import { writeScannedContent } from '../../lib/contentGateway'
 import type {
   EntryAttestationSummary,
   LexicalEntry,
@@ -345,35 +346,39 @@ export function EditorModerationPanel({
     setSavingDecision(true)
     setActionMessage(null)
 
-    // Update strictly decision columns (status, editor_note); editor_id and audit event are stamped by DB trigger
-    const { data, error } = await supabase
-      .from('review_submissions')
-      .update({
-        status: nextStatus,
-        editor_note: editorNote.trim() || null,
-      })
-      .eq('id', activeSubmission.id)
-      .select()
+    const { error } = await writeScannedContent('review_submissions.decision', {
+      id: activeSubmission.id,
+      status: nextStatus,
+      editor_note: editorNote.trim() || null,
+    })
 
     setSavingDecision(false)
 
     if (error) {
       setActionMessage({
         type: 'error',
-        text: humanizeSystemError(error, 'تعذر حفظ القرار التحريري حالياً.'),
-      })
-      return
-    }
-    if (!data || data.length === 0) {
-      setActionMessage({
-        type: 'error',
-        text: 'لم يُسمح بتحديث السجل. تحقق من امتلاكك صلاحية محرر معتمد وعدم كون المقترح مرسلاً من حسابك الشخصي.',
+        text: humanizeSystemError(error, 'تعذر حفظ القرار التحريري بعد فحص المحتوى.'),
       })
       return
     }
 
+    const { data: updatedRow, error: refreshError } = await supabase
+      .from('review_submissions')
+      .select('*')
+      .eq('id', activeSubmission.id)
+      .maybeSingle()
+
+    if (refreshError || !updatedRow) {
+      setActionMessage({
+        type: 'error',
+        text: 'تم إرسال القرار، لكن تعذر تحديث العرض المحلي. أعد تحميل طابور التحكيم.',
+      })
+      await fetchLiveQueue()
+      return
+    }
+
     setLiveItems((prev) =>
-      prev.map((item) => (item.id === activeSubmission.id ? (data[0] as SubmissionRecord) : item)),
+      prev.map((item) => (item.id === activeSubmission.id ? (updatedRow as SubmissionRecord) : item)),
     )
     setSelectedBatchIds((prev) => {
       if (!prev.has(activeSubmission.id)) return prev
@@ -450,25 +455,35 @@ export function EditorModerationPanel({
     setBulkBusy(true)
     setBulkError(null)
 
-    // Update strictly decision columns (status, editor_note) per DB governance policy
-    const { data, error } = await supabase
-      .from('review_submissions')
-      .update({
+    for (const id of eligibleIds) {
+      const { error } = await writeScannedContent('review_submissions.decision', {
+        id,
         status: 'accepted',
         editor_note: justificationComment,
       })
+      if (error) {
+        setBulkBusy(false)
+        setBulkError(
+          humanizeSystemError(
+            error,
+            'توقف الاعتماد الجماعي عند تعذر فحص أحد السجلات. أعد تحميل الطابور لمراجعة ما تم حفظه.',
+          ),
+        )
+        await fetchLiveQueue()
+        return
+      }
+    }
+
+    const { data, error } = await supabase
+      .from('review_submissions')
+      .select('*')
       .in('id', eligibleIds)
-      .select()
 
     setBulkBusy(false)
 
-    if (error) {
-      setBulkError(humanizeSystemError(error, 'تعذر تنفيذ الاعتماد الجماعي حالياً.'))
-      return
-    }
-
-    if (!data || data.length === 0) {
-      setBulkError('لم يُسمح بتحديث السجلات المحددة وفق ضوابط الصلاحيات التحريرية.')
+    if (error || !data || data.length === 0) {
+      setBulkError(humanizeSystemError(error, 'تم تنفيذ بعض القرارات أو كلها، لكن تعذر تحديث عرض الطابور. أعد تحميل الصفحة.'))
+      await fetchLiveQueue()
       return
     }
 
