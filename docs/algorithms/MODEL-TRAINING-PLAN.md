@@ -36,9 +36,8 @@ DarOLD v4 broadens labels and adds OMCD-derived data, but its release notes desc
 Platform contributions and editor decisions can extend the dataset only when:
 - the source record explicitly permits training;
 - the license and provenance are retained;
-- the example is anonymized and passes PII review;
 - the label is approved by the required human reviewers;
-- private messages and sensitive personal data are excluded.
+- private messages are excluded.
 
 ## Reproducibility requirements
 
