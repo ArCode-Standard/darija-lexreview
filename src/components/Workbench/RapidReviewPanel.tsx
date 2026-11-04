@@ -15,6 +15,7 @@ import {
   AlertTriangle,
 } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
+import { writeScannedContent } from '../../lib/contentGateway'
 import type {
   AttestationVerdict,
   CommunityAttestationRecord,
@@ -649,26 +650,14 @@ export function RapidReviewPanel({
         data: { user },
       } = await supabase.auth.getUser()
       if (user) {
-        let insertRes = await supabase.from('review_submissions').insert({
+        const insertRes = await writeScannedContent('review_submissions.create', {
           entry_id: entry.id,
           corpus_version: corpusVersion,
           baseline_fingerprint: fingerprint,
           proposed_data: finalProposal,
           evidence: [],
           reviewer_note: noteText,
-          status: 'pending',
         })
-
-        // Fallback if remote DB has not yet applied version-pinning top-level columns
-        if (insertRes.error) {
-          insertRes = await supabase.from('review_submissions').insert({
-            entry_id: entry.id,
-            proposed_data: finalProposal,
-            evidence: [],
-            reviewer_note: noteText,
-            status: 'pending',
-          })
-        }
 
         if (!insertRes.error) {
           sentToLiveBackend = true
