@@ -14,7 +14,6 @@ export interface FeedbackCandidate {
   contributorRef: string
   consentToDatasetUse: boolean
   license: string
-  containsPersonalData: boolean
   status: FeedbackStatus
   createdAt: string
   reviews: Array<{
