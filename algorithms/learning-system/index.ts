@@ -2,7 +2,6 @@ import type { DatasetExample, DatasetSplit, EvaluationReport, FeedbackCandidate,
 export * from './types'
 const ALLOWED_SURFACES = new Set(['profile', 'lexicon', 'contribution', 'review', 'comment', 'discussion', 'report', 'benchmark'])
 const ALLOWED_SOURCES = new Set<FeedbackSource>(['lexicon_suggestion', 'editor_correction', 'moderation_appeal', 'moderation_decision', 'benchmark_annotation'])
-const PERSONAL_DATA_PATTERNS = [/\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/iu, /(?:\+?\d[\d\s().-]{7,}\d)/u]
 export interface SubmitFeedbackInput {
   id: string; domain: FeedbackDomain; source: FeedbackSource; sourceSurface: string
   groupId: string; text: string; label: string; rationale: string; contributorRef: string
@@ -19,8 +18,7 @@ export function submitFeedbackCandidate(input: SubmitFeedbackInput): FeedbackCan
   if (text.length > 5000 || input.label.length > 120 || input.rationale.length > 2000 || input.license.length > 250) {
     throw new RangeError('Feedback text or metadata exceeds the configured length limits')
   }
-  if (PERSONAL_DATA_PATTERNS.some((pattern) => pattern.test(text))) throw new Error('Candidate appears to contain personal data and must be redacted before submission')
-  return { ...input, text, status: 'pending', containsPersonalData: false, createdAt: (input.createdAt ?? new Date()).toISOString(), reviews: [] }
+  return { ...input, text, status: 'pending', createdAt: (input.createdAt ?? new Date()).toISOString(), reviews: [] }
 }
 export interface ReviewFeedbackInput {
   candidate: FeedbackCandidate; reviewerRef: string; role: 'user' | 'editor' | 'admin'
@@ -59,7 +57,6 @@ export async function buildApprovedDataset(candidates: FeedbackCandidate[], vers
       review.reviewerRef !== candidate.contributorRef
     )
     return candidate.status === 'approved' && candidate.consentToDatasetUse &&
-      !candidate.containsPersonalData && !PERSONAL_DATA_PATTERNS.some((pattern) => pattern.test(candidate.text)) &&
       ALLOWED_SURFACES.has(candidate.sourceSurface.toLowerCase()) && ALLOWED_SOURCES.has(candidate.source) &&
       (candidate.domain === 'linguistic' || candidate.domain === 'content_safety') &&
       candidate.text.trim().length > 0 && candidate.text.length <= 5000 &&
