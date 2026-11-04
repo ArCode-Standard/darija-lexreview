@@ -43,6 +43,48 @@ describe('Darija algorithm engine', () => {
     expect(candidates[0]!.score).toBeGreaterThan(candidates[1]!.score)
   })
 
+  it('uses adjacent words and supplied region metadata to rank contextual spellings', () => {
+    const result = transliterateArabiziCandidates('ana bghit lma', {
+      contextEntries: [{
+        arabizi: 'bghit',
+        arabic: 'بغيت',
+        leftContext: 'ana',
+        rightContext: 'lma',
+        region: 'center',
+        sourceId: 'reviewed-context:17',
+      }],
+      region: 'center',
+    })
+    expect(result[0]?.value).toBe('ana بغيت lma')
+    expect(result[0]?.decisions).toContain('context-lexicon:reviewed-context:17')
+  })
+
+  it('does not apply a context entry when its supplied region does not match', () => {
+    const result = transliterateArabiziCandidates('ana bghit lma', {
+      contextEntries: [{
+        arabizi: 'bghit',
+        arabic: 'بغيت',
+        region: 'north',
+        sourceId: 'reviewed-context:north',
+      }],
+      region: 'south',
+    })
+    expect(result[0]?.decisions).not.toContain('context-lexicon:reviewed-context:north')
+  })
+
+  it('uses supplied morphology rules as traceable segmentation hypotheses', () => {
+    const result = transliterateArabiziCandidates('kanktb', {
+      latinTokenPolicy: 'all',
+      morphologyRules: [{
+        arabiziPrefix: 'kan',
+        arabicPrefix: 'كن',
+        sourceId: 'reviewed-morphology:present-prefix',
+      }],
+    })
+    expect(result[0]?.value).toBe('كنكتب')
+    expect(result[0]?.decisions).toContain('morphology:reviewed-morphology:present-prefix')
+  })
+
   it('ranks a provisional lexical hint above letter-by-letter guesses', () => {
     const result = transliterateArabiziCandidates('salam')
     expect(result[0]?.value).toBe('سلام')
