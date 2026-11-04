@@ -35,10 +35,9 @@
 - The adapter calls the Edge Function first, then the matching SECURITY INVOKER RPC. It deliberately has no direct-REST fallback. Signup no longer writes profile text into user-editable Auth metadata; users without an immediate session complete their profile after sign-in through the scanned profile flow.
 - Metadata-only operations remain direct by design: inbox read/ack timestamps and avatar/public-listing metadata. These fields are excluded from the text projection and do not carry user-authored content. Avatar storage remains governed by its existing Storage policies.
 - The SQL draft still defaults to shadow; it must not be switched to enforce until the draft is materialized as a migration, all deployed app versions are compatible, and direct REST bypass tests pass.
-- Added service-role-only dataset freezing with exact train/validation/test membership, approved/licensed/consented/PII-screened source checks, and cross-split group/contributor leakage checks. Dataset fingerprints are computed server-side.
+- Added service-role-only dataset freezing with exact train/validation/test membership, approved/licensed/consented source checks, and cross-split group/contributor leakage checks. Dataset fingerprints are computed server-side.
 - Added a domain-specific release-policy registry (no policy is seeded), evaluation persistence with a policy-versioned release gate, model candidate registration, independent editor/admin release reviews, guarded activation, and rollback records. Content-safety model releases require two distinct approvals; linguistic releases require one.
 - These lifecycle RPCs are persistence and governance primitives, not training jobs. No model is trained, no dataset is automatically assembled, and no release policy is activated until a reviewed policy is installed by a trusted operator.
-- The current learning PII check remains a bounded email/phone pattern screen, not a comprehensive PII detector. It requires a stronger reviewed screening process before accepting sensitive or high-risk corpora.
 
 ## Required next steps
 
@@ -74,8 +73,8 @@ The linked Supabase project was inspected without writes:
 
 The shared client adapter is now used by the listed content-bearing write surfaces. It does not retry with PostgREST if scanning or the RPC fails. Draft synchronization issues a separate short-lived token for each draft; a failure can therefore leave a partial batch, and the result reports already-synced IDs.
 
-The SQL draft now also covers dialect-region text on community attestations and promotion requests in the trigger projection. Dataset freezing requires all three non-empty splits, exact source membership, approved consented/licensed/screened candidates, and no source-group or contributor overlap across splits. Fingerprints are calculated from candidate digests and the canonical JSONB split manifest.
+The SQL draft now also covers dialect-region text on community attestations and promotion requests in the trigger projection. Dataset freezing requires all three non-empty splits, exact source membership, approved consented/licensed candidates, and no source-group or contributor overlap across splits. Fingerprints are calculated from candidate digests and the canonical JSONB split manifest.
 
 Evaluation requires a reviewed, active policy for the dataset domain. No default thresholds are inserted because thresholds must be set by an authorized reviewer after benchmark calibration. Model activation is blocked until the evaluation gate and the required independent approvals are satisfied. Rollback records the prior and replacement model IDs and rationale.
 
-**Still not complete:** this branch has not materialized or applied a migration, has not run an isolated database reset/pgTAP after these latest changes, has not been deployed to a non-production Supabase project, and has not completed a production-version inventory or browser-level integration test. The PII screen is regex-based and requires a stronger detector/review gate. No training or automatic model promotion occurs.
+**Still not complete:** this branch has not materialized or applied a migration, has not run an isolated database reset/pgTAP after these latest changes, has not been deployed to a non-production Supabase project, and has not completed a production-version inventory or browser-level integration test. No training or automatic model promotion occurs.
