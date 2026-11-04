@@ -14,6 +14,7 @@ import {
   UserRound,
 } from 'lucide-react'
 import { isSupabaseConfigured, supabase } from '../../lib/supabase'
+import { writeScannedContent } from '../../lib/contentGateway'
 import { Avatar, type AvatarSource } from '../Avatar'
 import type { ReviewerProfile, SubmissionRecord } from '../../types/lexicon'
 import { humanizeSystemError } from '../../utils/humanizeError'
@@ -151,19 +152,15 @@ export function ContributorProfilePanel({
     if (profile.github_handle === linkedGithubHandle) return
 
     let active = true
-    void supabase
-      .from('reviewer_profiles')
-      .update({ github_handle: linkedGithubHandle })
-      .eq('id', profile.id)
-      .then(({ error: syncError }) => {
-        if (!active) return
-        if (syncError) {
-          setError('تم ربط GitHub، لكن تعذر حفظ المعرّف تلقائياً. أعد المحاولة لاحقاً.')
-          return
-        }
-        setMessage('تم جلب معرّف GitHub العام وحفظه تلقائياً.')
-        onProfileSaved()
-      })
+    void writeScannedContent('reviewer_profiles.update', { github_handle: linkedGithubHandle }).then(({ error: syncError }) => {
+      if (!active) return
+      if (syncError) {
+        setError('تم ربط GitHub، لكن تعذر حفظ المعرّف بعد فحصه. أعد المحاولة لاحقاً.')
+        return
+      }
+      setMessage('تم جلب معرّف GitHub العام وفحصه وحفظه.')
+      onProfileSaved()
+    })
 
     return () => {
       active = false
@@ -196,34 +193,33 @@ export function ContributorProfilePanel({
     setMessage(null)
     saveLocalPublicListedFallback(profile.id, publicListed)
 
-    const basePayload = {
+    const { error: contentError } = await writeScannedContent('reviewer_profiles.update', {
       display_name: name.trim() || null,
       dialect_region: region.trim() || null,
       specialty: specialty.trim() || null,
       github_handle: github.trim().replace(/^@/, '') || null,
-      avatar_source: avatarSource,
-      avatar_path: avatarSource === 'upload' ? avatarPath : null,
-      avatar_seed: avatarSeed.trim().slice(0, 80) || profile.id,
+    })
+
+    if (contentError) {
+      setSaving(false)
+      setError('تعذر حفظ بيانات الملف الشخصي بعد فحصها. تحقق من الاتصال والسياسة ثم أعد المحاولة.')
+      return
     }
 
-    let result = await supabase
+    // Avatar and directory visibility are metadata, not text-bearing profile fields.
+    const { error: metadataError } = await supabase
       .from('reviewer_profiles')
       .update({
-        ...basePayload,
+        avatar_source: avatarSource,
+        avatar_path: avatarSource === 'upload' ? avatarPath : null,
+        avatar_seed: avatarSeed.trim().slice(0, 80) || profile.id,
         public_listed: publicListed,
       })
       .eq('id', profile.id)
 
-    if (result.error) {
-      result = await supabase
-        .from('reviewer_profiles')
-        .update(basePayload)
-        .eq('id', profile.id)
-    }
-
     setSaving(false)
-    if (result.error) {
-      setError('تعذر حفظ الملف الشخصي. تحقق من الاتصال ثم أعد المحاولة.')
+    if (metadataError) {
+      setError('حُفظت بيانات الملف بعد فحصها، لكن تعذر تحديث إعدادات الصورة أو الظهور العام.')
       return
     }
     if (profile.avatar_path && profile.avatar_path !== (avatarSource === 'upload' ? avatarPath : null)) {

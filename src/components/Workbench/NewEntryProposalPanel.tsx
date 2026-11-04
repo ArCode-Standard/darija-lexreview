@@ -15,6 +15,7 @@ import {
   SlidersHorizontal,
 } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
+import { writeScannedContent } from '../../lib/contentGateway'
 import type {
   DataPermission,
   EntryType,
@@ -476,13 +477,14 @@ export function NewEntryProposalPanel({
       baseInsert.supersedes_id = revisionTarget.id
     }
 
-    let insertRes = await supabase.from('review_submissions').insert({
-      ...baseInsert,
+    const insertRes = await writeScannedContent('review_submissions.create', {
+      entry_id: baseInsert.entry_id,
+      proposed_data: baseInsert.proposed_data,
+      evidence: baseInsert.evidence,
+      reviewer_note: baseInsert.reviewer_note,
+      ...(baseInsert.supersedes_id ? { supersedes_id: baseInsert.supersedes_id } : {}),
       corpus_version: corpusVersion,
     })
-    if (insertRes.error) {
-      insertRes = await supabase.from('review_submissions').insert(baseInsert)
-    }
     setBusy(false)
 
     if (insertRes.error) {

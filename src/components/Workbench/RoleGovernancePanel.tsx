@@ -11,6 +11,7 @@ import {
   Users,
 } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
+import { writeScannedContent } from '../../lib/contentGateway'
 import type {
   PromotionRequestStatus,
   ReviewerProfile,
@@ -176,53 +177,19 @@ export function RoleGovernancePanel({
     setBusyId(req.id)
     setFeedback(null)
 
-    const { data: rpcData, error: rpcError } = await supabase.rpc(
-      'review_role_promotion_request',
-      {
-        p_request_id: req.id,
-        p_decision: decision,
-        p_admin_note: note || null,
-      },
-    )
+    const { error } = await writeScannedContent('role_promotion_requests.decision', {
+      id: req.id,
+      decision,
+      admin_note: note || null,
+    })
 
-    if (rpcError) {
-      // Fallback to sequential updates if the custom RPC hasn't been created yet
-      const { error: reqUpdateErr } = await supabase
-        .from('role_promotion_requests')
-        .update({
-          status: decision,
-          reviewed_by: currentUserProfile?.id ?? null,
-          admin_note: note || null,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', req.id)
-
-      if (reqUpdateErr) {
-        setBusyId(null)
-        setFeedback({
-          type: 'error',
-          text: humanizeSystemError(reqUpdateErr, 'تعذر تحديث طلب الترقية حالياً.'),
-        })
-        return
-      }
-
-      if (decision === 'approved') {
-        const { error: roleErr } = await supabase
-          .from('reviewer_profiles')
-          .update({ role: 'editor' })
-          .eq('id', req.requester_id)
-
-        if (roleErr) {
-          setBusyId(null)
-          setFeedback({
-            type: 'error',
-            text: humanizeSystemError(roleErr, 'تم تحديث حالة الطلب لكن تعذرت ترقية الصلاحية.'),
-          })
-          return
-        }
-      }
-    } else if (rpcData) {
-      // RPC succeeded atomically
+    if (error) {
+      setBusyId(null)
+      setFeedback({
+        type: 'error',
+        text: humanizeSystemError(error, 'تعذر حفظ قرار الترقية بعد فحص الملاحظة والتحقق من الصلاحيات.'),
+      })
+      return
     }
 
     setBusyId(null)
@@ -245,10 +212,10 @@ export function RoleGovernancePanel({
     setBusyId(member.id)
     setFeedback(null)
 
-    const { error } = await supabase
-      .from('reviewer_profiles')
-      .update({ role: nextRole })
-      .eq('id', member.id)
+    const { error } = await writeScannedContent('reviewer_profiles.admin_update', {
+      id: member.id,
+      role: nextRole,
+    })
 
     setBusyId(null)
 

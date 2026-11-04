@@ -45,6 +45,11 @@ jobs:
         run: supabase start -x studio,imgproxy
         env:
           SUPABASE_TELEMETRY_DISABLED: "1"
+      - name: Materialize gateway draft as a generated migration for isolated validation
+        run: |
+          supabase migration new content_safety_gateway_and_learning
+          migration_file="$(ls -t supabase/migrations/*.sql | head -n 1)"
+          cp supabase/drafts/content_safety_gateway_and_learning.sql "$migration_file"
       - name: Rebuild database from migrations
         run: supabase db reset --local
       - name: Run pgTAP database tests
@@ -52,3 +57,17 @@ jobs:
       - name: Stop isolated Supabase stack
         if: always()
         run: supabase stop --no-backup
+
+
+  edge-functions:
+    name: Edge Function type checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - name: Type-check content safety gateway
+        run: |
+          deno check --config supabase/functions/deno.json supabase/functions/content-safety-gateway/index.ts
+          deno check --config supabase/functions/deno.json supabase/functions/learning-governance/index.ts

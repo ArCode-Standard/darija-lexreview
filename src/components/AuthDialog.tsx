@@ -18,6 +18,7 @@ import {
   KeyRound,
 } from 'lucide-react'
 import { isSupabaseConfigured, supabase } from '../lib/supabase'
+import { writeScannedContent } from '../lib/contentGateway'
 import type {
   LexicalEntry,
   LocalDraft,
@@ -224,22 +225,18 @@ export function AuthDialog({
     if (profile.github_handle === linkedGithubHandle) return
 
     let active = true
-    void supabase
-      .from('reviewer_profiles')
-      .update({ github_handle: linkedGithubHandle })
-      .eq('id', profile.id)
-      .then(({ error: syncError }) => {
-        if (!active) return
-        if (syncError) {
-          setFeedback({
-            type: 'error',
-            text: 'تم ربط GitHub، لكن تعذر حفظ المعرّف تلقائياً. أعد المحاولة لاحقاً.',
-          })
-          return
-        }
-        setFeedback({ type: 'success', text: 'تم جلب معرّف GitHub العام وحفظه تلقائياً.' })
-        onAuthChanged()
-      })
+    void writeScannedContent('reviewer_profiles.update', { github_handle: linkedGithubHandle }).then(({ error: syncError }) => {
+      if (!active) return
+      if (syncError) {
+        setFeedback({
+          type: 'error',
+          text: 'تم ربط GitHub، لكن تعذر حفظ المعرّف بعد فحصه. أعد المحاولة لاحقاً.',
+        })
+        return
+      }
+      setFeedback({ type: 'success', text: 'تم جلب معرّف GitHub العام وفحصه وحفظه.' })
+      onAuthChanged()
+    })
 
     return () => {
       active = false
@@ -464,11 +461,7 @@ export function AuthDialog({
       options: {
         captchaToken: turnstileToken,
         emailRedirectTo: `${window.location.origin}/auth/callback`,
-        data: {
-          name: displayName.trim(),
-          dialect_region: dialectRegion || null,
-          specialty: specialty.trim() || null,
-        },
+
       },
     })
 
@@ -487,17 +480,19 @@ export function AuthDialog({
     setTurnstileResetKey((key) => key + 1)
 
     if (data.session && data.user) {
-      await supabase.from('reviewer_profiles').upsert(
-        {
-          id: data.user.id,
-          display_name: displayName.trim(),
-          dialect_region: dialectRegion || null,
-          specialty: specialty.trim() || null,
-          role: 'reviewer',
-        },
-        { onConflict: 'id' },
-      )
+      const { error: profileError } = await writeScannedContent('reviewer_profiles.update', {
+        display_name: displayName.trim(),
+        dialect_region: dialectRegion || null,
+        specialty: specialty.trim() || null,
+      })
       setBusy(false)
+      if (profileError) {
+        setFeedback({
+          type: 'error',
+          text: 'تم إنشاء الحساب، لكن تعذر حفظ بيانات الملف الشخصي بعد فحصها. سجّل الدخول وأعد المحاولة من صفحة الملف الشخصي.',
+        })
+        return
+      }
       setPassword('')
       setSignupConfirmPassword('')
       setFeedback({
@@ -514,7 +509,7 @@ export function AuthDialog({
     setSignupConfirmPassword('')
     setFeedback({
       type: 'success',
-      text: 'تم إنشاء الحساب بنجاح بصلاحية «مراجع مساهم». تحقق من صندوق الوارد في بريدك الإلكتروني لتأكيد الحساب قبل تسجيل الدخول.',
+      text: 'تم إنشاء الحساب بصلاحية «مراجع مساهم». لم تُحفظ بيانات الملف الشخصي بعد؛ بعد تأكيد البريد وتسجيل الدخول، أكملها من صفحة الملف الشخصي ليتم فحصها قبل الحفظ.',
     })
   }
 
@@ -616,41 +611,21 @@ export function AuthDialog({
     setFeedback(null)
 
     const cleanHandle = editGithub.trim().replace(/^@/, '')
-    const { error } = await supabase
-      .from('reviewer_profiles')
-      .update({
-        display_name: editName.trim(),
-        dialect_region: editRegion || null,
-        specialty: editSpecialty.trim() || null,
-        github_handle: cleanHandle || null,
-      })
-      .eq('id', profile.id)
-
-    if (error) {
-      const fallback = await supabase
-        .from('reviewer_profiles')
-        .update({ display_name: editName.trim() })
-        .eq('id', profile.id)
-
-      setBusy(false)
-      if (fallback.error) {
-        setFeedback({
-          type: 'error',
-          text: humanizeSystemError(fallback.error, 'تعذر حفظ الملف الشخصي حالياً.'),
-        })
-        return
-      }
-    } else {
-      setBusy(false)
-    }
-
-    await supabase.auth.updateUser({
-      data: {
-        name: editName.trim(),
-        dialect_region: editRegion || null,
-        specialty: editSpecialty.trim() || null,
-      },
+    const { error } = await writeScannedContent('reviewer_profiles.update', {
+      display_name: editName.trim(),
+      dialect_region: editRegion || null,
+      specialty: editSpecialty.trim() || null,
+      github_handle: cleanHandle || null,
     })
+
+    setBusy(false)
+    if (error) {
+      setFeedback({
+        type: 'error',
+        text: humanizeSystemError(error, 'تعذر حفظ الملف الشخصي بعد فحص البيانات.'),
+      })
+      return
+    }
 
     setFeedback({ type: 'success', text: 'تم تحديث بيانات هويتك المعجمية بنجاح.' })
     onAuthChanged()
@@ -691,14 +666,11 @@ export function AuthDialog({
     if (supabase && profile?.id && !livePromoUnavailable) {
       setBusy(true)
       setFeedback(null)
-      const { error } = await supabase.from('role_promotion_requests').insert({
-        requester_id: profile.id,
+      const { error } = await writeScannedContent('role_promotion_requests.create', {
         requester_name: applicantName,
         dialect_region: editRegion || profile.dialect_region || null,
         experience_summary: promoExperience.trim(),
         sample_links: safeLink,
-        requested_role: 'editor',
-        status: 'pending',
       })
       setBusy(false)
 
