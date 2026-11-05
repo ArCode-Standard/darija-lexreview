@@ -7,6 +7,7 @@ import {
   Clock,
   Flag,
   Github,
+  Mail,
   Megaphone,
   RefreshCcw,
   Search,
@@ -952,6 +953,16 @@ export function AdminMembersPanel({
                                 <span className="inline-flex items-center gap-1 font-mono" dir="ltr">
                                   <Github className="h-3 w-3" /> @{member.github_handle}
                                 </span>
+                              )}
+                              {effectiveIsAdmin && member.contact_email && (
+                                <a
+                                  href={`mailto:${member.contact_email}`}
+                                  className="inline-flex items-center gap-1 font-mono text-emerald-700 hover:underline dark:text-emerald-300"
+                                  dir="ltr"
+                                  title="مراسلة عبر البريد الإلكتروني الذي شاركه العضو بموافقته"
+                                >
+                                  <Mail className="h-3 w-3" /> {member.contact_email}
+                                </a>
                               )}
                               <span>
                                 · مقبولة:{' '}
