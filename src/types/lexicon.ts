@@ -175,6 +175,8 @@ export interface ReviewerProfile {
   dialect_region?: string | null
   specialty?: string | null
   github_handle?: string | null
+  /** Consent-based contact email, populated only in the admin governance view. */
+  contact_email?: string | null
   avatar_source?: 'upload' | 'github' | 'arcode' | null
   avatar_path?: string | null
   avatar_seed?: string | null

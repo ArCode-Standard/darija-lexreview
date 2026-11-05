@@ -96,6 +96,8 @@ export function ContributorProfilePanel({
   const [region, setRegion] = useState(profile?.dialect_region ?? '')
   const [specialty, setSpecialty] = useState(profile?.specialty ?? '')
   const [github, setGithub] = useState(profile?.github_handle ?? '')
+  const [contactEmail, setContactEmail] = useState('')
+  const [shareContactEmail, setShareContactEmail] = useState(false)
   const [avatarSource, setAvatarSource] = useState<AvatarSource>(profile?.avatar_source ?? 'arcode')
   const [avatarPath, setAvatarPath] = useState<string | null>(profile?.avatar_path ?? null)
   const [avatarSeed, setAvatarSeed] = useState(profile?.avatar_seed || profile?.id || 'darija-lexreview')
@@ -155,6 +157,32 @@ export function ContributorProfilePanel({
     setAvatarSeed(profile?.avatar_seed || profile?.id || 'darija-lexreview')
     setPublicListed(profile?.public_listed ?? getLocalPublicListedFallback(profile?.id))
   }, [profile])
+
+  useEffect(() => {
+    let active = true
+    async function loadContactPreferences() {
+      if (!supabase || !profile?.id) {
+        setContactEmail('')
+        setShareContactEmail(false)
+        return
+      }
+      const { data, error: contactError } = await supabase
+        .from('member_contact_preferences')
+        .select('contact_email, share_with_admins')
+        .eq('user_id', profile.id)
+        .maybeSingle()
+      if (!active) return
+      if (contactError) {
+        setContactEmail('')
+        setShareContactEmail(false)
+        return
+      }
+      setContactEmail(data?.contact_email ?? '')
+      setShareContactEmail(data?.share_with_admins ?? false)
+    }
+    void loadContactPreferences()
+    return () => { active = false }
+  }, [profile?.id])
 
   const loadIdentities = useCallback(async () => {
     if (!supabase || !userEmail) return
@@ -428,6 +456,17 @@ export function ContributorProfilePanel({
     setSaving(true)
     setError(null)
     setMessage(null)
+    const normalizedContactEmail = contactEmail.trim().toLowerCase()
+    if (normalizedContactEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedContactEmail)) {
+      setSaving(false)
+      setError('أدخل بريداً إلكترونياً صحيحاً أو اترك الحقل فارغاً.')
+      return
+    }
+    if (shareContactEmail && !normalizedContactEmail) {
+      setSaving(false)
+      setError('أدخل بريد التواصل قبل تفعيل مشاركته مع الإدارة.')
+      return
+    }
     saveLocalPublicListedFallback(profile.id, publicListed)
 
     const basePayload = {
@@ -455,11 +494,27 @@ export function ContributorProfilePanel({
         .eq('id', profile.id)
     }
 
-    setSaving(false)
     if (result.error) {
+      setSaving(false)
       setError('تعذر حفظ الملف الشخصي. تحقق من الاتصال ثم أعد المحاولة.')
       return
     }
+
+    const contactResult = await supabase
+      .from('member_contact_preferences')
+      .upsert({
+        user_id: profile.id,
+        contact_email: normalizedContactEmail || null,
+        share_with_admins: shareContactEmail && Boolean(normalizedContactEmail),
+      }, { onConflict: 'user_id' })
+
+    if (contactResult.error) {
+      setSaving(false)
+      setError('تم حفظ بيانات الملف الشخصي، لكن تعذر حفظ إعدادات بريد التواصل. أعد المحاولة بعد تحديث قاعدة البيانات.')
+      return
+    }
+    setSaving(false)
+
     if (profile.avatar_path && profile.avatar_path !== (avatarSource === 'upload' ? avatarPath : null)) {
       await supabase.storage.from('avatars').remove([profile.avatar_path])
     }
@@ -663,6 +718,47 @@ export function ContributorProfilePanel({
                   {linkedGithubHandle
                     ? 'تم جلب المعرّف من حساب GitHub المرتبط ولا يحتاج إلى إدخال يدوي.'
                     : 'اربط حساب GitHub ليتم جلب المعرّف العام تلقائياً.'}
+                </span>
+              </label>
+            </div>
+
+            <div className="mt-4 rounded-xl border border-zinc-200 bg-white p-4 dark:border-white/10 dark:bg-[#0B0B10]">
+              <div className="mb-3">
+                <h3 className="text-sm font-bold text-zinc-950 dark:text-white">بريد التواصل مع إدارة ArCode</h3>
+                <p className="mt-1 text-xs leading-5 text-zinc-500 dark:text-zinc-400">
+                  هذا البريد اختياري ومنفصل عن بريد تسجيل الدخول. لن يظهر إلا للمشرف العام إذا فعّلت الموافقة أدناه، ولا يُنشر في دليل المساهمين.
+                </p>
+              </div>
+              <label className="block space-y-1.5 text-xs font-semibold text-zinc-700 dark:text-zinc-300">
+                <span>بريد التواصل</span>
+                <input
+                  type="email"
+                  value={contactEmail}
+                  onChange={(event) => {
+                    const nextEmail = event.target.value
+                    setContactEmail(nextEmail)
+                    if (!nextEmail.trim()) setShareContactEmail(false)
+                  }}
+                  maxLength={254}
+                  autoComplete="email"
+                  dir="ltr"
+                  placeholder="name@example.com"
+                  className={inputClass + ' text-left'}
+                />
+              </label>
+              <label className="mt-3 flex items-start gap-2.5 text-xs text-zinc-700 dark:text-zinc-300">
+                <input
+                  type="checkbox"
+                  checked={shareContactEmail}
+                  onChange={(event) => setShareContactEmail(event.target.checked)}
+                  disabled={!contactEmail.trim()}
+                  className="mt-0.5 h-4 w-4 rounded accent-emerald-600"
+                />
+                <span>
+                  <strong className="block font-bold text-zinc-950 dark:text-white">أوافق على مشاركة هذا البريد مع المشرف العام</strong>
+                  <span className="mt-0.5 block text-[11px] font-normal text-zinc-500 dark:text-zinc-400">
+                    يمكنك سحب الموافقة أو تغيير البريد في أي وقت. عند إلغاء الموافقة لن يظهر البريد للإدارة.
+                  </span>
                 </span>
               </label>
             </div>
