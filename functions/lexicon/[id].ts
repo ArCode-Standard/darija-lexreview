@@ -7,6 +7,7 @@
 
 interface RawLexiconRecord {
   id?: string | number
+  numeric_id?: string | number
   darija_ar?: string
   darija_latin?: string
   fusha_ar?: string
@@ -19,8 +20,9 @@ interface EdgeCorpusCache {
   byId: Map<string, RawLexiconRecord>
 }
 
-const CORPUS_LEXICON_URL =
-  'https://raw.githubusercontent.com/ArCode-Standard/moroccan-darija-dataset/main/dataset/lexicon.json'
+const DATASET_REPO = 'ArCode-Standard/moroccan-darija-dataset'
+const DATASET_COMMIT = '4b8c0618a11578915360468cb8dc17e230691b18'
+const CORPUS_LEXICON_URL = `https://raw.githubusercontent.com/${DATASET_REPO}/${DATASET_COMMIT}/data/moroccan-darija.json`
 const CACHE_TTL_MS = 15 * 60 * 1000
 
 let memoryCache: EdgeCorpusCache | null = null
@@ -31,6 +33,33 @@ function escapeHtmlAttr(value: string): string {
     .replace(/"/g, '&quot;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
+}
+
+export function normalizeLexiconId(value: unknown): string | null {
+  if (value === undefined || value === null) {
+    return null
+  }
+
+  const candidate = String(value).trim()
+  return candidate.length > 0 ? candidate : null
+}
+
+export function extractLexiconRows(payload: unknown): RawLexiconRecord[] {
+  if (Array.isArray(payload)) {
+    return payload as RawLexiconRecord[]
+  }
+
+  if (payload && typeof payload === 'object') {
+    const record = payload as { entries?: unknown[]; rawEntries?: unknown[] }
+    if (Array.isArray(record.entries)) {
+      return record.entries as RawLexiconRecord[]
+    }
+    if (Array.isArray(record.rawEntries)) {
+      return record.rawEntries as RawLexiconRecord[]
+    }
+  }
+
+  return []
 }
 
 export function injectWordOpenGraphHtml(
@@ -115,17 +144,15 @@ async function getLexiconById(): Promise<Map<string, RawLexiconRecord>> {
   }
 
   const payload = (await res.json()) as unknown
-  const rows: RawLexiconRecord[] = Array.isArray(payload)
-    ? (payload as RawLexiconRecord[])
-    : Array.isArray((payload as { entries?: unknown[] })?.entries)
-      ? ((payload as { entries: RawLexiconRecord[] }).entries ?? [])
-      : []
+  const rows = extractLexiconRows(payload)
 
   const byId = new Map<string, RawLexiconRecord>()
   for (const row of rows) {
-    if (row && row.id !== undefined && row.id !== null) {
-      byId.set(String(row.id), row)
+    const idCandidate = normalizeLexiconId(row.id ?? row.numeric_id)
+    if (!idCandidate) {
+      continue
     }
+    byId.set(idCandidate, row)
   }
 
   memoryCache = { fetchedAt: now, byId }
