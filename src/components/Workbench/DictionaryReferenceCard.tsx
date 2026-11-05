@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
+  AlertTriangle,
   ArrowLeft,
   Bookmark,
   BookMarked,
@@ -97,6 +98,15 @@ export function DictionaryReferenceCard({
   const [copiedEmbed, setCopiedEmbed] = useState(false)
 
   const [activeInnerTab, setActiveInnerTab] = useState<'reference' | 'history'>('reference')
+  const [pendingAction, setPendingAction] = useState<(() => void) | null>(null)
+
+  function handleAttemptNavigation(action: () => void) {
+    if (hasLocalDraft) {
+      setPendingAction(() => action)
+    } else {
+      action()
+    }
+  }
 
   useEffect(() => {
     setActiveInnerTab('reference')
@@ -157,6 +167,15 @@ export function DictionaryReferenceCard({
     // Baseline editorial review (at least 1 for published entry) + community attestations + example reviews
     return Math.max(1, 1 + attestationsCount + examplesReviewsCount)
   }, [attestationSummary, entry.examples])
+
+  const confidenceData = useMemo(() => {
+    if (totalReviewsCount >= 6) {
+      return { label: 'مؤكد أكاديمياً', pct: 98, badgeClass: 'bg-emerald-500/15 text-emerald-800 border-emerald-500/30 dark:bg-[#D9FF43]/20 dark:text-[#D9FF43] dark:border-[#D9FF43]/40' }
+    } else if (totalReviewsCount >= 3) {
+      return { label: 'موثوق سياقياً', pct: 75, badgeClass: 'bg-emerald-500/10 text-emerald-700 border-emerald-500/20 dark:bg-emerald-400/15 dark:text-emerald-300 dark:border-emerald-400/30' }
+    }
+    return { label: 'تأسيسي أولي', pct: 45, badgeClass: 'bg-zinc-100 text-zinc-700 border-zinc-300 dark:bg-white/10 dark:text-zinc-300 dark:border-white/15' }
+  }, [totalReviewsCount])
 
   const lastUpdatedDate = useMemo(() => {
     return todayIso
@@ -235,7 +254,7 @@ export function DictionaryReferenceCard({
             <>
               <button
                 type="button"
-                onClick={onBackToLexiconIndex}
+                onClick={() => handleAttemptNavigation(onBackToLexiconIndex)}
                 className="font-semibold text-zinc-700 hover:text-zinc-950 hover:underline cursor-pointer dark:text-zinc-300 dark:hover:text-white"
               >
                 فهرس المعجم
@@ -265,6 +284,20 @@ export function DictionaryReferenceCard({
           <span className="font-mono text-[11px] text-zinc-500 dark:text-zinc-400">
             تاريخ التحديث: {lastUpdatedDate}
           </span>
+          <span aria-hidden="true">·</span>
+          <div className="flex items-center gap-2">
+            <span className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-[10.5px] font-bold ${confidenceData.badgeClass}`}>
+              <Sparkles className="h-3 w-3" />
+              <span>موثوقية الشواهد: {confidenceData.label}</span>
+            </span>
+            <div className="hidden sm:flex h-1.5 w-12 overflow-hidden rounded-full bg-zinc-200 dark:bg-white/10">
+              <div 
+                className="h-full rounded-full bg-emerald-600 transition-all duration-700 dark:bg-[#D9FF43]" 
+                style={{ width: `${confidenceData.pct}%` }}
+              />
+            </div>
+            <span className="font-mono text-[10px] font-semibold text-zinc-500 dark:text-zinc-400">{confidenceData.pct}%</span>
+          </div>
           {hasLocalDraft && (
             <>
               <span aria-hidden="true">·</span>
@@ -395,7 +428,7 @@ export function DictionaryReferenceCard({
             <div className="flex items-center gap-1 ps-2 border-s border-zinc-200 dark:border-white/10">
               <button
                 type="button"
-                onClick={onPrev}
+                onClick={() => handleAttemptNavigation(onPrev)}
                 disabled={currentIndex <= 0}
                 aria-label="المفردة السابقة"
                 className="flex h-[34px] w-[34px] items-center justify-center rounded-full border border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-100 disabled:opacity-35 cursor-pointer dark:border-white/15 dark:bg-[#0C0C10] dark:text-zinc-200"
@@ -404,7 +437,7 @@ export function DictionaryReferenceCard({
               </button>
               <button
                 type="button"
-                onClick={onNext}
+                onClick={() => handleAttemptNavigation(onNext)}
                 disabled={currentIndex < 0 || currentIndex >= totalFiltered - 1}
                 aria-label="المفردة التالية"
                 className="flex h-[34px] w-[34px] items-center justify-center rounded-full border border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-100 disabled:opacity-35 cursor-pointer dark:border-white/15 dark:bg-[#0C0C10] dark:text-zinc-200"
@@ -926,7 +959,7 @@ export function DictionaryReferenceCard({
                   href={`/lexicon/${encodeURIComponent(rel.id)}`}
                   onClick={(e) => {
                     e.preventDefault()
-                    onSelectEntry(rel)
+                    handleAttemptNavigation(() => onSelectEntry(rel))
                   }}
                   className="group flex flex-col justify-between rounded-xl border border-zinc-200 bg-zinc-50/50 p-3.5 transition-colors hover:border-zinc-950 dark:border-white/10 dark:bg-[#07070A] dark:hover:border-[#D9FF43]/60"
                 >
@@ -965,6 +998,53 @@ export function DictionaryReferenceCard({
           </a>
         </footer>
       </div>
+      )}
+
+      {/* Unsaved Local Draft Exit Confirmation Modal */}
+      {pendingAction && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs animate-in fade-in duration-200">
+          <div 
+            role="dialog" 
+            aria-modal="true" 
+            aria-labelledby="unsaved-draft-modal-title"
+            className="w-full max-w-md rounded-2xl border border-zinc-200 bg-white p-6 shadow-2xl dark:border-white/15 dark:bg-[#121218]"
+          >
+            <div className="flex items-start gap-4">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-amber-500/15 text-amber-600 dark:bg-amber-400/20 dark:text-amber-300">
+                <AlertTriangle className="h-6 w-6" />
+              </div>
+              <div className="flex-1">
+                <h3 id="unsaved-draft-modal-title" className="font-display text-base font-bold text-zinc-950 dark:text-white">
+                  تغييرات غير محفوظة في المسودة المحلية
+                </h3>
+                <p className="mt-1 text-xs leading-relaxed text-zinc-600 dark:text-zinc-300">
+                  توجد مسودة تعديل محلية مرتبطة بهذه المفردة في ورشة العمل ولم يتم إرسالها للمراجعة بعد. مغادرة الصفحة قد تؤدي لفقدان التعديلات غير المحفوظة.
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-6 flex flex-wrap items-center justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setPendingAction(null)}
+                className="inline-flex min-h-[38px] items-center justify-center rounded-xl border border-zinc-300 bg-white px-4 py-2 text-xs font-semibold text-zinc-700 hover:bg-zinc-100 transition-colors cursor-pointer dark:border-white/15 dark:bg-[#0C0C10] dark:text-zinc-200 dark:hover:bg-white/10"
+              >
+                البقاء ومتابعة التعديل
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const action = pendingAction
+                  setPendingAction(null)
+                  action?.()
+                }}
+                className="inline-flex min-h-[38px] items-center justify-center rounded-xl bg-amber-600 px-4 py-2 text-xs font-bold text-white hover:bg-amber-700 transition-colors cursor-pointer dark:bg-amber-500 dark:text-zinc-950 dark:hover:bg-amber-400"
+              >
+                مغادرة والانتقال
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </article>
   )

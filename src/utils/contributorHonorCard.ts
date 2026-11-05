@@ -1,6 +1,30 @@
 import type { PublicContributorRecord, UserRole } from '../types/lexicon'
 import type { MeritBadge } from './meritBadges'
 import { buildContributorProfileUrl } from './urlState'
+import { supabase } from '../lib/supabase'
+
+async function resolveAvatarImage(person: PublicContributorRecord): Promise<HTMLImageElement | null> {
+  if (typeof window === 'undefined') return null
+
+  let imageUrl: string | null = null
+
+  if (person.avatar_source === 'upload' && person.avatar_path && supabase) {
+    imageUrl = supabase.storage.from('avatars').getPublicUrl(person.avatar_path).data.publicUrl
+  } else if (person.avatar_source === 'github' && person.github_handle) {
+    imageUrl = `https://github.com/${encodeURIComponent(person.github_handle.replace(/^@/, ''))}.png?size=200`
+  }
+
+  if (!imageUrl) return null
+
+  return new Promise((resolve) => {
+    const img = new Image()
+    img.crossOrigin = 'anonymous'
+    img.onload = () => resolve(img)
+    img.onerror = () => resolve(null)
+    img.src = imageUrl
+    setTimeout(() => resolve(null), 3500)
+  })
+}
 
 const ARCODE_PALETTES = [
   { shell: '#D9FF43', face: '#101014', detail: '#00C896' },
@@ -350,12 +374,14 @@ export interface ContributorCardRenderOptions {
   currentHref?: string
 }
 
-export function renderContributorHonorCardDataUrl(
+export async function renderContributorHonorCardDataUrl(
   person: PublicContributorRecord,
   badges: MeritBadge[],
   options: ContributorCardRenderOptions,
-): string | null {
+): Promise<string | null> {
   if (typeof document === 'undefined') return null
+
+  const avatarImg = await resolveAvatarImage(person)
 
   const width = 1200
   const height = 675
@@ -429,13 +455,29 @@ export function renderContributorHonorCardDataUrl(
   ctx.lineTo(rightEdge, cardY + 74)
   ctx.stroke()
 
-  // 4. Identity Block (ArCode Vector Mark + Name + Role + Region)
+  // 4. Identity Block (User Avatar / ArCode Vector Mark + Name + Role + Region)
   const avatarSize = 96
   const avatarX = rightEdge - avatarSize
   const avatarY = cardY + 104
-  const stableSeed =
-    person.avatar_seed || person.github_handle || person.display_name || person.public_slug
-  drawArCodeAvatarOnCanvas(ctx, stableSeed, avatarX, avatarY, avatarSize)
+
+  if (avatarImg) {
+    ctx.save()
+    ctx.beginPath()
+    ctx.arc(avatarX + avatarSize / 2, avatarY + avatarSize / 2, avatarSize / 2, 0, Math.PI * 2)
+    ctx.clip()
+    ctx.drawImage(avatarImg, avatarX, avatarY, avatarSize, avatarSize)
+    ctx.restore()
+
+    ctx.strokeStyle = border
+    ctx.lineWidth = 2
+    ctx.beginPath()
+    ctx.arc(avatarX + avatarSize / 2, avatarY + avatarSize / 2, avatarSize / 2, 0, Math.PI * 2)
+    ctx.stroke()
+  } else {
+    const stableSeed =
+      person.avatar_seed || person.github_handle || person.display_name || person.public_slug
+    drawArCodeAvatarOnCanvas(ctx, stableSeed, avatarX, avatarY, avatarSize)
+  }
 
   const textRight = avatarX - 28
   ctx.direction = 'rtl'
@@ -597,12 +639,12 @@ export function downloadCitationFile(
   return true
 }
 
-export function downloadContributorHonorCard(
+export async function downloadContributorHonorCard(
   person: PublicContributorRecord,
   badges: MeritBadge[],
   options: ContributorCardRenderOptions,
-): boolean {
-  const dataUrl = renderContributorHonorCardDataUrl(person, badges, options)
+): Promise<boolean> {
+  const dataUrl = await renderContributorHonorCardDataUrl(person, badges, options)
   if (!dataUrl || typeof document === 'undefined') return false
 
   const safeSlug =

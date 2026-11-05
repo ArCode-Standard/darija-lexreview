@@ -43,6 +43,7 @@ import { useCommunityAttestations } from './hooks/useCommunityAttestations'
 import { useCommunityGovernanceAndMessages } from './hooks/useCommunityGovernanceAndMessages'
 import { useMemberBookmarks } from './hooks/useMemberBookmarks'
 import { useLexiconCorpusAndFilters } from './hooks/useLexiconCorpusAndFilters'
+import { DialectRegionHeatmap } from './components/DialectRegionHeatmap'
 import {
   type ComputedSprintProgress,
   useDocumentationSprints,
@@ -1344,6 +1345,15 @@ export default function App() {
                 onOpenCollection={(slug) =>
                   navigatePage('collections', { collectionSlug: slug ?? null })
                 }
+              />
+
+              <DialectRegionHeatmap
+                entries={entries}
+                darkMode={darkMode}
+                onSelectRegionFilter={(reg) => {
+                  setQuery(`region:"${reg}"`)
+                  window.scrollTo({ top: 0, behavior: 'smooth' })
+                }}
               />
 
               <MethodologySection

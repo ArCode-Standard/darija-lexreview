@@ -5,6 +5,8 @@ import {
   ArrowLeft,
   Award,
   BadgeCheck,
+  Bell,
+  BellRing,
   Bookmark,
   BookOpen,
   Check,
@@ -14,6 +16,7 @@ import {
   Link2,
   LogOut,
   Save,
+  Sparkles,
   Trash2,
   TrendingUp,
   Trophy,
@@ -21,6 +24,11 @@ import {
   UserRound,
 } from 'lucide-react'
 import { isSupabaseConfigured, supabase } from '../../lib/supabase'
+import {
+  getWebPushCurrentPermission,
+  requestWebPushPermission,
+  sendLocalWebPushNotification,
+} from '../../utils/webPushNotifier'
 import { Avatar, type AvatarSource } from '../Avatar'
 import type { LexicalEntry, PublicContributorRecord, ReviewerProfile, SubmissionRecord } from '../../types/lexicon'
 import { humanizeSystemError } from '../../utils/humanizeError'
@@ -819,6 +827,65 @@ export function ContributorProfilePanel({
                   </button>
                 </div>
               )}
+            </div>
+
+            {/* Web Push Notifications Card (Suggestion #4) */}
+            <div className="mt-4 space-y-3 rounded-xl border border-zinc-200 bg-zinc-50/70 p-3.5 dark:border-white/10 dark:bg-[#07070A]">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="flex items-center gap-2.5">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-500/15 text-emerald-700 dark:bg-[#D9FF43]/20 dark:text-[#D9FF43]">
+                    <Bell className="h-4 w-4" />
+                  </div>
+                  <div>
+                    <h4 className="text-xs font-bold text-zinc-950 dark:text-white">
+                      تنبيهات المتصفح الفورية (Web Push)
+                    </h4>
+                    <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                      احصل على إشعارات فورية عند اعتماد مساهماتك أو الرد على مقترحاتك المعجمية
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  {getWebPushCurrentPermission() === 'granted' && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        sendLocalWebPushNotification('اختبار التنبيهات', {
+                          body: 'هذا تنبيه تجريبي للتأكد من عمل نظام الإشعارات في المعجم المغربي المفتوح.',
+                        })
+                      }}
+                      className="inline-flex min-h-[34px] items-center gap-1.5 rounded-full border border-emerald-600/30 bg-emerald-50 px-3.5 text-[11px] font-bold text-emerald-800 hover:bg-emerald-100 cursor-pointer dark:border-[#D9FF43]/40 dark:bg-[#D9FF43]/10 dark:text-[#D9FF43]"
+                    >
+                      <Sparkles className="h-3 w-3" />
+                      <span>إرسال تجربة</span>
+                    </button>
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      const perm = await requestWebPushPermission()
+                      if (perm === 'granted') {
+                        sendLocalWebPushNotification('تم تفعيل التنبيهات بنجاح', {
+                          body: 'ستتلقى إشعارات فورية حول اعتماد مساهماتك المعجمية في منصة Darija LexReview.',
+                        })
+                        setMessage('تم تفعيل تنبيهات Web Push بنجاح.')
+                      } else {
+                        setError('تم رفض إذن الإشعارات من المتصفح.')
+                      }
+                    }}
+                    className={`inline-flex min-h-[34px] items-center gap-1.5 rounded-full border px-3.5 text-xs font-semibold transition-colors cursor-pointer ${
+                      getWebPushCurrentPermission() === 'granted'
+                        ? 'border-emerald-600 bg-emerald-600 text-white dark:border-[#D9FF43] dark:bg-[#D9FF43] dark:text-[#050507]'
+                        : 'border-zinc-300 bg-white text-zinc-800 hover:border-zinc-950 dark:border-white/15 dark:bg-[#0C0C10] dark:text-zinc-200 dark:hover:border-[#D9FF43]/60'
+                    }`}
+                  >
+                    <BellRing className="h-3.5 w-3.5" />
+                    <span>{getWebPushCurrentPermission() === 'granted' ? 'التنبيهات مفعلة' : 'تفعيل الإشعارات'}</span>
+                  </button>
+                </div>
+              </div>
             </div>
 
             <div className="mt-5 flex flex-wrap items-center gap-3">

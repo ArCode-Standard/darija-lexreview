@@ -418,9 +418,9 @@ export function PublicContributorsPage({
     }
   }
 
-  function handleDownloadHonorCard(person: PublicContributorRecord) {
+  async function handleDownloadHonorCard(person: PublicContributorRecord) {
     const badges = badgesBySlug.get(person.public_slug) ?? []
-    const ok = downloadContributorHonorCard(person, badges, {
+    const ok = await downloadContributorHonorCard(person, badges, {
       corpusVersion,
       theme: darkMode ? 'dark' : 'light',
     })
