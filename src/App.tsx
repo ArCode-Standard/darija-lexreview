@@ -2098,6 +2098,8 @@ export default function App() {
                   entries={entries}
                   bookmarkedEntryIds={bookmarkedIds}
                   publicContributorSlug={myPublicContributorSlug}
+                  contributors={publicContributors}
+                  corpusVersion={corpusVersion}
                   sprintParticipationsCount={totalMySprintContributions}
                   sprintBadgeLabel={activeSprintProgress?.sprint.badge_label ?? null}
                   onOpenBookmarkedEntry={(entry) => handleSelectEntryAndOpenPage(entry, true)}

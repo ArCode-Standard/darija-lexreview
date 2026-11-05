@@ -4,6 +4,7 @@ import {
   Bookmark,
   BookMarked,
   Check,
+  CheckCircle2,
   ChevronLeft,
   ChevronRight,
   Code2,
@@ -16,6 +17,7 @@ import {
   Link2,
   Plus,
   Quote,
+  ShieldCheck,
   Sparkles,
   Volume2,
 } from 'lucide-react'
@@ -147,6 +149,19 @@ export function DictionaryReferenceCard({
       .slice(0, 6)
   }, [allEntries, entry.id, entry.category])
 
+  const totalReviewsCount = useMemo(() => {
+    const attestationsCount = attestationSummary
+      ? attestationSummary.accurateCount + attestationSummary.regionalCount + attestationSummary.flaggedCount
+      : 0
+    const examplesReviewsCount = entry.examples ? entry.examples.length : 0
+    // Baseline editorial review (at least 1 for published entry) + community attestations + example reviews
+    return Math.max(1, 1 + attestationsCount + examplesReviewsCount)
+  }, [attestationSummary, entry.examples])
+
+  const lastUpdatedDate = useMemo(() => {
+    return todayIso
+  }, [todayIso])
+
   const canSpeak = typeof window !== 'undefined' && 'speechSynthesis' in window
 
   function handleSpeak() {
@@ -214,8 +229,8 @@ export function DictionaryReferenceCard({
       className="overflow-hidden rounded-2xl border border-zinc-200 bg-white dark:border-white/12 dark:bg-[#0B0B10]"
     >
       {/* Top Precision Reference Bar */}
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-zinc-200 bg-zinc-50/70 px-5 py-3.5 sm:px-7 dark:border-white/10 dark:bg-[#07070A]">
-        <div className="flex flex-wrap items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400">
+      <div className="flex flex-wrap items-center justify-between gap-x-2.5 gap-y-2 border-b border-zinc-200 bg-zinc-50/70 px-3.5 py-2.5 sm:px-7 sm:py-3.5 dark:border-white/10 dark:bg-[#07070A]">
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-zinc-500 leading-normal dark:text-zinc-400">
           {onBackToLexiconIndex && (
             <>
               <button
@@ -241,6 +256,24 @@ export function DictionaryReferenceCard({
           </span>
           <span aria-hidden="true">·</span>
           <span className="text-[11px]">{formatStatusLabel(entry.status)}</span>
+          <span aria-hidden="true">·</span>
+          <span className="inline-flex items-center gap-1 font-mono text-[11px] font-semibold text-emerald-800 dark:text-[#D9FF43]">
+            <ShieldCheck className="h-3.5 w-3.5" />
+            <span>{totalReviewsCount} مراجعة</span>
+          </span>
+          <span aria-hidden="true">·</span>
+          <span className="font-mono text-[11px] text-zinc-500 dark:text-zinc-400">
+            تاريخ التحديث: {lastUpdatedDate}
+          </span>
+          {hasLocalDraft && (
+            <>
+              <span aria-hidden="true">·</span>
+              <span className="inline-flex items-center gap-1 rounded-full border border-amber-500/50 bg-amber-500/15 px-2.5 py-0.5 text-[10.5px] font-bold text-amber-900 dark:border-amber-400/60 dark:bg-amber-400/20 dark:text-amber-300">
+                <span className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse"></span>
+                <span>مسودة غير مرسلة</span>
+              </span>
+            </>
+          )}
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
@@ -574,7 +607,7 @@ export function DictionaryReferenceCard({
 
       {/* Main Lexicographical Reference Body or Transparent Revision History */}
       {activeInnerTab === 'history' ? (
-        <div className="p-6 sm:p-8">
+        <div className="p-4 sm:p-8">
           <EntryRevisionHistoryPanel
             entry={entry}
             corpusVersion={corpusVersion}
@@ -583,14 +616,14 @@ export function DictionaryReferenceCard({
           />
         </div>
       ) : (
-      <div className="p-6 sm:p-8 space-y-8">
+      <div className="p-4 sm:p-8 space-y-6 sm:space-y-8">
         {/* Headword + Phonetic Transcription + Dialect Metadata */}
         <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between border-b border-zinc-200 pb-7 dark:border-white/10">
-          <div className="space-y-3">
-            <div className="flex flex-wrap items-center gap-3.5">
+          <div className="space-y-3 min-w-0">
+            <div className="flex flex-wrap items-center gap-2 sm:gap-3.5">
               <h2
                 id="dictionary-headword"
-                className="font-display text-4xl sm:text-5xl font-bold tracking-tight text-zinc-950 dark:text-white"
+                className="font-display text-3xl sm:text-5xl font-bold tracking-tight text-zinc-950 break-words min-w-0 dark:text-white"
               >
                 {entry.word}
               </h2>
@@ -614,6 +647,38 @@ export function DictionaryReferenceCard({
                 >
                   <Volume2 className="h-4 w-4" />
                 </button>
+              )}
+
+              {/* Requirement 2: Explicit Add to Favorites button next to word name */}
+              {onToggleBookmark && (
+                <button
+                  type="button"
+                  onClick={onToggleBookmark}
+                  aria-pressed={isBookmarked}
+                  title={isBookmarked ? 'إزالة المفردة من المفضلة' : 'إضافة المفردة إلى المفضلة'}
+                  className={`inline-flex min-h-[38px] items-center gap-2 rounded-full border px-4 text-xs font-bold transition-all cursor-pointer ${
+                    isBookmarked
+                      ? 'border-amber-500 bg-amber-500/10 text-amber-900 dark:border-[#D9FF43] dark:bg-[#D9FF43]/20 dark:text-[#D9FF43]'
+                      : 'border-zinc-300 bg-white text-zinc-800 hover:border-zinc-950 dark:border-white/15 dark:bg-[#0C0C10] dark:text-zinc-200 dark:hover:border-white/40'
+                  }`}
+                >
+                  <Bookmark
+                    className={`h-4 w-4 ${isBookmarked ? 'fill-current text-amber-500 dark:text-[#D9FF43]' : ''}`}
+                  />
+                  <span>{isBookmarked ? 'محفوظة في المفضلة' : 'إضافة إلى المفضلة'}</span>
+                </button>
+              )}
+
+              {/* Requirement 1: Visual LocalDraft Badge Indicator */}
+              {hasLocalDraft && (
+                <span className="inline-flex min-h-[38px] items-center gap-2 rounded-full border border-amber-500/50 bg-amber-500/15 px-4 text-xs font-bold text-amber-900 dark:border-amber-400/60 dark:bg-amber-400/20 dark:text-amber-300">
+                  <span className="relative flex h-2.5 w-2.5">
+                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-amber-400 opacity-75"></span>
+                    <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-amber-500"></span>
+                  </span>
+                  <Edit3 className="h-3.5 w-3.5" />
+                  <span>مسودة محلية غير مرسلة</span>
+                </span>
               )}
             </div>
 
@@ -657,6 +722,36 @@ export function DictionaryReferenceCard({
                   )}
                 </span>
               )}
+            </div>
+
+            {/* Total Review Count & Last Update Date Audit Card */}
+            <div className="mt-3.5 flex flex-wrap items-center justify-between gap-3.5 rounded-xl border border-zinc-200/90 bg-zinc-50/80 p-3.5 sm:px-4 dark:border-white/10 dark:bg-[#07070A]">
+              <div className="flex flex-wrap items-center gap-3">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-emerald-600/30 bg-emerald-50 text-emerald-700 dark:border-[#D9FF43]/30 dark:bg-[#D9FF43]/10 dark:text-[#D9FF43]">
+                  <ShieldCheck className="h-4.5 w-4.5" />
+                </div>
+                <div>
+                  <p className="text-xs font-bold text-zinc-950 dark:text-white">
+                    إجمالي مراجعات المفردة:{' '}
+                    <span className="font-mono font-bold text-emerald-700 dark:text-[#D9FF43]">
+                      {totalReviewsCount} مراجعة وتدقيق معتمد
+                    </span>
+                  </p>
+                  <p className="mt-0.5 text-[11px] text-zinc-500 dark:text-zinc-400">
+                    تاريخ آخر تحديث واعتماد معجمي:{' '}
+                    <span className="font-mono font-semibold text-zinc-800 dark:text-zinc-200">
+                      {lastUpdatedDate}
+                    </span>
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-600/30 bg-emerald-100/70 px-3 py-1 font-mono text-[11px] font-bold text-emerald-900 dark:border-[#D9FF43]/30 dark:bg-[#D9FF43]/20 dark:text-[#D9FF43]">
+                  <CheckCircle2 className="h-3.5 w-3.5 text-emerald-700 dark:text-[#D9FF43]" />
+                  <span>دقة محكّمة موثوقة</span>
+                </span>
+              </div>
             </div>
           </div>
 

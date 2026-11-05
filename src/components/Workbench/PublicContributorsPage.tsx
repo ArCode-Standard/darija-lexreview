@@ -35,11 +35,15 @@ import {
   MeritSealMedallion,
 } from '../MeritBadgeVisual'
 import {
+  ChampionPodiumBadge,
   RankBadgeChip,
   RankProgressCard,
 } from '../ContributorRankVisual'
+import { LexicalFootprintRadar } from '../LexicalFootprintRadar'
+import { SeasonalLeaderboardSection } from '../SeasonalLeaderboardSection'
 import {
   buildContributorAcademicCitation,
+  downloadCitationFile,
   downloadContributorHonorCard,
 } from '../../utils/contributorHonorCard'
 import {
@@ -138,6 +142,7 @@ export function PublicContributorsPage({
   const [selectedBadgeFilter, setSelectedBadgeFilter] = useState<'all' | MeritBadgeId>('all')
   const [sortBy, setSortBy] = useState<SortOption>('impact')
   const [selectedRankFilter, setSelectedRankFilter] = useState<'all' | ContributorRankId>('all')
+  const [selectedSprintSeasonFilter, setSelectedSprintSeasonFilter] = useState<string | null>(null)
   const [weeklyTickerIndex, setWeeklyTickerIndex] = useState(0)
   const [showBadgeCatalog, setShowBadgeCatalog] = useState(false)
   const [selectedContributorSlug, setSelectedContributorSlug] = useState<string | null>(
@@ -148,7 +153,7 @@ export function PublicContributorsPage({
   )
   const [copiedProfileLink, setCopiedProfileLink] = useState(false)
   const [downloadedHonorCard, setDownloadedHonorCard] = useState(false)
-  const [citationLang, setCitationLang] = useState<'ar' | 'en'>('ar')
+  const [citationLang, setCitationLang] = useState<'ar' | 'en' | 'bibtex' | 'apa7'>('ar')
   const [copiedCitation, setCopiedCitation] = useState(false)
 
   useEffect(() => {
@@ -265,6 +270,10 @@ export function PublicContributorsPage({
         const rank = computeContributorRank(total)
         if (rank.id !== selectedRankFilter) return false
       }
+      if (selectedSprintSeasonFilter) {
+        const sprintCount = c.sprint_participations_count ?? 0
+        if (sprintCount <= 0) return false
+      }
 
       if (!trimmed) return true
       const haystack = [
@@ -297,12 +306,14 @@ export function PublicContributorsPage({
       }
       return wordsB + exB - (wordsA + exA)
     })
-  }, [contributors, query, roleFilter, selectedRegionFilter, selectedBadgeFilter, selectedRankFilter, sortBy, badgesBySlug])
+  }, [contributors, query, roleFilter, selectedRegionFilter, selectedBadgeFilter, selectedRankFilter, selectedSprintSeasonFilter, sortBy, badgesBySlug])
 
   const shouldSplitBoardAndCommunity =
     roleFilter === 'all' &&
     selectedRegionFilter === 'all' &&
     selectedBadgeFilter === 'all' &&
+    selectedRankFilter === 'all' &&
+    !selectedSprintSeasonFilter &&
     query.trim() === ''
 
   const editorialBoardMembers = useMemo(
@@ -421,7 +432,14 @@ export function PublicContributorsPage({
 
   async function handleCopyAcademicCitation() {
     if (!selectedCitations) return
-    const text = citationLang === 'ar' ? selectedCitations.arabic : selectedCitations.english
+    const text =
+      citationLang === 'ar'
+        ? selectedCitations.arabic
+        : citationLang === 'en'
+          ? selectedCitations.english
+          : citationLang === 'bibtex'
+            ? selectedCitations.bibtex
+            : selectedCitations.apa7
     try {
       await navigator.clipboard.writeText(text)
       setCopiedCitation(true)
@@ -1187,24 +1205,20 @@ export function PublicContributorsPage({
                     }`}
                   >
                     <div>
-                      {/* Champion Ribbon Badge */}
+                      {/* Champion Moroccan Ribbon Badge */}
                       <div className="flex items-center justify-between gap-2">
-                        <span
-                          className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 font-mono text-[10.5px] font-bold ${
-                            isFirst
-                              ? 'bg-amber-500 text-white shadow-xs dark:bg-[#D9FF43] dark:text-[#050507]'
-                              : isSecond
-                                ? 'bg-slate-500 text-white dark:bg-zinc-200 dark:text-zinc-900'
-                                : isThird
-                                  ? 'bg-[#B87333] text-white dark:bg-[#E09858] dark:text-zinc-950'
-                                  : 'bg-zinc-200 text-zinc-700 dark:bg-white/10 dark:text-zinc-300'
-                          }`}
-                        >
-                          <span>#{idx + 1}</span>
-                          <span>
-                            {isFirst ? 'المركز الأول' : isSecond ? 'المركز الثاني' : isThird ? 'المركز الثالث' : 'نشط'}
+                        {isFirst || isSecond || isThird ? (
+                          <ChampionPodiumBadge
+                            place={isFirst ? 1 : isSecond ? 2 : 3}
+                            size="sm"
+                            showLabel
+                          />
+                        ) : (
+                          <span className="inline-flex items-center gap-1 rounded-xl border border-zinc-200 bg-zinc-100 px-2 py-0.5 font-mono text-[10.5px] font-bold text-zinc-700 dark:border-white/10 dark:bg-white/10 dark:text-zinc-300">
+                            <span>#{idx + 1}</span>
+                            <span>نشط هذا الأسبوع</span>
                           </span>
-                        </span>
+                        )}
 
                         <span className="font-mono text-[11px] font-bold text-amber-700 dark:text-[#D9FF43]">
                           {weeklyCount} مساهمة / 7 أيام
@@ -1248,7 +1262,18 @@ export function PublicContributorsPage({
         )}
       </section>
 
-      {/* 5. Contributors Honor Sections (Editorial Board + Community Lexicographers) */}
+      {/* 5. Seasonal Sprints & Historical Honors Section (المواسم المعجمية والنفير الموسمي) */}
+      <SeasonalLeaderboardSection
+        contributors={contributors}
+        selectedSprintFilter={selectedSprintSeasonFilter}
+        onToggleSprintFilter={(id) =>
+          setSelectedSprintSeasonFilter((prev) => (prev === id ? null : id))
+        }
+        onSelectContributor={selectContributor}
+        onStartContributing={onStartContributing}
+      />
+
+      {/* 6. Contributors Honor Sections (Editorial Board + Community Lexicographers) */}
       {loading ? (
         <div className="rounded-2xl border border-zinc-200 bg-white p-12 text-center text-sm text-zinc-500 dark:border-white/10 dark:bg-[#0B0B10] dark:text-zinc-400">
           جارٍ تحميل لوحة شرف المساهمين…
@@ -1530,6 +1555,15 @@ export function PublicContributorsPage({
                 <RankProgressCard rank={rank} />
               </div>
 
+              {/* 5-Axis Lexical Footprint Radar */}
+              <div className="mt-5 border-b border-zinc-200 pb-5 dark:border-white/10">
+                <LexicalFootprintRadar
+                  person={selectedPerson}
+                  badges={selectedBadges}
+                  size={230}
+                />
+              </div>
+
               {/* Detailed Platform Statistics & Impact Distribution */}
               <div className="mt-5 border-b border-zinc-200 pb-5 dark:border-white/10">
                 <div className="flex items-center justify-between gap-2">
@@ -1776,13 +1810,13 @@ export function PublicContributorsPage({
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <div className="flex items-center gap-1.5 text-xs font-semibold text-zinc-700 dark:text-zinc-300">
                       <Quote className="h-3.5 w-3.5 text-emerald-700 dark:text-[#D9FF43]" />
-                      <span>صيغة إشهاد مرجعي للسيرة الذاتية والملف الأكاديمي</span>
+                      <span>صيغ الاستشهاد الأكاديمي المعتمدة (APA 7th / BibTeX / CV)</span>
                     </div>
 
-                    <div className="flex items-center gap-1.5">
+                    <div className="flex flex-wrap items-center gap-1.5">
                       <div
                         role="group"
-                        aria-label="لغة صيغة الإشهاد"
+                        aria-label="نوع صيغة الاستشهاد"
                         className="inline-flex rounded-lg border border-zinc-200 bg-zinc-100 p-0.5 text-[11px] dark:border-white/10 dark:bg-[#07070A]"
                       >
                         <button
@@ -1807,6 +1841,28 @@ export function PublicContributorsPage({
                         >
                           EN / CV
                         </button>
+                        <button
+                          type="button"
+                          onClick={() => setCitationLang('apa7')}
+                          className={`rounded-md px-2 py-0.5 font-mono font-semibold cursor-pointer ${
+                            citationLang === 'apa7'
+                              ? 'bg-zinc-950 text-white dark:bg-[#D9FF43] dark:text-[#050507]'
+                              : 'text-zinc-600 dark:text-zinc-400'
+                          }`}
+                        >
+                          APA 7th
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setCitationLang('bibtex')}
+                          className={`rounded-md px-2 py-0.5 font-mono font-semibold cursor-pointer ${
+                            citationLang === 'bibtex'
+                              ? 'bg-zinc-950 text-white dark:bg-[#D9FF43] dark:text-[#050507]'
+                              : 'text-zinc-600 dark:text-zinc-400'
+                          }`}
+                        >
+                          BibTeX
+                        </button>
                       </div>
 
                       <button
@@ -1822,21 +1878,56 @@ export function PublicContributorsPage({
                         ) : (
                           <>
                             <Copy className="h-3 w-3" />
-                            <span>نسخ الصيغة</span>
+                            <span>نسخ {citationLang === 'bibtex' ? 'BibTeX' : citationLang === 'apa7' ? 'APA' : 'الصيغة'}</span>
                           </>
                         )}
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (!selectedPerson || !selectedCitations) return
+                          const isBib = citationLang === 'bibtex'
+                          const content =
+                            isBib
+                              ? selectedCitations.bibtex
+                              : citationLang === 'apa7'
+                                ? selectedCitations.apa7
+                                : citationLang === 'en'
+                                  ? selectedCitations.english
+                                  : selectedCitations.arabic
+                          const ext = isBib ? 'bib' : 'txt'
+                          const mime = isBib
+                            ? 'application/x-bibtex;charset=utf-8'
+                            : 'text/plain;charset=utf-8'
+                          downloadCitationFile(
+                            content,
+                            `arcode-citation-${selectedPerson.public_slug}.${ext}`,
+                            mime,
+                          )
+                        }}
+                        className="inline-flex min-h-[28px] items-center gap-1 rounded-lg border border-zinc-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-zinc-800 hover:border-zinc-400 cursor-pointer dark:border-white/12 dark:bg-[#07070A] dark:text-zinc-200 dark:hover:border-[#D9FF43]/60"
+                      >
+                        <Download className="h-3 w-3" />
+                        <span>تنزيل {citationLang === 'bibtex' ? '.bib' : '.txt'}</span>
                       </button>
                     </div>
                   </div>
 
-                  <p
-                    dir={citationLang === 'en' ? 'ltr' : 'rtl'}
+                  <div
+                    dir={citationLang === 'ar' ? 'rtl' : 'ltr'}
                     className={`mt-2.5 rounded-xl border border-zinc-200 bg-zinc-50/90 p-3.5 text-xs leading-6 text-zinc-700 select-all dark:border-white/10 dark:bg-[#07070A] dark:text-zinc-300 ${
-                      citationLang === 'en' ? 'font-mono text-left' : ''
+                      citationLang !== 'ar' ? 'font-mono text-left whitespace-pre-wrap' : ''
                     }`}
                   >
-                    {citationLang === 'ar' ? selectedCitations.arabic : selectedCitations.english}
-                  </p>
+                    {citationLang === 'ar'
+                      ? selectedCitations.arabic
+                      : citationLang === 'en'
+                        ? selectedCitations.english
+                        : citationLang === 'bibtex'
+                          ? selectedCitations.bibtex
+                          : selectedCitations.apa7}
+                  </div>
                 </div>
               )}
 

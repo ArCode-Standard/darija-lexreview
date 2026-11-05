@@ -125,6 +125,21 @@ export function Navbar({
               </button>
             )}
           </div>
+
+          <div className="flex shrink-0 items-center gap-2">
+            {onToggleDarkMode && (
+              <button
+                type="button"
+                data-theme-toggle
+                onClick={onToggleDarkMode}
+                aria-label={darkMode ? 'التبديل إلى الوضع النهاري' : 'التبديل إلى الوضع الليلي'}
+                title={darkMode ? 'التبديل إلى الوضع النهاري' : 'التبديل إلى الوضع الليلي'}
+                className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-zinc-200 bg-white text-zinc-600 transition-colors hover:border-zinc-400 hover:text-zinc-950 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 dark:border-white/12 dark:bg-[#0C0C10] dark:text-zinc-300 dark:hover:border-[#D9FF43]/60 dark:hover:text-white dark:focus-visible:outline-[#D9FF43] cursor-pointer"
+              >
+                {darkMode ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+              </button>
+            )}
+          </div>
         </div>
       </header>
     )

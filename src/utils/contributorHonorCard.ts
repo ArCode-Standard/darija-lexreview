@@ -26,6 +26,8 @@ const ROLE_EN: Record<UserRole, string> = {
 export interface ContributorCitationBundle {
   arabic: string
   english: string
+  bibtex: string
+  apa7: string
   permalink: string
 }
 
@@ -53,9 +55,24 @@ export function buildContributorAcademicCitation(
 
   const english = `${person.display_name}${handleEn} — ${ROLE_EN[person.role]}, ArCode Moroccan Darija Lexicon (v${corpusVersion}): Documented ${wordsCount} lexical entries and ${examplesCount} contextual attestations (joined ${person.joined_year})${regionEn}. Verified profile: ${permalink}`
 
+  // Standard BibTeX citation
+  const citeKey = `arcode_lexicon_${person.public_slug.replace(/[^a-zA-Z0-9]/g, '_')}_${person.joined_year}`
+  const bibtex = `@misc{${citeKey},
+  author       = {${person.display_name}},
+  title        = {{ArCode Moroccan Darija Lexicon: Verified Dialect Documentation and Attestations (v${corpusVersion})}},
+  howpublished = {\\url{${permalink}}},
+  year         = {${person.joined_year}},
+  note         = {Role: ${ROLE_EN[person.role]}, Documented: ${wordsCount} entries, ${examplesCount} attestations. Dialect region: ${person.dialect_region || 'National Moroccan'}}
+}`
+
+  // Standard APA 7th Edition citation
+  const apa7 = `${person.display_name}. (${person.joined_year}). ArCode Moroccan Darija Lexicon: Verified lexical contributions and dialect documentation (Version ${corpusVersion}) [Data set]. ArCode Research Initiative. ${permalink}`
+
   return {
     arabic,
     english,
+    bibtex,
+    apa7,
     permalink,
   }
 }
@@ -107,6 +124,99 @@ function drawRoundedRect(
   ctx.lineTo(x, y + radius)
   ctx.quadraticCurveTo(x, y, x + radius, y)
   ctx.closePath()
+}
+
+function drawLexicalRadarOnCanvas(
+  ctx: CanvasRenderingContext2D,
+  cx: number,
+  cy: number,
+  radius: number,
+  person: PublicContributorRecord,
+  badges: MeritBadge[],
+  accentColor: string,
+  borderColor: string,
+) {
+  const words = person.documented_words_count ?? person.accepted_count
+  const attestations = person.documented_examples_count ?? person.attestations_count
+  const sprintCount = person.sprint_participations_count ?? 0
+  const hasRegion = Boolean(person.dialect_region && person.dialect_region !== 'مشترك عام')
+  const hasRegionalBadge = badges.some((b) => b.id === 'regional_specialist')
+
+  const vocabVal = Math.min(100, Math.max(20, Math.round((words / 30) * 100)))
+  const attestationVal = Math.min(100, Math.max(20, Math.round((attestations / 50) * 100)))
+  const geoVal = hasRegionalBadge ? 95 : hasRegion ? 75 : 40
+  const sealsVal = Math.min(100, Math.max(15, Math.round((badges.length / 6) * 100)))
+  let semanticVal = 35
+  if (person.specialty && person.specialty.trim().length > 10) semanticVal += 30
+  if (badges.some((b) => b.id === 'category_expert' || b.id === 'active_corrector')) semanticVal += 20
+  if (sprintCount > 0) semanticVal += 15
+  semanticVal = Math.min(100, semanticVal)
+
+  const values = [vocabVal, attestationVal, geoVal, sealsVal, semanticVal]
+  const count = values.length
+  const angleStep = (Math.PI * 2) / count
+  const startAngle = -Math.PI / 2
+
+  ctx.save()
+
+  // Concentric guideline rings
+  const rings = [0.45, 0.8, 1.0]
+  ctx.strokeStyle = borderColor
+  ctx.lineWidth = 0.8
+
+  rings.forEach((rScale) => {
+    ctx.beginPath()
+    for (let i = 0; i < count; i++) {
+      const angle = startAngle + i * angleStep
+      const x = cx + radius * rScale * Math.cos(angle)
+      const y = cy + radius * rScale * Math.sin(angle)
+      if (i === 0) ctx.moveTo(x, y)
+      else ctx.lineTo(x, y)
+    }
+    ctx.closePath()
+    ctx.stroke()
+  })
+
+  // Radial spokes
+  for (let i = 0; i < count; i++) {
+    const angle = startAngle + i * angleStep
+    ctx.beginPath()
+    ctx.moveTo(cx, cy)
+    ctx.lineTo(cx + radius * Math.cos(angle), cy + radius * Math.sin(angle))
+    ctx.stroke()
+  }
+
+  // 5-axis footprint polygon
+  ctx.beginPath()
+  values.forEach((val, idx) => {
+    const angle = startAngle + idx * angleStep
+    const r = (val / 100) * radius
+    const x = cx + r * Math.cos(angle)
+    const y = cy + r * Math.sin(angle)
+    if (idx === 0) ctx.moveTo(x, y)
+    else ctx.lineTo(x, y)
+  })
+  ctx.closePath()
+
+  ctx.fillStyle = 'rgba(217, 255, 67, 0.22)'
+  ctx.fill()
+  ctx.strokeStyle = accentColor
+  ctx.lineWidth = 1.6
+  ctx.stroke()
+
+  // Vertex points
+  values.forEach((val, idx) => {
+    const angle = startAngle + idx * angleStep
+    const r = (val / 100) * radius
+    const x = cx + r * Math.cos(angle)
+    const y = cy + r * Math.sin(angle)
+    ctx.beginPath()
+    ctx.arc(x, y, 2.2, 0, Math.PI * 2)
+    ctx.fillStyle = accentColor
+    ctx.fill()
+  })
+
+  ctx.restore()
 }
 
 function wrapCanvasText(
@@ -409,9 +519,9 @@ export function renderContributorHonorCardDataUrl(
     }
   })
 
-  // 6. Earned Exclusive Moroccan Khatam Seals Line
+  // 6. Earned Exclusive Moroccan Khatam Seals Line & Lexical Footprint Radar
+  const sealY = statsY + statsH + 38
   if (badges.length > 0) {
-    const sealY = statsY + statsH + 38
     drawMoroccanKhatamSealOnCanvas(ctx, rightEdge - 10, sealY - 6, 16, accent)
 
     const badgesText = `أختام المعجم الممنوحة: ${badges
@@ -422,11 +532,24 @@ export function renderContributorHonorCardDataUrl(
     ctx.textAlign = 'right'
     ctx.fillStyle = textPrimary
     ctx.font = '600 17px system-ui, -apple-system, "Segoe UI", Tahoma, sans-serif'
-    const badgeLines = wrapCanvasText(ctx, badgesText, innerWidth - 32, 1)
+    const badgeLines = wrapCanvasText(ctx, badgesText, innerWidth - 240, 1)
     if (badgeLines[0]) {
       ctx.fillText(badgeLines[0], rightEdge - 28, sealY)
     }
   }
+
+  // Draw 5-axis Lexical Footprint Radar on the canvas
+  const radarCx = leftEdge + 46
+  const radarCy = sealY - 6
+  drawLexicalRadarOnCanvas(ctx, radarCx, radarCy, 26, person, badges, accent, border)
+
+  ctx.direction = 'rtl'
+  ctx.textAlign = 'right'
+  ctx.fillStyle = textSecondary
+  ctx.font = '600 12px system-ui, -apple-system, "Segoe UI", Tahoma, sans-serif'
+  ctx.fillText('البصمة المعجمية الخماسية', leftEdge + 195, sealY - 14)
+  ctx.font = '500 11px ui-monospace, SFMono-Regular, Menlo, monospace'
+  ctx.fillText('5-Axis Radar Footprint', leftEdge + 195, sealY + 2)
 
   // 7. Footer Attribution & Permalink
   const footerY = cardY + cardH - 32
@@ -454,6 +577,24 @@ export function renderContributorHonorCardDataUrl(
   ctx.fillText(`CC BY-NC 4.0 · ${cleanUrl}`, leftEdge, footerY)
 
   return canvas.toDataURL('image/png')
+}
+
+export function downloadCitationFile(
+  content: string,
+  filename: string,
+  mimeType = 'text/plain;charset=utf-8',
+): boolean {
+  if (typeof document === 'undefined') return false
+  const blob = new Blob([content], { type: mimeType })
+  const url = URL.createObjectURL(blob)
+  const anchor = document.createElement('a')
+  anchor.href = url
+  anchor.download = filename
+  document.body.appendChild(anchor)
+  anchor.click()
+  document.body.removeChild(anchor)
+  URL.revokeObjectURL(url)
+  return true
 }
 
 export function downloadContributorHonorCard(

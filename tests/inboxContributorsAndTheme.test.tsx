@@ -203,7 +203,7 @@ describe('Public Contributors Honor Roll interactive profile card', () => {
     expect(modalHtml).toContain('دغيا')
     expect(modalHtml).toContain('استعرض مفردات هذه المنطقة')
     expect(modalHtml).toContain('بطاقة الشرف (صورة)')
-    expect(modalHtml).toContain('صيغة إشهاد مرجعي للسيرة الذاتية والملف الأكاديمي')
+    expect(modalHtml).toContain('صيغ الاستشهاد الأكاديمي المعتمدة')
   })
 
   it('separates Editorial Board from Community Contributors, shows badge catalog & pioneer regions, and builds bilingual CV citations', async () => {
@@ -487,6 +487,146 @@ describe('Public Contributors Honor Roll interactive profile card', () => {
     expect(championsHtml).toContain('7 مساهمة / 7 أيام')
     expect(championsHtml).toContain('المركز الثاني')
     expect(championsHtml).toContain('3 مساهمة / 7 أيام')
+  })
+
+  it('renders MoroccanRankMedal and ChampionPodiumBadge with Moroccan geometric artwork and diamond tier', async () => {
+    const { MoroccanRankMedal, ChampionPodiumBadge } = await import(
+      '../src/components/ContributorRankVisual'
+    )
+
+    // Gold (1st place)
+    const goldHtml = renderToStaticMarkup(<MoroccanRankMedal place={1} size={44} />)
+    expect(goldHtml).toContain('viewBox="0 0 44 44"')
+    expect(goldHtml).toContain('rotate(45 22 22)')
+
+    // Silver (2nd place)
+    const silverHtml = renderToStaticMarkup(<MoroccanRankMedal place={2} size={44} />)
+    expect(silverHtml).toContain('viewBox="0 0 44 44"')
+
+    // Bronze (3rd place)
+    const bronzeHtml = renderToStaticMarkup(<MoroccanRankMedal place={3} size={44} />)
+    expect(bronzeHtml).toContain('viewBox="0 0 44 44"')
+
+    // Diamond / Master
+    const diamondHtml = renderToStaticMarkup(<MoroccanRankMedal place="diamond" size={44} />)
+    expect(diamondHtml).toContain('rotate(30 22 22)')
+    expect(diamondHtml).toContain('rotate(60 22 22)')
+
+    // ChampionPodiumBadge
+    const podiumGoldHtml = renderToStaticMarkup(<ChampionPodiumBadge place={1} />)
+    expect(podiumGoldHtml).toContain('#1')
+    expect(podiumGoldHtml).toContain('المركز الأول')
+
+    const podiumDiamondHtml = renderToStaticMarkup(<ChampionPodiumBadge place="diamond" />)
+    expect(podiumDiamondHtml).toContain('المرتبة الألماسية')
+  })
+
+  it('renders ContributorProfilePanel with earned badges, rank medal, and progress towards next tier', async () => {
+    const { ContributorProfilePanel } = await import(
+      '../src/components/Workbench/ContributorProfilePanel'
+    )
+    const noop = () => {}
+
+    const profileHtml = renderToStaticMarkup(
+      <ContributorProfilePanel
+        profile={{
+          id: 'test-user-123',
+          display_name: 'عمر القروي',
+          role: 'reviewer',
+          dialect_region: 'فاس ومكناس',
+          specialty: 'اللسانيات الأمازيغية والدارجة',
+          github_handle: 'omar-karoui',
+          avatar_source: 'arcode',
+          avatar_path: null,
+          avatar_seed: 'omar-karoui',
+          account_status: 'active',
+          public_listed: true,
+          created_at: '2026-01-01T00:00:00Z',
+        }}
+        userEmail="omar@example.com"
+        onProfileSaved={noop}
+      />,
+    )
+
+    expect(profileHtml).toContain('الرتبة المعجمية')
+    expect(profileHtml).toContain('أختام وأوسمة المعجم الخاصة')
+    expect(profileHtml).toContain('مبتدئ')
+  })
+
+  it('computes 5-axis Lexical Footprint and renders LexicalFootprintRadar with polygon and metric breakdown', async () => {
+    const { computeLexicalFootprint, LexicalFootprintRadar } = await import(
+      '../src/components/LexicalFootprintRadar'
+    )
+
+    const footprint = computeLexicalFootprint(sampleContributors[0], [])
+    expect(footprint.metrics).toHaveLength(5)
+    expect(footprint.metrics.map((m) => m.key)).toEqual([
+      'vocabulary',
+      'attestation',
+      'geography',
+      'seals',
+      'semantics',
+    ])
+    expect(footprint.balanceScore).toBeGreaterThan(0)
+    expect(footprint.specializationTitle).toBeTruthy()
+
+    const radarHtml = renderToStaticMarkup(
+      <LexicalFootprintRadar person={sampleContributors[0]} badges={[]} size={220} />,
+    )
+    expect(radarHtml).toContain('مخطط البصمة المعجمية')
+    expect(radarHtml).toContain('polygon')
+    expect(radarHtml).toContain('توثيق المفردات')
+    expect(radarHtml).toContain('التحكيم الميداني')
+    expect(radarHtml).toContain('العمق الجهوي')
+  })
+
+  it('generates BibTeX and APA 7th academic citations and offers selectable formats in modal', async () => {
+    const { buildContributorAcademicCitation } = await import(
+      '../src/utils/contributorHonorCard'
+    )
+    const citation = buildContributorAcademicCitation(sampleContributors[0], '2.4.0')
+
+    expect(citation.bibtex).toContain('@misc{arcode_lexicon_salma_9f2a1c_2026')
+    expect(citation.bibtex).toContain('author       = {سلمى الإدريسي}')
+    expect(citation.bibtex).toContain('howpublished = {\\url{https://')
+    expect(citation.apa7).toContain('سلمى الإدريسي. (2026). ArCode Moroccan Darija Lexicon')
+    expect(citation.apa7).toContain('[Data set]. ArCode Research Initiative.')
+
+    const noop = () => {}
+    const modalHtml = renderToStaticMarkup(
+      <PublicContributorsPage
+        contributors={sampleContributors}
+        loading={false}
+        isAuthenticated={false}
+        entriesCount={120}
+        corpusVersion="2.4.0"
+        onOpenProfileOrAuth={noop}
+        onStartContributing={noop}
+        initialSelectedSlug="salma-9f2a1c"
+      />,
+    )
+    expect(modalHtml).toContain('APA 7th')
+    expect(modalHtml).toContain('BibTeX')
+    expect(modalHtml).toContain('مخطط البصمة المعجمية')
+  })
+
+  it('renders SeasonalLeaderboardSection with sprint periods, theme, and historical honors', async () => {
+    const { SeasonalLeaderboardSection, SEASONAL_SPRINTS } = await import(
+      '../src/components/SeasonalLeaderboardSection'
+    )
+    expect(SEASONAL_SPRINTS.length).toBeGreaterThanOrEqual(3)
+
+    const noop = () => {}
+    const seasonalHtml = renderToStaticMarkup(
+      <SeasonalLeaderboardSection
+        contributors={sampleContributors}
+        onSelectContributor={noop}
+        onStartContributing={noop}
+      />,
+    )
+    expect(seasonalHtml).toContain('المواسم المعجمية والنفير الموسمي')
+    expect(seasonalHtml).toContain('سجل تاريخي للأبطال')
+    expect(seasonalHtml).toContain('سلمى الإدريسي')
   })
 })
 

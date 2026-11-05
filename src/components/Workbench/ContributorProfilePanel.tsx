@@ -15,15 +15,26 @@ import {
   LogOut,
   Save,
   Trash2,
+  TrendingUp,
+  Trophy,
   Unlink,
   UserRound,
 } from 'lucide-react'
 import { isSupabaseConfigured, supabase } from '../../lib/supabase'
 import { Avatar, type AvatarSource } from '../Avatar'
-import type { LexicalEntry, ReviewerProfile, SubmissionRecord } from '../../types/lexicon'
+import type { LexicalEntry, PublicContributorRecord, ReviewerProfile, SubmissionRecord } from '../../types/lexicon'
 import { humanizeSystemError } from '../../utils/humanizeError'
 import { getGitHubLogin } from '../../utils/githubIdentity'
 import { MeritSealMedallion } from '../MeritBadgeVisual'
+import {
+  ChampionPodiumBadge,
+  MoroccanRankMedal,
+  RankBadgeChip,
+} from '../ContributorRankVisual'
+import { LexicalFootprintRadar } from '../LexicalFootprintRadar'
+import {
+  computeContributorRank,
+} from '../../utils/contributorRanks'
 import {
   computeContributorBadges,
   computeContributorHonorStanding,
@@ -42,6 +53,8 @@ interface ContributorProfilePanelProps {
   entries?: LexicalEntry[]
   bookmarkedEntryIds?: string[]
   publicContributorSlug?: string | null
+  contributors?: PublicContributorRecord[]
+  corpusVersion?: string
   sprintParticipationsCount?: number
   sprintBadgeLabel?: string | null
   onOpenBookmarkedEntry?: (entry: LexicalEntry) => void
@@ -70,6 +83,7 @@ export function ContributorProfilePanel({
   entries = [],
   bookmarkedEntryIds = [],
   publicContributorSlug = null,
+  contributors = [],
   sprintParticipationsCount = 0,
   sprintBadgeLabel = null,
   onOpenBookmarkedEntry,
@@ -99,6 +113,7 @@ export function ContributorProfilePanel({
   const [message, setMessage] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [activityError, setActivityError] = useState<string | null>(null)
+  const [dbContributors, setDbContributors] = useState<PublicContributorRecord[]>([])
 
   const bookmarkedEntries = useMemo(() => {
     if (!bookmarkedEntryIds.length || !entries.length) return []
@@ -161,7 +176,7 @@ export function ContributorProfilePanel({
         return
       }
       setLoading(true)
-      const [submissionsResult, attestationsResult] = await Promise.all([
+      const [submissionsResult, attestationsResult, profilesResult] = await Promise.all([
         supabase
           .from('review_submissions')
           .select('id, entry_id, status, created_at, updated_at, editor_note, reviewer_note, proposed_data, evidence')
@@ -172,6 +187,10 @@ export function ContributorProfilePanel({
           .from('community_attestations')
           .select('id', { count: 'exact', head: true })
           .eq('reviewer_id', profile.id),
+        supabase
+          .from('reviewer_profiles')
+          .select('id, display_name, role, dialect_region, specialty, github_handle, avatar_source, avatar_path, avatar_seed, created_at, public_listed')
+          .limit(100),
       ])
       if (!active) return
       if (submissionsResult.error || attestationsResult.error) {
@@ -180,6 +199,30 @@ export function ContributorProfilePanel({
         setActivityError(null)
         setSubmissions((submissionsResult.data ?? []) as SubmissionRecord[])
         setAttestationsCount(attestationsResult.count ?? 0)
+
+        if (!profilesResult.error && profilesResult.data) {
+          const mappedDbList: PublicContributorRecord[] = profilesResult.data.map((p) => {
+            const slug = `self-${p.id.slice(0, 8)}`
+            const year = p.created_at ? new Date(p.created_at).getFullYear() : 2026
+            return {
+              public_slug: slug,
+              display_name: p.display_name || 'مساهم معتمد',
+              role: p.role || 'reviewer',
+              dialect_region: p.dialect_region || null,
+              specialty: p.specialty || null,
+              github_handle: p.github_handle || null,
+              avatar_source: p.avatar_source || 'arcode',
+              avatar_path: p.avatar_path || null,
+              avatar_seed: p.avatar_seed || p.id,
+              accepted_count: p.id === profile.id ? submissionsResult.data?.filter((s) => ['accepted', 'merged'].includes(s.status)).length ?? 0 : 0,
+              attestations_count: p.id === profile.id ? attestationsResult.count ?? 0 : 0,
+              documented_words_count: p.id === profile.id ? submissionsResult.data?.filter((s) => ['accepted', 'merged'].includes(s.status)).length ?? 0 : 0,
+              documented_examples_count: p.id === profile.id ? attestationsResult.count ?? 0 : 0,
+              joined_year: year,
+            }
+          })
+          setDbContributors(mappedDbList)
+        }
       }
       setLoading(false)
     }
@@ -198,6 +241,138 @@ export function ContributorProfilePanel({
     }),
     [submissions],
   )
+
+  const joinedYear = useMemo(() => {
+    return profile?.created_at ? new Date(profile.created_at).getFullYear() : 2026
+  }, [profile?.created_at])
+
+  const totalContributions = counts.accepted + attestationsCount
+  const rank = useMemo(() => computeContributorRank(totalContributions), [totalContributions])
+
+  const badgeInput = useMemo(
+    () => ({
+      role: profile?.role ?? 'reviewer',
+      acceptedCount: counts.accepted,
+      documentedWordsCount: counts.accepted,
+      attestationsCount,
+      dialectRegion: region || profile?.dialect_region || null,
+      specialty: specialty || profile?.specialty || null,
+      githubHandle: github || profile?.github_handle || null,
+      sprintParticipationsCount,
+      sprintBadgeLabel: sprintBadgeLabel ?? undefined,
+      joinedYear,
+    }),
+    [
+      profile?.role,
+      profile?.dialect_region,
+      profile?.specialty,
+      profile?.github_handle,
+      counts.accepted,
+      attestationsCount,
+      region,
+      specialty,
+      github,
+      sprintParticipationsCount,
+      sprintBadgeLabel,
+      joinedYear,
+    ],
+  )
+
+  const earnedBadges = useMemo(() => computeContributorBadges(badgeInput), [badgeInput])
+  const standing = useMemo(() => computeContributorHonorStanding(earnedBadges), [earnedBadges])
+  const nextMilestones = useMemo(() => computeNextBadgeMilestones(badgeInput), [badgeInput])
+
+  const userRecordForLeaderboard = useMemo<PublicContributorRecord>(() => {
+    const currentTotalAccepted = counts.accepted
+    const currentTotalAttestations = attestationsCount
+    const matched = contributors.find(
+      (c) =>
+        c.public_slug === resolvedPublicSlug ||
+        (c.display_name &&
+          c.display_name.trim() === (name.trim() || profile?.display_name || '').trim()) ||
+        (c.github_handle && github && c.github_handle.toLowerCase() === github.toLowerCase()),
+    )
+    if (matched) {
+      return {
+        ...matched,
+        documented_words_count: Math.max(matched.documented_words_count ?? 0, currentTotalAccepted),
+        documented_examples_count: Math.max(
+          matched.documented_examples_count ?? 0,
+          currentTotalAttestations,
+        ),
+        accepted_count: Math.max(matched.accepted_count ?? 0, currentTotalAccepted),
+        attestations_count: Math.max(matched.attestations_count ?? 0, currentTotalAttestations),
+        dialect_region: region || matched.dialect_region,
+        specialty: specialty || matched.specialty,
+        github_handle: github || matched.github_handle,
+        sprint_participations_count:
+          sprintParticipationsCount || matched.sprint_participations_count || 0,
+      }
+    }
+    return {
+      public_slug: resolvedPublicSlug || 'self-member',
+      display_name: name.trim() || profile?.display_name || 'مساهم معتمد',
+      role: profile?.role ?? 'reviewer',
+      dialect_region: region || profile?.dialect_region || null,
+      specialty: specialty || profile?.specialty || null,
+      github_handle: github || profile?.github_handle || null,
+      avatar_source: avatarSource,
+      avatar_seed: avatarSeed,
+      avatar_path: avatarPath,
+      joined_year: joinedYear,
+      accepted_count: currentTotalAccepted,
+      attestations_count: currentTotalAttestations,
+      documented_words_count: currentTotalAccepted,
+      documented_examples_count: currentTotalAttestations,
+      sprint_participations_count: sprintParticipationsCount,
+      sprint_badge_label: sprintBadgeLabel,
+    }
+  }, [
+    contributors,
+    resolvedPublicSlug,
+    name,
+    profile,
+    github,
+    counts.accepted,
+    attestationsCount,
+    region,
+    specialty,
+    avatarSource,
+    avatarSeed,
+    avatarPath,
+    sprintParticipationsCount,
+    sprintBadgeLabel,
+    joinedYear,
+  ])
+
+  const sortedLeaderboard = useMemo(() => {
+    const listMap = new Map<string, PublicContributorRecord>()
+    for (const c of [...contributors, ...dbContributors]) {
+      listMap.set(c.public_slug, c)
+    }
+    listMap.set(userRecordForLeaderboard.public_slug, userRecordForLeaderboard)
+    return Array.from(listMap.values()).sort((a, b) => {
+      const totA =
+        (a.documented_words_count ?? a.accepted_count ?? 0) +
+        (a.documented_examples_count ?? a.attestations_count ?? 0)
+      const totB =
+        (b.documented_words_count ?? b.accepted_count ?? 0) +
+        (b.documented_examples_count ?? b.attestations_count ?? 0)
+      return totB - totA
+    })
+  }, [contributors, dbContributors, userRecordForLeaderboard])
+
+  const myRankPosition = useMemo(() => {
+    const index = sortedLeaderboard.findIndex(
+      (c) =>
+        c.public_slug === userRecordForLeaderboard.public_slug ||
+        (c.display_name && c.display_name === userRecordForLeaderboard.display_name),
+    )
+    return index >= 0 ? index + 1 : 1
+  }, [sortedLeaderboard, userRecordForLeaderboard])
+
+  const isDiamond = totalContributions >= 60 || rank.tier === 'master'
+  const isTopThree = myRankPosition <= 3
 
   const githubIdentity = identities.find((id) => id.provider === 'github')
   const linkedGithubHandle = getGitHubLogin(githubIdentity)
@@ -576,6 +751,268 @@ export function ContributorProfilePanel({
             </p>
           </div>
 
+          {/* Leaderboard Standing & Bespoke Podium Badges Section */}
+          <div className="rounded-2xl border border-zinc-200 bg-white p-4 sm:p-6 shadow-xs dark:border-white/10 dark:bg-[#0C0C10]">
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-zinc-100 pb-4 dark:border-white/10">
+              <div className="flex items-center gap-2.5">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-amber-400/30 bg-amber-500/10 text-amber-600 dark:border-amber-400/30 dark:bg-amber-400/10 dark:text-amber-300">
+                  <Trophy className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="font-display text-base font-bold text-zinc-950 dark:text-white">
+                    ترتيبك ومكانتك في لوحة صدارة المساهمين المعتمدين
+                  </h3>
+                  <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
+                    مكانتك التوثيقية المباشرة بناءً على إجمالي المفردات والشواهد المحكَّمة
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-600/30 bg-emerald-50 px-3 py-1 font-mono text-xs font-bold text-emerald-800 dark:border-[#D9FF43]/30 dark:bg-[#D9FF43]/10 dark:text-[#D9FF43]">
+                  <span>المرتبة #{myRankPosition}</span>
+                  <span className="font-normal text-zinc-500 dark:text-zinc-400">من أصل {sortedLeaderboard.length}</span>
+                </span>
+
+                {onOpenContributorsDirectory && (
+                  <button
+                    type="button"
+                    onClick={() => onOpenContributorsDirectory(resolvedPublicSlug)}
+                    className="inline-flex items-center gap-1.5 rounded-full border border-zinc-300 bg-white px-3 py-1 text-xs font-semibold text-zinc-800 hover:border-zinc-950 transition-colors cursor-pointer dark:border-white/15 dark:bg-[#07070A] dark:text-zinc-200 dark:hover:border-white/35"
+                  >
+                    <span>عرض لوحة الشرف الكاملة</span>
+                    <ArrowLeft className="h-3 w-3" />
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Active Earned Honors & Badges Grid (1st, 2nd, 3rd, Diamond) */}
+            <div className="mt-5 grid grid-cols-1 gap-3.5 sm:grid-cols-2 lg:grid-cols-4">
+              {/* Podium Ranking Box */}
+              <div
+                className={`rounded-xl border p-4 transition-all ${
+                  myRankPosition === 1
+                    ? 'border-amber-400/80 bg-amber-500/10 dark:border-amber-400/50 dark:bg-amber-400/10'
+                    : myRankPosition === 2
+                      ? 'border-slate-300 bg-slate-100/70 dark:border-white/20 dark:bg-white/5'
+                      : myRankPosition === 3
+                        ? 'border-amber-700/60 bg-amber-950/10 dark:border-amber-600/40 dark:bg-amber-950/20'
+                        : 'border-zinc-200 bg-zinc-50/70 dark:border-white/10 dark:bg-[#07070A]'
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-semibold text-zinc-500 dark:text-zinc-400">
+                    منصة الصدارة
+                  </span>
+                  {isTopThree ? (
+                    <ChampionPodiumBadge place={myRankPosition as 1 | 2 | 3} size="sm" showLabel={false} />
+                  ) : (
+                    <span className="font-mono text-xs font-bold text-zinc-500">#{myRankPosition}</span>
+                  )}
+                </div>
+                <div className="mt-2.5 flex items-center gap-2">
+                  <MoroccanRankMedal
+                    place={isTopThree ? (myRankPosition as 1 | 2 | 3) : undefined}
+                    tier={rank.tier}
+                    size={34}
+                  />
+                  <div className="min-w-0">
+                    <p className="text-xs font-bold text-zinc-950 dark:text-white">
+                      {myRankPosition === 1
+                        ? 'المركز الأول (ذهب مغربي)'
+                        : myRankPosition === 2
+                          ? 'المركز الثاني (فضة أندلسية)'
+                          : myRankPosition === 3
+                            ? 'المركز الثالث (نحاس مسكوك)'
+                            : `المرتبة #${myRankPosition} في الدليل`}
+                    </p>
+                    <p className="text-[10px] text-zinc-500 dark:text-zinc-400">
+                      {isTopThree ? 'وسام منصة التتويج المباشر' : 'بناء مستمر للمتن'}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Diamond Tier Box */}
+              <div
+                className={`rounded-xl border p-4 transition-all ${
+                  isDiamond
+                    ? 'border-emerald-600/60 bg-emerald-500/10 dark:border-[#D9FF43]/50 dark:bg-[#D9FF43]/10'
+                    : 'border-zinc-200 bg-zinc-50/70 dark:border-white/10 dark:bg-[#07070A]'
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-semibold text-zinc-500 dark:text-zinc-400">
+                    الوسام الألماسي السيادي
+                  </span>
+                  {isDiamond ? (
+                    <ChampionPodiumBadge place="diamond" size="sm" showLabel={false} />
+                  ) : (
+                    <span className="rounded px-1.5 py-0.5 font-mono text-[10px] bg-zinc-200 text-zinc-700 dark:bg-white/10 dark:text-zinc-300">
+                      {totalContributions}/60
+                    </span>
+                  )}
+                </div>
+                <div className="mt-2.5 flex items-center gap-2">
+                  <MoroccanRankMedal place="diamond" size={34} />
+                  <div className="min-w-0">
+                    <p className="text-xs font-bold text-zinc-950 dark:text-white">
+                      {isDiamond ? 'الوسام الألماسي المكتمل 💎' : 'شارة الألماس السيادية'}
+                    </p>
+                    <p className="text-[10px] text-zinc-500 dark:text-zinc-400">
+                      {isDiamond
+                        ? 'أعلى مراتب التحكيم المعجمي'
+                        : `متبقي ${Math.max(0, 60 - totalContributions)} مساهمة للاستحقاق`}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Current Rank Tier Box */}
+              <div className="rounded-xl border border-zinc-200 bg-zinc-50/70 p-4 dark:border-white/10 dark:bg-[#07070A]">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-semibold text-zinc-500 dark:text-zinc-400">
+                    الرتبة المعجمية
+                  </span>
+                  <RankBadgeChip rank={rank} size="sm" showTier />
+                </div>
+                <div className="mt-2.5 flex items-center gap-2">
+                  <MoroccanRankMedal tier={rank.tier} size={34} />
+                  <div className="min-w-0">
+                    <p className="text-xs font-bold text-zinc-950 dark:text-white">{rank.name}</p>
+                    <p className="text-[10px] text-zinc-500 dark:text-zinc-400">{rank.tierLabel}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Total Impact Score */}
+              <div className="rounded-xl border border-zinc-200 bg-zinc-50/70 p-4 dark:border-white/10 dark:bg-[#07070A]">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-semibold text-zinc-500 dark:text-zinc-400">
+                    إجمالي الأثر التراكمي
+                  </span>
+                  <TrendingUp className="h-4 w-4 text-emerald-700 dark:text-[#D9FF43]" />
+                </div>
+                <div className="mt-2">
+                  <p className="font-mono text-2xl font-bold tabular-nums text-zinc-950 dark:text-white">
+                    {totalContributions}
+                  </p>
+                  <p className="text-[10.5px] text-zinc-500 dark:text-zinc-400">
+                    {counts.accepted} مفردة + {attestationsCount} شاهد محكّم
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Mini Leaderboard Podium Showcase (Top 3 Leaders + Current User Standing) */}
+            <div className="mt-5 rounded-xl border border-zinc-200/90 bg-zinc-50/60 p-4 dark:border-white/10 dark:bg-[#07070A]/60">
+              <div className="flex items-center justify-between border-b border-zinc-200/80 pb-2.5 dark:border-white/10">
+                <span className="text-xs font-bold text-zinc-900 dark:text-white">
+                  منصة صدارة المعجم (Top 3) وموقعك التنافسي
+                </span>
+                <span className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                  تحديث فوري بناءً على المتن الحقيقي
+                </span>
+              </div>
+
+              <div className="mt-3 divide-y divide-zinc-200/70 dark:divide-white/8">
+                {sortedLeaderboard.slice(0, 3).map((item, idx) => {
+                  const itemWords = item.documented_words_count ?? item.accepted_count ?? 0
+                  const itemEx = item.documented_examples_count ?? item.attestations_count ?? 0
+                  const itemTot = itemWords + itemEx
+                  const itemRank = computeContributorRank(itemTot)
+                  const isMe =
+                    item.public_slug === userRecordForLeaderboard.public_slug ||
+                    item.display_name === userRecordForLeaderboard.display_name
+                  const placeNum = (idx + 1) as 1 | 2 | 3
+
+                  return (
+                    <div
+                      key={item.public_slug}
+                      className={`flex items-center justify-between py-2.5 px-2 rounded-lg transition-colors ${
+                        isMe ? 'bg-emerald-500/10 dark:bg-[#D9FF43]/10 font-bold' : ''
+                      }`}
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <MoroccanRankMedal place={placeNum} size={28} />
+                        <Avatar
+                          source={item.avatar_source}
+                          path={item.avatar_path}
+                          seed={item.avatar_seed || item.public_slug}
+                          githubHandle={item.github_handle}
+                          displayName={item.display_name}
+                          size={30}
+                        />
+                        <div className="min-w-0">
+                          <p className="truncate text-xs font-semibold text-zinc-950 dark:text-white">
+                            {item.display_name}{' '}
+                            {isMe && (
+                              <span className="text-emerald-700 dark:text-[#D9FF43]">(أنت)</span>
+                            )}
+                          </p>
+                          <p className="text-[10px] text-zinc-500 dark:text-zinc-400">
+                            {item.dialect_region || 'مشترك عام'} · {itemRank.name}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <ChampionPodiumBadge place={placeNum} size="sm" showLabel={false} />
+                        <span className="font-mono text-xs font-bold tabular-nums text-zinc-950 dark:text-white">
+                          {itemTot} مساهمة
+                        </span>
+                      </div>
+                    </div>
+                  )
+                })}
+
+                {/* If current user is not in top 3, display their row below */}
+                {myRankPosition > 3 && (
+                  <div className="flex items-center justify-between py-2.5 px-2 rounded-lg bg-emerald-500/10 dark:bg-[#D9FF43]/10 mt-1">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <span className="flex h-7 w-7 items-center justify-center rounded-lg font-mono text-xs font-bold bg-zinc-200 dark:bg-white/10 text-zinc-800 dark:text-zinc-200">
+                        #{myRankPosition}
+                      </span>
+                      <Avatar
+                        source={avatarSource}
+                        path={avatarPath}
+                        seed={avatarSeed}
+                        githubHandle={github}
+                        displayName={name}
+                        size={30}
+                      />
+                      <div className="min-w-0">
+                        <p className="truncate text-xs font-bold text-zinc-950 dark:text-white">
+                          {userRecordForLeaderboard.display_name}{' '}
+                          <span className="text-emerald-700 dark:text-[#D9FF43]">(أنت)</span>
+                        </p>
+                        <p className="text-[10px] text-zinc-500 dark:text-zinc-400">
+                          {userRecordForLeaderboard.dialect_region || 'مشترك عام'} · {rank.name}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <RankBadgeChip rank={rank} size="sm" showTier />
+                      <span className="font-mono text-xs font-bold tabular-nums text-emerald-700 dark:text-[#D9FF43]">
+                        {totalContributions} مساهمة
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* 5-Axis Lexical Footprint Radar Card */}
+          <LexicalFootprintRadar
+            person={userRecordForLeaderboard}
+            badges={earnedBadges}
+            size={270}
+            className="w-full"
+          />
+
           {/* Linked Accounts Card: GitHub + Google */}
           <div className="rounded-2xl border border-zinc-200 bg-white p-6 dark:border-white/10 dark:bg-[#0C0C10]">
             <h3 className="font-display text-base font-bold text-zinc-950 dark:text-white">
@@ -700,32 +1137,73 @@ export function ContributorProfilePanel({
           )}
 
           <div className="rounded-2xl border border-zinc-200 bg-white p-6 dark:border-white/10 dark:bg-[#0C0C10]">
-            {(() => {
-              const joinedYear = profile.created_at
-                ? new Date(profile.created_at).getFullYear()
-                : 2026
-              const badgeInput = {
-                role: profile.role,
-                acceptedCount: counts.accepted,
-                documentedWordsCount: counts.accepted,
-                attestationsCount,
-                dialectRegion: region || profile.dialect_region,
-                specialty: specialty || profile.specialty,
-                githubHandle: github || profile.github_handle,
-                sprintParticipationsCount,
-                sprintBadgeLabel: sprintBadgeLabel ?? undefined,
-                joinedYear,
-              }
-              const earnedBadges = computeContributorBadges(badgeInput)
-              const standing = computeContributorHonorStanding(earnedBadges)
-              const nextMilestones = computeNextBadgeMilestones(badgeInput)
+            <div className="space-y-5">
+              {/* Rank & Podium Standing Card */}
+              <div className="rounded-xl border border-zinc-200 bg-zinc-50/70 p-4 dark:border-white/10 dark:bg-[#07070A]">
+                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-zinc-200/80 pb-3 dark:border-white/10">
+                  <div className="flex items-center gap-2">
+                    <MoroccanRankMedal
+                      place={isTopThree ? (myRankPosition as 1 | 2 | 3) : undefined}
+                      tier={rank.tier}
+                      size={28}
+                    />
+                    <div>
+                      <p className="text-xs font-bold text-zinc-950 dark:text-white">
+                        الرتبة المعجمية: {rank.name}
+                      </p>
+                      <p className="text-[10px] text-zinc-500 dark:text-zinc-400">
+                        {rank.tierLabel} · {totalContributions} مساهمة وتصديق
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    {isDiamond ? (
+                      <ChampionPodiumBadge place="diamond" size="sm" showLabel={false} />
+                    ) : isTopThree ? (
+                      <ChampionPodiumBadge
+                        place={myRankPosition as 1 | 2 | 3}
+                        size="sm"
+                        showLabel={false}
+                      />
+                    ) : null}
+                    <RankBadgeChip rank={rank} size="sm" showTier />
+                  </div>
+                </div>
 
-              return (
-                <div className="space-y-4">
+                    <div className="mt-3">
+                      <div className="flex items-center justify-between text-[11px]">
+                        <span className="text-zinc-600 dark:text-zinc-400">
+                          {rank.nextRankMin === null ? 'الرتبة الألماسية المكتملة' : 'التقدم نحو الرتبة القادمة'}
+                        </span>
+                        <span className="font-mono font-bold tabular-nums text-emerald-700 dark:text-[#D9FF43]">
+                          {rank.nextRankMin === null ? '100%' : `${rank.progressPercent}%`}
+                        </span>
+                      </div>
+                      <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-zinc-200 dark:bg-white/10">
+                        <div
+                          style={{ width: `${rank.progressPercent}%` }}
+                          className={`h-full rounded-full transition-all ${
+                            rank.tier === 'master'
+                              ? 'bg-emerald-600 dark:bg-[#D9FF43]'
+                              : rank.tier === 'gold'
+                                ? 'bg-amber-500 dark:bg-amber-400'
+                                : rank.tier === 'silver'
+                                  ? 'bg-zinc-600 dark:bg-zinc-300'
+                                  : 'bg-amber-800 dark:bg-amber-500'
+                          }`}
+                        />
+                      </div>
+                      <p className="mt-1.5 text-[10.5px] text-zinc-500 dark:text-zinc-400">
+                        {rank.actionHint}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Badges Header */}
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <div className="flex items-center gap-2 text-sm font-bold text-zinc-950 dark:text-white">
                       <Award className="h-4 w-4 text-emerald-700 dark:text-[#D9FF43]" />
-                      <span>أختام وأوسمة المعجم الخاصة</span>
+                      <span>أختام وأوسمة المعجم الخاصة ({earnedBadges.length})</span>
                     </div>
                     <span className="font-mono text-[11px] font-semibold text-emerald-700 dark:text-[#D9FF43]">
                       {standing.standingTitle}
@@ -801,9 +1279,7 @@ export function ContributorProfilePanel({
                     </div>
                   )}
                 </div>
-              )
-            })()}
-          </div>
+              </div>
 
           <div className="rounded-2xl border border-zinc-200 bg-white p-6 dark:border-white/10 dark:bg-[#0C0C10]">
             <div className="flex items-center gap-2 text-sm font-bold text-zinc-950 dark:text-white">

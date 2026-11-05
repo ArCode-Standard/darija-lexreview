@@ -313,7 +313,7 @@ describe('JSX React child safety & SSR smoke rendering', () => {
     expect(memberNavbarHtml).toContain('بحث في المعجم والصفحات')
     expect(memberNavbarHtml).not.toContain('⌘K')
     expect(memberNavbarHtml).not.toContain('بحث سريع')
-    expect(memberNavbarHtml).not.toContain('التبديل إلى الوضع الليلي')
+    expect(memberNavbarHtml).toContain('التبديل إلى الوضع الليلي')
     expect(memberNavbarHtml).not.toContain('صندوق الرسائل')
     expect(memberNavbarHtml).not.toContain('فتح قائمة التنقل')
 

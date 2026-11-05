@@ -8,6 +8,7 @@ import {
   Layers,
   Sparkles,
 } from 'lucide-react'
+import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from 'recharts'
 import type { LexicalEntry } from '../../types/lexicon'
 import { formatAccessionCode } from '../../services/dataset'
 
@@ -126,6 +127,30 @@ export function CorpusInsightsPage({
     if (activeGapTab === 'missing_french') return stats.missingFrenchList.slice(0, 18)
     return stats.missingRegionList.slice(0, 18)
   }, [activeGapTab, stats])
+
+  const pieChartData = useMemo(() => {
+    return stats.categoriesArray
+      .map((c) => ({
+        name: c.category,
+        value: c.total,
+      }))
+      .sort((a, b) => b.value - a.value)
+  }, [stats.categoriesArray])
+
+  const CATEGORY_COLORS = [
+    '#D9FF43',
+    '#10B981',
+    '#3B82F6',
+    '#8B5CF6',
+    '#EC4899',
+    '#F59E0B',
+    '#06B6D4',
+    '#84CC16',
+    '#F97316',
+    '#6366F1',
+    '#14B8A6',
+    '#E11D48',
+  ]
 
   return (
     <div className="space-y-8">
@@ -340,6 +365,115 @@ export function CorpusInsightsPage({
           </div>
         </section>
       </div>
+
+      {/* 3. Recharts Pie Chart: Semantic Categories Distribution (توزيع الفئات الدلالية للمفردات) */}
+      <section
+        aria-labelledby="categories-piechart-heading"
+        className="rounded-2xl border border-zinc-200 bg-white p-6 space-y-5 dark:border-white/12 dark:bg-[#0B0B10]"
+      >
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-zinc-100 pb-4 dark:border-white/10">
+          <div>
+            <p className="font-mono text-[10px] tracking-[0.14em] uppercase text-emerald-700 dark:text-[#D9FF43]">
+              03 · SEMANTIC CATEGORIES DISTRIBUTION / توزيع الفئات الدلالية
+            </p>
+            <h2
+              id="categories-piechart-heading"
+              className="mt-1 font-display text-lg font-bold text-zinc-950 dark:text-white"
+            >
+              الرسم البياني لتوزيع الفئات الدلالية في المعجم (Pie Chart)
+            </h2>
+            <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
+              تمثيل بصري تفاعلي لنسبة وتوازن المفردات حسب الحقول المعجمية والدلالية
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-800 dark:bg-[#D9FF43]/15 dark:text-[#D9FF43]">
+              {pieChartData.length} حقل دلالي
+            </span>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-12 items-center">
+          <div className="lg:col-span-7 h-[300px] w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie
+                  data={pieChartData}
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={55}
+                  outerRadius={105}
+                  paddingAngle={3}
+                  dataKey="value"
+                  onClick={(entry) => {
+                    if (entry && entry.name) {
+                      onSelectCategoryInLexicon(entry.name)
+                    }
+                  }}
+                  className="cursor-pointer"
+                >
+                  {pieChartData.map((entry, index) => (
+                    <Cell
+                      key={`cell-${entry.name}`}
+                      fill={CATEGORY_COLORS[index % CATEGORY_COLORS.length]}
+                      stroke="rgba(0,0,0,0.12)"
+                      strokeWidth={1.5}
+                    />
+                  ))}
+                </Pie>
+                <Tooltip
+                  content={({ active, payload }) => {
+                    if (active && payload && payload.length) {
+                      const data = payload[0]
+                      const totalVal = stats.totalEntries || 1
+                      const pct = Math.round(((data.value as number) / totalVal) * 100)
+                      return (
+                        <div className="rounded-xl border border-zinc-200 bg-white p-3 text-xs shadow-lg dark:border-white/15 dark:bg-[#0C0C10] dark:text-white">
+                          <p className="font-bold text-zinc-950 dark:text-white">{data.name}</p>
+                          <p className="mt-1 font-mono font-bold text-emerald-700 dark:text-[#D9FF43]">
+                            {data.value} مفردة ({pct}%)
+                          </p>
+                          <p className="mt-1 text-[10.5px] text-zinc-500 dark:text-zinc-400">
+                            اضغط للاستعراض في المعجم
+                          </p>
+                        </div>
+                      )
+                    }
+                    return null
+                  }}
+                />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+
+          <div className="lg:col-span-5 space-y-2 max-h-[300px] overflow-y-auto pe-1">
+            {pieChartData.map((item, idx) => {
+              const pct = stats.totalEntries > 0 ? Math.round((item.value / stats.totalEntries) * 100) : 0
+              return (
+                <button
+                  key={item.name}
+                  type="button"
+                  onClick={() => onSelectCategoryInLexicon(item.name)}
+                  className="group flex w-full items-center justify-between rounded-xl border border-zinc-200/80 bg-zinc-50/70 p-2.5 text-xs transition-colors hover:border-zinc-950 cursor-pointer dark:border-white/10 dark:bg-[#07070A] dark:hover:border-[#D9FF43]/60"
+                >
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <span
+                      className="h-3 w-3 shrink-0 rounded-full"
+                      style={{ backgroundColor: CATEGORY_COLORS[idx % CATEGORY_COLORS.length] }}
+                    />
+                    <span className="truncate font-semibold text-zinc-900 group-hover:text-emerald-700 dark:text-zinc-200 dark:group-hover:text-[#D9FF43]">
+                      {item.name}
+                    </span>
+                  </div>
+                  <span className="font-mono text-[11px] font-bold text-zinc-600 dark:text-zinc-400">
+                    {item.value} ({pct}%)
+                  </span>
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      </section>
 
       {/* 3. Actionable Priority Enrichment Queue */}
       <section
