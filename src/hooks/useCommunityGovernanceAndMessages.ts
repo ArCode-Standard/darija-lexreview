@@ -152,7 +152,7 @@ export function useCommunityGovernanceAndMessages({
 
     setLoadingMembers(true)
     if (isAdmin) {
-      const [profilesRes, subsRes, eventsRes, reportsRes] = await Promise.all([
+      const [profilesRes, subsRes, eventsRes, reportsRes, contactsRes] = await Promise.all([
         supabase
           .from('reviewer_profiles')
           .select('*')
@@ -173,6 +173,10 @@ export function useCommunityGovernanceAndMessages({
           .select('*')
           .order('created_at', { ascending: false })
           .limit(100),
+        supabase
+          .from('member_contact_preferences')
+          .select('user_id, contact_email')
+          .eq('share_with_admins', true),
       ])
 
       if (!profilesRes.error && Array.isArray(profilesRes.data)) {
@@ -187,8 +191,15 @@ export function useCommunityGovernanceAndMessages({
             }
           }
         }
+        const sharedContactByUser = new Map<string, string>()
+        if (!contactsRes.error && Array.isArray(contactsRes.data)) {
+          for (const contact of contactsRes.data as Array<{ user_id: string; contact_email: string | null }>) {
+            if (contact.contact_email) sharedContactByUser.set(contact.user_id, contact.contact_email)
+          }
+        }
         const enriched = (profilesRes.data as ReviewerProfile[]).map((p) => ({
           ...p,
+          contact_email: sharedContactByUser.get(p.id) ?? null,
           account_status: p.account_status ?? 'active',
           public_listed: p.public_listed ?? true,
           accepted_count: acceptedByReviewer.get(p.id) ?? 0,
