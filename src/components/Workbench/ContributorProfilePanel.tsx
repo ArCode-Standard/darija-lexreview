@@ -457,7 +457,7 @@ export function ContributorProfilePanel({
     setError(null)
     setMessage(null)
     const normalizedContactEmail = contactEmail.trim().toLowerCase()
-    if (normalizedContactEmail && !/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(normalizedContactEmail)) {
+    if (normalizedContactEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedContactEmail)) {
       setSaving(false)
       setError('أدخل بريداً إلكترونياً صحيحاً أو اترك الحقل فارغاً.')
       return
@@ -494,8 +494,8 @@ export function ContributorProfilePanel({
         .eq('id', profile.id)
     }
 
-    setSaving(false)
     if (result.error) {
+      setSaving(false)
       setError('تعذر حفظ الملف الشخصي. تحقق من الاتصال ثم أعد المحاولة.')
       return
     }
@@ -513,6 +513,7 @@ export function ContributorProfilePanel({
       setError('تم حفظ بيانات الملف الشخصي، لكن تعذر حفظ إعدادات بريد التواصل. أعد المحاولة بعد تحديث قاعدة البيانات.')
       return
     }
+    setSaving(false)
 
     if (profile.avatar_path && profile.avatar_path !== (avatarSource === 'upload' ? avatarPath : null)) {
       await supabase.storage.from('avatars').remove([profile.avatar_path])
@@ -733,7 +734,11 @@ export function ContributorProfilePanel({
                 <input
                   type="email"
                   value={contactEmail}
-                  onChange={(event) => setContactEmail(event.target.value)}
+                  onChange={(event) => {
+                    const nextEmail = event.target.value
+                    setContactEmail(nextEmail)
+                    if (!nextEmail.trim()) setShareContactEmail(false)
+                  }}
                   maxLength={254}
                   autoComplete="email"
                   dir="ltr"
